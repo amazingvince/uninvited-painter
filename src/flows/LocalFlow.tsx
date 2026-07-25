@@ -8,8 +8,10 @@ import {
   currentDrawerId,
   isGameOver,
   mustSee,
+  passOf,
   reduce,
 } from "../../shared/engine";
+import { aiFallbackEvent } from "../../shared/aiResults";
 import { prepareRoundEvent, redrawWordEvent } from "../../shared/decks";
 import { guessMatches } from "../../shared/fuzzy";
 import type { GameEvent, RoomState } from "../../shared/types";
@@ -24,6 +26,7 @@ import {
 import { drawingReferencePng } from "../lib/share";
 import { cueLock, cueReveal, cueRound } from "../lib/sound";
 import { useWakeLock } from "../lib/useWakeLock";
+import { useRevealSequence } from "../lib/revealSequence";
 import { Screen, Btn } from "../components/ui";
 import { StrokePaths } from "../components/CanvasBoard";
 import { RulesSheet } from "../components/RulesSheet";
@@ -44,8 +47,6 @@ import { RenditionReveal } from "../screens/RenditionReveal";
 import { Standings } from "../screens/Standings";
 import { Final } from "../screens/Final";
 
-type RevealStep = "critic" | "attribution" | "rendition" | "standings";
-
 export function LocalFlow({
   initial,
   onExit,
@@ -56,12 +57,6 @@ export function LocalFlow({
   const [state, setState] = useState<RoomState>(initial);
   const [setupStep, setSetupStep] = useState<"roster" | "decks">("roster");
   const [acks, setAcks] = useState<Record<string, boolean>>({});
-  const [revealStep, setRevealStep] = useState<RevealStep>(() =>
-    initial.round?.outcome !== "voided" &&
-    (initial.settings.aiCritic || initial.settings.aiDetective)
-      ? "critic"
-      : "attribution",
-  );
   const [showRules, setShowRules] = useState(false);
   const [showHouse, setShowHouse] = useState(false);
   const [peekWall, setPeekWall] = useState(false);
@@ -71,6 +66,12 @@ export function LocalFlow({
   );
 
   useWakeLock(true); // game night — the shared phone must not doze off
+
+  const reveal = useRevealSequence({
+    outcome: state.round?.outcome,
+    roundNo: state.round?.roundNo,
+    settings: state.settings,
+  });
 
   const dispatch = (event: GameEvent): boolean => {
     const result = reduce(state, event);
@@ -90,22 +91,13 @@ export function LocalFlow({
   const applyAiEvent = useCallback((event: GameEvent) => {
     setState((current) => {
       let result = reduce(current, event);
-      // A verdict the engine rejects (e.g. it named an artist who has since
-      // been dropped) must still settle the branch, or the screen sits on
-      // "Luna is still deciding" forever. The DO already does this; local mode
-      // used to drop the rejection on the floor.
-      if (!result.ok && event.type === "RESOLVE_ROUND_CRITIC") {
-        result = reduce(current, {
-          type: "FAIL_ROUND_CRITIC",
-          roundNo: event.roundNo,
-          jobId: event.jobId,
-        });
-      } else if (!result.ok && event.type === "RESOLVE_ROUND_RENDITION") {
-        result = reduce(current, {
-          type: "FAIL_ROUND_RENDITION",
-          roundNo: event.roundNo,
-          jobId: event.jobId,
-        });
+      if (!result.ok) {
+        // A verdict the engine refuses must still settle the branch, or the
+        // screen sits on "Luna is still deciding" forever. Same rule the DO
+        // applies — from the same place.
+        const fallback = aiFallbackEvent(event);
+        if (!fallback) return current;
+        result = reduce(current, fallback);
       }
       if (!result.ok) return current;
       saveLocalGame(result.state);
@@ -247,20 +239,6 @@ export function LocalFlow({
     [],
   );
 
-  // Reset per-round sub-steps when a new round starts.
-  useEffect(() => {
-    setRevealStep(
-      round?.outcome !== "voided" &&
-        (state.settings.aiCritic || state.settings.aiDetective)
-        ? "critic"
-        : "attribution",
-    );
-  }, [
-    round?.outcome,
-    round?.roundNo,
-    state.settings.aiCritic,
-    state.settings.aiDetective,
-  ]);
 
   // Phase cues — a pulse when cards go out, a stamp at the reveal.
   const prevPhase = useRef(state.phase);
@@ -422,9 +400,7 @@ export function LocalFlow({
     const drawer = state.players.find((p) => p.id === drawerId);
     if (drawer) {
       const key = `turn-${round.roundNo}-${round.turnIndex}`;
-      // Which pass is this? Count the drawer's completed turns in the schedule.
-      const pass =
-        round.schedule.slice(0, round.turnIndex).filter((id) => id === drawer.id).length + 1;
+      const pass = passOf(round, drawer.id);
       if (!acks[key]) {
         body = (
           <Interstitial
@@ -567,23 +543,21 @@ export function LocalFlow({
     );
   } else if (state.phase === "reveal") {
     const voided = round.outcome === "voided";
-    const aiExhibition =
-      !voided && (state.settings.aiCritic || state.settings.aiDetective);
     // isGameOver, not a rounds comparison — score-to-10 games end on points.
     const isLastRound = isGameOver(state);
     const tallyKey = `tally-${round.roundNo}`;
     // Derive rather than trust the stored step: a voided round lands one frame
     // before the effect can correct it.
-    if (revealStep === "critic" && !voided) {
+    if (reveal.step === "critic") {
       body = (
         <CriticVerdict
           ai={round.ai}
           players={state.players}
-          onNext={() => setRevealStep("attribution")}
+          onNext={() => reveal.leaveCritic(round.ai.criticStatus === "pending")}
         />
       );
     } else if (
-      revealStep === "attribution" &&
+      reveal.step === "attribution" &&
       !voided &&
       round.outcome === "survived" &&
       !acks[tallyKey] &&
@@ -599,7 +573,7 @@ export function LocalFlow({
           onContinue={() => ack(tallyKey)}
         />
       );
-    } else if (revealStep === "attribution") {
+    } else if (reveal.step === "attribution") {
       body = (
         <Reveal
           round={round}
@@ -609,7 +583,7 @@ export function LocalFlow({
           nextLabel={
             voided
               ? "Re-deal the round"
-              : aiExhibition
+              : reveal.aiExhibition
                 ? "What it became"
                 : "Standings"
           }
@@ -617,18 +591,18 @@ export function LocalFlow({
             if (voided) {
               if (dispatch(prepareRoundEvent(state))) setAcks({});
             } else {
-              setRevealStep(aiExhibition ? "rendition" : "standings");
+              reveal.leaveAttribution();
             }
           }}
         />
       );
-    } else if (revealStep === "rendition") {
+    } else if (reveal.step === "rendition") {
       body = (
         <RenditionReveal
           ai={round.ai}
           strokes={round.strokes}
           title={round.ai.critic?.title}
-          onNext={() => setRevealStep("standings")}
+          onNext={() => reveal.leaveRendition(round.ai.renditionStatus === "pending")}
         />
       );
     } else {
@@ -701,7 +675,7 @@ export function LocalFlow({
       case "guessing":
         return round ? `guess:${round.roundNo}:${acks[`tally-${round.roundNo}`] ? "input" : "tally"}` : "x";
       case "reveal":
-        return round ? `reveal:${round.roundNo}:${revealStep}:${round.outcome ?? ""}` : "x";
+        return round ? `reveal:${round.roundNo}:${reveal.step}:${round.outcome ?? ""}` : "x";
     }
   })();
   const flood =

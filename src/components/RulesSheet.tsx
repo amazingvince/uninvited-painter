@@ -1,6 +1,7 @@
 // A5 Rules sheet — reachable from any screen via the header.
 
 import { useState } from "react";
+import { aiEnabled } from "../../shared/engine";
 import type { Settings } from "../../shared/types";
 import { setSoundEnabled, soundEnabled } from "../lib/sound";
 import { Screen, Kicker } from "./ui";
@@ -38,7 +39,7 @@ export function RulesSheet({
 }) {
   const [sound, setSound] = useState(soundEnabled());
   const STEPS = steps(settings);
-  const luna = settings?.aiCritic || settings?.aiDetective;
+  const luna = settings ? aiEnabled(settings) : false;
   return (
     <div className="overlay">
       <Screen>

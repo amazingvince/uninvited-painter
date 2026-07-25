@@ -2,6 +2,7 @@
 // deck/length/passes/clock controls.
 
 import { deckList } from "../../shared/decks";
+import { aiEnabled } from "../../shared/engine";
 import type { PublicRoomState } from "../../shared/protocol";
 import { HOUSE_MIN_WORDS, MIN_PLAYERS, MAX_PLAYERS, type Settings } from "../../shared/types";
 import { QrCode } from "../components/QrCode";
@@ -208,13 +209,13 @@ export function HostLobby({
             s.aiDetective ? "On · non-scoring" : "Off",
             () => onSettings({ aiDetective: !s.aiDetective }),
           )}
-          {(s.aiCritic || s.aiDetective) &&
+          {aiEnabled(s) &&
             settingRow(
               "AI tone",
               s.aiTone[0].toUpperCase() + s.aiTone.slice(1),
               cycleTone,
             )}
-          {(s.aiCritic || s.aiDetective) && (
+          {aiEnabled(s) && (
             <div className="note" style={{ fontSize: 11, lineHeight: 1.4 }}>
               OpenAI reviews the finished drawing while ballots come in. GPT
               Image 2 also makes its realistic version.

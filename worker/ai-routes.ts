@@ -1,4 +1,5 @@
 import { activeArtists, aiEnabled } from "../shared/engine";
+import { AI_ID_RE as JOB_ID_RE } from "../shared/ids";
 import { SEAT_COLORS } from "../shared/palette";
 import {
   HOUSE_WORD_MAX_LEN,
@@ -23,8 +24,6 @@ import {
 const META_MAX_BYTES = 16 * 1024;
 /** Paid jobs per calendar day across the whole deployment. */
 const DAILY_AI_JOB_LIMIT = 300;
-const JOB_ID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const AI_TONES = new Set<AiTone>(["witty", "savage", "absurd"]);
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 

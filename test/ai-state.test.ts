@@ -510,3 +510,41 @@ describe("AI job started during the reveal", () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe("AI result mapping is shared", () => {
+  it("gives both modes the same settle-anyway fallback", async () => {
+    const { aiResultEvents, aiFallbackEvent } = await import("../shared/aiResults");
+    const events = aiResultEvents({
+      jobId: JOB_ID,
+      roundNo: 1,
+      criticStatus: "ready",
+      critic: { title: "A work", rating: 5 },
+      renditionStatus: "unavailable",
+      renditionId: null,
+    });
+    expect(events.map((e) => e.type)).toEqual([
+      "RESOLVE_ROUND_CRITIC",
+      "FAIL_ROUND_RENDITION",
+    ]);
+    // Every resolve has a settle-anyway partner; failures are already terminal.
+    expect(aiFallbackEvent(events[0])?.type).toBe("FAIL_ROUND_CRITIC");
+    expect(aiFallbackEvent(events[1])).toBeNull();
+  });
+
+  it("a verdict the engine refuses still settles the branch", async () => {
+    const { aiFallbackEvent } = await import("../shared/aiResults");
+    const state = revealedRoomWithPendingAi();
+    const bad: GameEvent = {
+      type: "RESOLVE_ROUND_CRITIC",
+      roundNo: state.round!.roundNo,
+      jobId: JOB_ID,
+      // Names an artist who is not in this round.
+      verdict: sampleVerdict({ detective: { playerId: "ghost", reason: "Nope." } }),
+    };
+    expect(reduce(state, bad).ok).toBe(false);
+    const settled = reduce(state, aiFallbackEvent(bad)!);
+    expect(settled.ok).toBe(true);
+    if (!settled.ok) return;
+    expect(settled.state.round!.ai.criticStatus).toBe("unavailable");
+  });
+});

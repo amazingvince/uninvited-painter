@@ -3,7 +3,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { isGameOver } from "../../shared/engine";
+import {
+  activeArtists,
+  drawerOf,
+  isGameOver,
+  mustSee,
+  passOf,
+} from "../../shared/engine";
 import type { PublicRoundState } from "../../shared/protocol";
 import { useOnlineRoom } from "../game/onlineClient";
 import { useGameCues } from "../lib/cues";
@@ -35,8 +41,7 @@ import { Standings } from "../screens/Standings";
 import { Final } from "../screens/Final";
 import { DisconnectOverlay, ReconnectingBanner } from "../screens/Disconnect";
 import { VerdictChip } from "../components/VerdictChip";
-
-type RevealStep = "critic" | "attribution" | "rendition" | "standings";
+import { useRevealSequence } from "../lib/revealSequence";
 
 function Waiting({
   kicker,
@@ -83,13 +88,7 @@ export function OnlineFlow({
   const [showHouse, setShowHouse] = useState(false);
   const [peekCard, setPeekCard] = useState(false);
   const [tallySeen, setTallySeen] = useState<number>(0); // roundNo whose tally was dismissed
-  const [revealStep, setRevealStep] =
-    useState<RevealStep>("attribution");
   const [aiRetryTick, setAiRetryTick] = useState(0);
-  // Skipping a still-thinking Luna shouldn't lose her — these arm the
-  // "verdict is in" chip on the standings screen.
-  const skippedCriticRef = useRef(false);
-  const skippedRenditionRef = useRef(false);
   const aiUploadAttempts = useRef(new Map<number, number>());
   const aiUploadComplete = useRef(new Set<number>());
   const aiUploadInFlight = useRef(new Set<number>());
@@ -106,7 +105,7 @@ export function OnlineFlow({
     yourTurn:
       !watch &&
       state?.phase === "drawing" &&
-      round?.schedule[round.turnIndex] === you?.playerId,
+      (round ? drawerOf(round) : null) === you?.playerId,
     cardWaiting:
       !watch &&
       state?.phase === "dealing" &&
@@ -115,22 +114,11 @@ export function OnlineFlow({
       !round.seen.includes(you?.playerId ?? ""),
   });
 
-  useEffect(() => {
-    skippedCriticRef.current = false;
-    skippedRenditionRef.current = false;
-    setRevealStep(
-      round?.outcome !== "voided" &&
-        !!state &&
-        (state.settings.aiCritic || state.settings.aiDetective)
-        ? "critic"
-        : "attribution",
-    );
-  }, [
-    round?.outcome,
-    round?.roundNo,
-    state?.settings.aiCritic,
-    state?.settings.aiDetective,
-  ]);
+  const reveal = useRevealSequence({
+    outcome: round?.outcome,
+    roundNo: round?.roundNo,
+    settings: state?.settings,
+  });
 
   // A re-dealt (voided) round keeps its round number — the tally gate must
   // re-arm whenever fresh cards go out.
@@ -359,7 +347,7 @@ export function OnlineFlow({
                 <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--ink)" }}>
                   <span>Your card</span>
                   <span>
-                    {r.seen.length} of {r.turnOrder.length + (r.qmId ? 1 : 0)} seen
+                    {r.seen.length} of {mustSee(r).length} seen
                   </span>
                 </div>
                 <div className="grow" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: "0 24px" }}>
@@ -397,16 +385,14 @@ export function OnlineFlow({
                 going out
               </>
             }
-            body={`${r.seen.length} of ${r.turnOrder.length + (r.qmId ? 1 : 0)} have seen theirs. First stroke lands the moment everyone has.`}
+            body={`${r.seen.length} of ${mustSee(r).length} have seen theirs. First stroke lands the moment everyone has.`}
           />
         );
       }
     } else if (state.phase === "drawing") {
-      const drawerId = r.schedule[r.turnIndex] ?? null;
+      const drawerId = drawerOf(r);
       const drawer = state.players.find((p) => p.id === drawerId);
-      // Which pass is this? Count the drawer's completed turns in the schedule.
-      const pass =
-        r.schedule.slice(0, r.turnIndex).filter((id) => id === drawerId).length + 1;
+      const pass = passOf(r, drawerId);
       if (drawerId === me.id) {
         body = (
           <DrawTurn
@@ -479,7 +465,7 @@ export function OnlineFlow({
         );
       }
     } else if (state.phase === "voting") {
-      const voters = r.turnOrder.filter((id) => !r.droppedIds.includes(id));
+      const voters = activeArtists(r);
       const iVote = voters.includes(me.id);
       const voted = r.votersIn.includes(me.id);
       if (iVote && !voted) {
@@ -539,26 +525,23 @@ export function OnlineFlow({
       }
     } else if (state.phase === "reveal") {
       const voided = r.outcome === "voided";
-      const aiExhibition =
-        !voided && (state.settings.aiCritic || state.settings.aiDetective);
       // isGameOver, not a rounds comparison — score-to-10 games end on points.
       const isLastRound = isGameOver(state);
       // Derive rather than trust the stored step: a voided round arrives in the
       // same broadcast that flips the phase, one frame ahead of the effect.
-      if (revealStep === "critic" && !voided) {
+      if (reveal.step === "critic") {
         body = (
           <CriticVerdict
             ai={r.ai}
             players={state.players}
             onNext={() => {
               // Remember an unfinished verdict so it can announce itself later.
-              if (r.ai.criticStatus === "pending") skippedCriticRef.current = true;
-              setRevealStep("attribution");
+              reveal.leaveCritic(r.ai.criticStatus === "pending");
             }}
           />
         );
       } else if (
-        revealStep === "attribution" &&
+        reveal.step === "attribution" &&
         !voided &&
         r.outcome === "survived" &&
         tallySeen !== r.roundNo &&
@@ -575,7 +558,7 @@ export function OnlineFlow({
             onContinue={() => setTallySeen(r.roundNo)}
           />
         );
-      } else if (revealStep === "attribution") {
+      } else if (reveal.step === "attribution") {
         const revealRound = {
           ...r,
           word: r.word ?? "?",
@@ -594,7 +577,7 @@ export function OnlineFlow({
                 ? isHost
                   ? "Re-deal the round"
                   : undefined
-                : aiExhibition
+                : reveal.aiExhibition
                   ? "What it became"
                   : "Standings"
             }
@@ -603,29 +586,24 @@ export function OnlineFlow({
                 ? isHost
                   ? () => room.send({ t: "next" })
                   : undefined
-                : () =>
-                    setRevealStep(
-                      aiExhibition ? "rendition" : "standings",
-                    )
+                : () => reveal.leaveAttribution()
             }
             waiting="Waiting for the host to re-deal…"
           />
         );
-      } else if (revealStep === "rendition") {
+      } else if (reveal.step === "rendition") {
         body = (
           <RenditionReveal
             ai={r.ai}
             strokes={r.strokes}
             title={r.ai.critic?.title}
             onNext={() => {
-              if (r.ai.renditionStatus === "pending") skippedRenditionRef.current = true;
-              setRevealStep("standings");
+              reveal.leaveRendition(r.ai.renditionStatus === "pending");
             }}
           />
         );
       } else {
-        const skippedCritic = skippedCriticRef.current;
-        const skippedRendition = skippedRenditionRef.current;
+        const { critic: skippedCritic, rendition: skippedRendition } = reveal.skipped;
         body = (
           <Standings
             players={state.players}
@@ -641,14 +619,14 @@ export function OnlineFlow({
                   <VerdictChip
                     ai={r.ai}
                     target="critic"
-                    onOpen={() => setRevealStep("critic")}
+                    onOpen={() => reveal.setStep("critic")}
                   />
                 )}
                 {skippedRendition && (
                   <VerdictChip
                     ai={r.ai}
                     target="rendition"
-                    onOpen={() => setRevealStep("rendition")}
+                    onOpen={() => reveal.setStep("rendition")}
                   />
                 )}
               </>
@@ -670,7 +648,7 @@ export function OnlineFlow({
   const screenId = (() => {
     if (watch) {
       return `w:${state?.phase ?? "x"}:${round?.roundNo ?? 0}:${
-        state?.phase === "drawing" ? (round?.schedule[round.turnIndex] ?? "") : ""
+        state?.phase === "drawing" ? (round ? (drawerOf(round) ?? "") : "") : ""
       }`;
     }
     if (!state || !room.joined || !me) return "join";
@@ -690,7 +668,7 @@ export function OnlineFlow({
               : "seen"
         }`;
       case "drawing":
-        return `draw:${round?.roundNo}:${round?.schedule[round.turnIndex] ?? "?"}`;
+        return `draw:${round?.roundNo}:${(round ? drawerOf(round) : null) ?? "?"}`;
       case "voting":
         return `vote:${round?.roundNo}:${round?.votersIn.includes(me.id) ? "waiting" : "ballot"}`;
       case "guessing":
@@ -698,7 +676,7 @@ export function OnlineFlow({
           tallySeen !== round?.roundNo ? "tally" : me.id === round?.fakeId ? "input" : "wait"
         }`;
       case "reveal":
-        return `reveal:${round?.roundNo}:${revealStep}:${round?.outcome ?? ""}`;
+        return `reveal:${round?.roundNo}:${reveal.step}:${round?.outcome ?? ""}`;
     }
   })();
   const flood =
@@ -782,18 +760,16 @@ function AwayNudge({
   };
   let blockers: string[] = [];
   if (state.phase === "drawing") {
-    const drawer = round.schedule[round.turnIndex];
+    const drawer = drawerOf(round);
     if (drawer && away(drawer)) blockers = [drawer];
   } else if (state.phase === "dealing" && round.dealt) {
-    const need = [...(round.qmId ? [round.qmId] : []), ...round.turnOrder].filter(
-      (id) => !round.droppedIds.includes(id) && !round.seen.includes(id),
-    );
+    const need = mustSee(round).filter((id) => !round.seen.includes(id));
     blockers = need.filter(away);
   } else if (state.phase === "dealing" && !round.dealt && round.qmId && away(round.qmId)) {
     blockers = [round.qmId];
   } else if (state.phase === "voting") {
-    blockers = round.turnOrder.filter(
-      (id) => !round.droppedIds.includes(id) && !round.votersIn.includes(id) && away(id),
+    blockers = activeArtists(round).filter(
+      (id) => !round.votersIn.includes(id) && away(id),
     );
   } else if (state.phase === "guessing" && round.fakeId && away(round.fakeId)) {
     blockers = [round.fakeId];
@@ -842,22 +818,11 @@ function WatchBody({
   live: ReturnType<typeof useOnlineRoom>["live"];
 }) {
   const round = state?.round ?? null;
-  const [watchRevealStep, setWatchRevealStep] =
-    useState<RevealStep>("attribution");
-  useEffect(() => {
-    setWatchRevealStep(
-      round?.outcome !== "voided" &&
-        !!state &&
-        (state.settings.aiCritic || state.settings.aiDetective)
-        ? "critic"
-        : "attribution",
-    );
-  }, [
-    round?.outcome,
-    round?.roundNo,
-    state?.settings.aiCritic,
-    state?.settings.aiDetective,
-  ]);
+  const reveal = useRevealSequence({
+    outcome: round?.outcome,
+    roundNo: round?.roundNo,
+    settings: state?.settings,
+  });
   if (!state) {
     return <Waiting kicker={`Watching ${code}`} title={<>Tuning in</>} />;
   }
@@ -899,12 +864,12 @@ function WatchBody({
             going out
           </>
         }
-        body={`${round.seen.length} of ${round.turnOrder.length + (round.qmId ? 1 : 0)} have seen theirs.`}
+        body={`${round.seen.length} of ${mustSee(round).length} have seen theirs.`}
       />
     );
   }
   if (state.phase === "drawing") {
-    const drawer = state.players.find((p) => p.id === round.schedule[round.turnIndex]);
+    const drawer = state.players.find((p) => p.id === drawerOf(round));
     return (
       <Spectate
         kicker={`Watching ${code} · ${round.turnIndex + 1} of ${round.schedule.length}`}
@@ -921,7 +886,7 @@ function WatchBody({
     );
   }
   if (state.phase === "voting") {
-    const voters = round.turnOrder.filter((id) => !round.droppedIds.includes(id));
+    const voters = activeArtists(round);
     return (
       <Waiting
         kicker={`Watching ${code}`}
@@ -941,15 +906,12 @@ function WatchBody({
     return <GuessWait fakeName={fake?.name ?? "The fake"} deadline={round.guessDeadline} />;
   }
   // reveal
-  const aiExhibition =
-    round.outcome !== "voided" &&
-    (state.settings.aiCritic || state.settings.aiDetective);
-  if (watchRevealStep === "critic") {
+  if (reveal.step === "critic") {
     return (
       <CriticVerdict
         ai={round.ai}
         players={state.players}
-        onNext={() => setWatchRevealStep("attribution")}
+        onNext={() => reveal.leaveCritic(false)}
       />
     );
   }
@@ -960,17 +922,17 @@ function WatchBody({
     votes: round.votes ?? {},
     guess: round.guess,
   };
-  if (watchRevealStep === "rendition") {
+  if (reveal.step === "rendition") {
     return (
       <RenditionReveal
         ai={round.ai}
         strokes={round.strokes}
         title={round.ai.critic?.title}
-        onNext={() => setWatchRevealStep("standings")}
+        onNext={() => reveal.leaveRendition(false)}
       />
     );
   }
-  if (watchRevealStep === "standings") {
+  if (reveal.step === "standings") {
     return (
       <Standings
         players={state.players}
@@ -987,9 +949,9 @@ function WatchBody({
       players={state.players}
       totalRounds={state.settings.rounds}
       isLastRound={false}
-      nextLabel={aiExhibition ? "What it became" : "Standings"}
+      nextLabel={reveal.aiExhibition ? "What it became" : "Standings"}
       onNext={() =>
-        setWatchRevealStep(aiExhibition ? "rendition" : "standings")
+        reveal.leaveAttribution()
       }
     />
   );

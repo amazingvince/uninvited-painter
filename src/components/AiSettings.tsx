@@ -1,3 +1,4 @@
+import { aiEnabled } from "../../shared/engine";
 import type { AiTone, Settings } from "../../shared/types";
 
 export function AiSettings({
@@ -7,7 +8,7 @@ export function AiSettings({
   settings: Settings;
   onChange: (patch: Partial<Settings>) => void;
 }) {
-  const enabled = settings.aiCritic || settings.aiDetective;
+  const enabled = aiEnabled(settings);
   const toggle = (
     label: string,
     detail: string,

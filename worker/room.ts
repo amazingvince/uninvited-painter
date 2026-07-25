@@ -16,6 +16,7 @@ import {
   putSource,
   type PostRoundAiResult,
 } from "./ai-jobs";
+import { aiFallbackEvent, aiResultEvents } from "../shared/aiResults";
 import { onlineAiPayload } from "./ai-routes";
 
 interface Attachment {
@@ -135,73 +136,17 @@ export class RoomDO extends DurableObject<Env> {
   async completeAiJob(result: PostRoundAiResult): Promise<void> {
     let state = await this.getState();
     if (!state) return;
-    const currentAi =
-      state.round?.roundNo === result.roundNo ? state.round.ai : null;
-    const archiveAi = state.archive.find(
-      (entry) => entry.roundNo === result.roundNo,
-    )?.ai;
-    const matching =
-      currentAi?.jobId === result.jobId
-        ? currentAi
-        : archiveAi?.jobId === result.jobId
-          ? archiveAi
-          : null;
-    if (!matching) return;
 
     let changed = false;
-    if (matching.criticStatus === "pending") {
-      const event: GameEvent =
-        result.criticStatus === "ready" && result.critic
-          ? {
-              type: "RESOLVE_ROUND_CRITIC",
-              roundNo: result.roundNo,
-              jobId: result.jobId,
-              verdict: result.critic,
-            }
-          : {
-              type: "FAIL_ROUND_CRITIC",
-              roundNo: result.roundNo,
-              jobId: result.jobId,
-            };
+    for (const event of aiResultEvents(result)) {
       let applied = reduce(state, event);
-      if (!applied.ok && event.type === "RESOLVE_ROUND_CRITIC") {
-        applied = reduce(state, {
-          type: "FAIL_ROUND_CRITIC",
-          roundNo: result.roundNo,
-          jobId: result.jobId,
-        });
-      }
-      if (applied.ok) {
-        state = applied.state;
-        changed = true;
-      }
-    }
-
-    const refreshedAi =
-      state.round?.roundNo === result.roundNo
-        ? state.round.ai
-        : state.archive.find((entry) => entry.roundNo === result.roundNo)?.ai;
-    if (refreshedAi?.renditionStatus === "pending") {
-      const event: GameEvent =
-        result.renditionStatus === "ready" && result.renditionId
-          ? {
-              type: "RESOLVE_ROUND_RENDITION",
-              roundNo: result.roundNo,
-              jobId: result.jobId,
-              renditionId: result.renditionId,
-            }
-          : {
-              type: "FAIL_ROUND_RENDITION",
-              roundNo: result.roundNo,
-              jobId: result.jobId,
-            };
-      let applied = reduce(state, event);
-      if (!applied.ok && event.type === "RESOLVE_ROUND_RENDITION") {
-        applied = reduce(state, {
-          type: "FAIL_ROUND_RENDITION",
-          roundNo: result.roundNo,
-          jobId: result.jobId,
-        });
+      if (!applied.ok) {
+        // The engine can refuse a verdict (a callout naming a departed
+        // artist, a job the round no longer recognises). Settle the branch
+        // anyway so no screen waits on it forever.
+        const fallback = aiFallbackEvent(event);
+        if (!fallback) continue;
+        applied = reduce(state, fallback);
       }
       if (applied.ok) {
         state = applied.state;

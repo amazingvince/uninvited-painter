@@ -28,6 +28,8 @@ import {
 import { guessMatches } from "./fuzzy";
 import { SEAT_COLORS } from "./palette";
 import { strokeLength, validSegments } from "./geometry";
+import { parseCriticVerdict } from "./criticVerdict";
+import { AI_ID_RE } from "./ids";
 
 /** Committed strokes cap out well above the client's own sampling limit. */
 const MAX_STROKE_COORDS = 2400;
@@ -139,38 +141,67 @@ export function playerById(state: RoomState, id: string): Player | undefined {
   return state.players.find((p) => p.id === id);
 }
 
+// These take structural picks rather than the full RoundState so the redacted
+// PublicRoundState satisfies them too — otherwise the online client has to
+// re-derive the same rules by hand, which is exactly how they drift.
+
 /** Artists still in the round (dropped players excluded). */
-export function activeArtists(round: RoundState): string[] {
+export function activeArtists(
+  round: Pick<RoundState, "turnOrder" | "droppedIds">,
+): string[] {
   return round.turnOrder.filter((id) => !round.droppedIds.includes(id));
 }
 
-export function currentDrawerId(state: RoomState): string | null {
-  const r = state.round;
-  if (!r || state.phase !== "drawing") return null;
-  return r.schedule[r.turnIndex] ?? null;
+/** Whose turn it is, given a round that is currently in the drawing phase. */
+export function drawerOf(
+  round: Pick<RoundState, "schedule" | "turnIndex">,
+): string | null {
+  return round.schedule[round.turnIndex] ?? null;
 }
 
-export function strokesRemaining(round: RoundState): number {
+/** Which pass (1-based) the current turn belongs to for that drawer. */
+export function passOf(
+  round: Pick<RoundState, "schedule" | "turnIndex">,
+  playerId: string | null,
+): number {
+  if (!playerId) return 1;
+  return (
+    round.schedule.slice(0, round.turnIndex).filter((id) => id === playerId).length + 1
+  );
+}
+
+export function currentDrawerId(state: RoomState): string | null {
+  if (!state.round || state.phase !== "drawing") return null;
+  return drawerOf(state.round);
+}
+
+export function strokesRemaining(
+  round: Pick<RoundState, "schedule" | "turnIndex">,
+): number {
   return round.schedule.length - round.turnIndex;
 }
 
 /** Everyone required to see their card before drawing starts. */
-export function mustSee(round: RoundState): string[] {
+export function mustSee(
+  round: Pick<RoundState, "turnOrder" | "droppedIds" | "qmId">,
+): string[] {
   const ids = activeArtists(round);
   return round.qmId ? [round.qmId, ...ids] : ids;
 }
 
-export function voteTally(round: RoundState): Record<string, number> {
+export function voteTally(votes: Record<string, string>): Record<string, number> {
   const tally: Record<string, number> = {};
-  for (const target of Object.values(round.votes)) {
+  for (const target of Object.values(votes)) {
     tally[target] = (tally[target] ?? 0) + 1;
   }
   return tally;
 }
 
 /** Unique top vote-getter, or null on a tie (ties acquit). */
-export function accusedFromVotes(round: RoundState): string | null {
-  const tally = voteTally(round);
+export function accusedFromVotes(
+  round: Pick<RoundState, "votes">,
+): string | null {
+  const tally = voteTally(round.votes);
   let best: string | null = null;
   let bestCount = 0;
   let tied = false;
@@ -258,76 +289,17 @@ function fail(error: string): ReduceResult {
   return { ok: false, error };
 }
 
-const AI_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function cleanAiText(value: unknown, max: number): string | null {
-  if (typeof value !== "string") return null;
-  const text = value.trim();
-  if (!text || text.length > max) return null;
-  return text;
-}
 
 function validateVerdict(
   settings: Settings,
   eligible: Set<string>,
   verdict: CriticVerdict,
 ): CriticVerdict | string {
-  if (verdict.rating !== undefined && (!Number.isInteger(verdict.rating) || verdict.rating < 1 || verdict.rating > 10)) {
-    return "Bad critic rating";
-  }
-  if (
-    verdict.confidence !== undefined &&
-    (!Number.isInteger(verdict.confidence) || verdict.confidence < 0 || verdict.confidence > 100)
-  ) {
-    return "Bad critic confidence";
-  }
-
-  const clean: CriticVerdict = {};
-  const textFields = [
-    ["title", 80],
-    ["subjectGuess", 100],
-    ["ratingTag", 60],
-    ["review", 360],
-  ] as const;
-  for (const [field, max] of textFields) {
-    const value = verdict[field];
-    if (value === undefined) continue;
-    const text = cleanAiText(value, max);
-    if (!text) return `Bad critic ${field}`;
-    clean[field] = text;
-  }
-  if (verdict.confidence !== undefined) clean.confidence = verdict.confidence;
-  if (verdict.rating !== undefined) clean.rating = verdict.rating;
-
-  if (verdict.callout !== undefined) {
-    if (!eligible.has(verdict.callout.playerId)) return "Bad critic callout";
-    const text = cleanAiText(verdict.callout.text, 180);
-    if (!text) return "Bad critic callout";
-    clean.callout = { playerId: verdict.callout.playerId, text };
-  }
-  if (verdict.detective !== undefined) {
-    if (!eligible.has(verdict.detective.playerId)) return "Bad critic detective";
-    const reason = cleanAiText(verdict.detective.reason, 180);
-    if (!reason) return "Bad critic detective";
-    clean.detective = { playerId: verdict.detective.playerId, reason };
-  }
-
-  if (settings.aiCritic) {
-    if (
-      !clean.title ||
-      !clean.subjectGuess ||
-      clean.confidence === undefined ||
-      clean.rating === undefined ||
-      !clean.ratingTag ||
-      !clean.review
-    ) {
-      return "Incomplete critic verdict";
-    }
-  }
-  if (settings.aiDetective && !clean.detective) {
-    return "Incomplete detective verdict";
-  }
-  return clean;
+  return parseCriticVerdict(verdict, {
+    eligibleIds: eligible,
+    requireCritic: settings.aiCritic,
+    requireDetective: settings.aiDetective,
+  });
 }
 
 function archiveForRound(state: RoomState, roundNo: number): ArchiveEntry | undefined {

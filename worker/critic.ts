@@ -1,3 +1,8 @@
+import {
+  VERDICT_KEYS,
+  VERDICT_LIMITS,
+  parseCriticVerdict,
+} from "../shared/criticVerdict";
 import type { AiTone, CriticVerdict } from "../shared/types";
 import {
   AiProviderError,
@@ -9,25 +14,11 @@ const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const REQUEST_TIMEOUT_MS = 60_000;
 
-const TEXT_LIMITS = {
-  title: 80,
-  subjectGuess: 100,
-  ratingTag: 60,
-  review: 360,
-  callout: 180,
-  detective: 180,
-} as const;
-
-const VERDICT_FIELDS = [
-  "title",
-  "subjectGuess",
-  "confidence",
-  "rating",
-  "ratingTag",
-  "review",
-  "callout",
-  "detective",
-] as const;
+// The schema the model is held to and the validator that checks its answer
+// read from the same table, so a limit can never be raised in one and not the
+// other.
+const TEXT_LIMITS = VERDICT_LIMITS;
+const VERDICT_FIELDS = VERDICT_KEYS;
 
 export interface CriticInput {
   png: ArrayBuffer;
@@ -49,103 +40,39 @@ function object(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function cleanText(value: unknown, max: number): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.replace(/\s+/g, " ").trim();
-  return normalized ? normalized.slice(0, max).trimEnd() : null;
-}
-
 function invalid(message: string): AiProviderError {
   return new AiProviderError(message, "invalid_response", false);
-}
-
-function requiredText(
-  value: unknown,
-  max: number,
-  field: string,
-): string {
-  const clean = cleanText(value, max);
-  if (!clean) throw invalid(`Luna returned an invalid ${field}.`);
-  return clean;
-}
-
-function requiredInteger(
-  value: unknown,
-  min: number,
-  max: number,
-  field: string,
-): number {
-  if (!Number.isInteger(value) || (value as number) < min || (value as number) > max) {
-    throw invalid(`Luna returned an invalid ${field}.`);
-  }
-  return value as number;
 }
 
 export function sanitizeCriticVerdict(
   raw: unknown,
   input: CriticInput,
 ): CriticVerdict {
-  const result = object(raw);
-  if (!result) throw invalid("Luna returned an invalid verdict.");
+  const parsed = parseCriticVerdict(raw, {
+    mode: "coerce",
+    eligibleIds: new Set(input.artists.map((artist) => artist.id)),
+    requireCritic: input.criticEnabled,
+    requireDetective: input.detectiveEnabled,
+  });
+  // The shared parser reports why; this boundary turns that into the provider
+  // error type the workflow classifies on.
+  if (typeof parsed === "string") throw invalid(`Luna returned an invalid verdict — ${parsed}.`);
 
-  const eligible = new Set(input.artists.map((artist) => artist.id));
+  // A disabled section is asked for as null; drop anything the model sent
+  // anyway so it can never reach a screen that is not showing it.
   const verdict: CriticVerdict = {};
-
   if (input.criticEnabled) {
-    verdict.title = requiredText(
-      result.title,
-      TEXT_LIMITS.title,
-      "critic title",
-    );
-    verdict.subjectGuess = requiredText(
-      result.subjectGuess,
-      TEXT_LIMITS.subjectGuess,
-      "subject guess",
-    );
-    verdict.confidence = requiredInteger(
-      result.confidence,
-      0,
-      100,
-      "confidence",
-    );
-    verdict.rating = requiredInteger(result.rating, 1, 10, "rating");
-    verdict.ratingTag = requiredText(
-      result.ratingTag,
-      TEXT_LIMITS.ratingTag,
-      "rating tag",
-    );
-    verdict.review = requiredText(
-      result.review,
-      TEXT_LIMITS.review,
-      "review",
-    );
-
-    const rawCallout = object(result.callout);
-    const calloutText = cleanText(rawCallout?.text, TEXT_LIMITS.callout);
-    const calloutId = rawCallout?.playerId;
-    if (
-      typeof calloutId === "string" &&
-      eligible.has(calloutId) &&
-      calloutText
-    ) {
-      verdict.callout = { playerId: calloutId, text: calloutText };
-    }
+    verdict.title = parsed.title;
+    verdict.subjectGuess = parsed.subjectGuess;
+    verdict.confidence = parsed.confidence;
+    verdict.rating = parsed.rating;
+    verdict.ratingTag = parsed.ratingTag;
+    verdict.review = parsed.review;
+    if (parsed.callout) verdict.callout = parsed.callout;
   }
-
-  if (input.detectiveEnabled) {
-    const rawDetective = object(result.detective);
-    const playerId = rawDetective?.playerId;
-    const reason = cleanText(rawDetective?.reason, TEXT_LIMITS.detective);
-    if (
-      typeof playerId !== "string" ||
-      !eligible.has(playerId) ||
-      !reason
-    ) {
-      throw invalid("Luna returned an invalid detective verdict.");
-    }
-    verdict.detective = { playerId, reason };
+  if (input.detectiveEnabled && parsed.detective) {
+    verdict.detective = parsed.detective;
   }
-
   return verdict;
 }
 

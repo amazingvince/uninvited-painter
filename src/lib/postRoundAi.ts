@@ -1,9 +1,5 @@
 import { activeArtists, aiEnabled } from "../../shared/engine";
-import type {
-  GameEvent,
-  RoomState,
-  RoundAi,
-} from "../../shared/types";
+import type { RoomState, RoundAi } from "../../shared/types";
 import type { PostRoundAiResult } from "../../worker/ai-jobs";
 import { roomToken } from "./storage";
 
@@ -123,35 +119,4 @@ export async function uploadOnlineAiSource(
   }
 }
 
-export function aiResultEvents(result: PostRoundAiResult): GameEvent[] {
-  const events: GameEvent[] = [];
-  if (result.criticStatus === "ready" && result.critic) {
-    events.push({
-      type: "RESOLVE_ROUND_CRITIC",
-      roundNo: result.roundNo,
-      jobId: result.jobId,
-      verdict: result.critic,
-    });
-  } else if (result.criticStatus === "unavailable") {
-    events.push({
-      type: "FAIL_ROUND_CRITIC",
-      roundNo: result.roundNo,
-      jobId: result.jobId,
-    });
-  }
-  if (result.renditionStatus === "ready" && result.renditionId) {
-    events.push({
-      type: "RESOLVE_ROUND_RENDITION",
-      roundNo: result.roundNo,
-      jobId: result.jobId,
-      renditionId: result.renditionId,
-    });
-  } else if (result.renditionStatus === "unavailable") {
-    events.push({
-      type: "FAIL_ROUND_RENDITION",
-      roundNo: result.roundNo,
-      jobId: result.jobId,
-    });
-  }
-  return events;
-}
+export { aiResultEvents } from "../../shared/aiResults";

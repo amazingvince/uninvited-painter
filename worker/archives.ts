@@ -3,6 +3,8 @@
 // validation — a stored archive can only ever render as strokes, never as
 // attacker-controlled markup.
 
+import { parseCriticVerdict } from "../shared/criticVerdict";
+import { AI_ID_RE as JOB_ID_RE } from "../shared/ids";
 import { validSegments } from "../shared/geometry";
 import { guessMatches } from "../shared/fuzzy";
 import { SEAT_COLORS } from "../shared/palette";
@@ -23,8 +25,6 @@ const META_MAX_BYTES = 512 * 1024;
 const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 const TTL_SECONDS = 60 * 60 * 24 * 365; // archives live for a year
 const ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
-const JOB_ID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface ArchiveKv {
   put(
@@ -64,12 +64,6 @@ function cleanString(value: unknown, maxLen: number): string | null {
   return s.length > 0 ? s : null;
 }
 
-function cleanBoundedString(value: unknown, maxLen: number): string | null {
-  if (typeof value !== "string") return null;
-  const text = value.trim();
-  return text.length > 0 && text.length <= maxLen ? text : null;
-}
-
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -84,81 +78,11 @@ function onlyKeys(
   return Object.keys(value).every((key) => keys.has(key));
 }
 
-function cleanAttribution(
-  value: unknown,
-  textKey: "text" | "reason",
-): { playerId: string; text: string } | null {
-  const item = record(value);
-  if (!item || !onlyKeys(item, ["playerId", textKey])) return null;
-  const playerId = cleanBoundedString(item.playerId, 100);
-  const text = cleanBoundedString(item[textKey], 180);
-  return playerId && text ? { playerId, text } : null;
-}
-
 function cleanCritic(value: unknown): CriticVerdict | null {
-  const critic = record(value);
-  if (
-    !critic ||
-    !onlyKeys(critic, [
-      "title",
-      "subjectGuess",
-      "confidence",
-      "rating",
-      "ratingTag",
-      "review",
-      "callout",
-      "detective",
-    ])
-  ) {
-    return null;
-  }
-  const clean: CriticVerdict = {};
-  const textFields = [
-    ["title", 80],
-    ["subjectGuess", 100],
-    ["ratingTag", 60],
-    ["review", 360],
-  ] as const;
-  for (const [field, max] of textFields) {
-    if (critic[field] === undefined) continue;
-    const text = cleanBoundedString(critic[field], max);
-    if (!text) return null;
-    clean[field] = text;
-  }
-  if (critic.confidence !== undefined) {
-    if (
-      !Number.isInteger(critic.confidence) ||
-      (critic.confidence as number) < 0 ||
-      (critic.confidence as number) > 100
-    ) {
-      return null;
-    }
-    clean.confidence = critic.confidence as number;
-  }
-  if (critic.rating !== undefined) {
-    if (
-      !Number.isInteger(critic.rating) ||
-      (critic.rating as number) < 1 ||
-      (critic.rating as number) > 10
-    ) {
-      return null;
-    }
-    clean.rating = critic.rating as number;
-  }
-  if (critic.callout !== undefined) {
-    const callout = cleanAttribution(critic.callout, "text");
-    if (!callout) return null;
-    clean.callout = callout;
-  }
-  if (critic.detective !== undefined) {
-    const detective = cleanAttribution(critic.detective, "reason");
-    if (!detective) return null;
-    clean.detective = {
-      playerId: detective.playerId,
-      reason: detective.text,
-    };
-  }
-  return Object.keys(clean).length > 0 ? clean : null;
+  // Uploads are untrusted, but a verdict that merely names a departed artist
+  // shouldn't lose its review — the shared parser drops the callout instead.
+  const parsed = parseCriticVerdict(value);
+  return typeof parsed === "string" ? null : parsed;
 }
 
 function cleanRoundAi(value: unknown): RoundAi | null {

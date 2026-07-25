@@ -1,8 +1,8 @@
+import { parseCriticVerdict } from "../shared/criticVerdict";
+import { AI_ID_RE as JOB_ID_RE, ARCHIVE_ID_RE } from "../shared/ids";
 import type { AiTone, CriticVerdict } from "../shared/types";
 
-const JOB_ID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const ARCHIVE_ID_RE = /^[a-z2-9]{12}$/;
+
 const RESULT_KEYS = [
   "jobId",
   "roundNo",
@@ -12,17 +12,6 @@ const RESULT_KEYS = [
   "renditionId",
   "updatedAt",
 ] as const;
-const VERDICT_KEYS = new Set([
-  "title",
-  "subjectGuess",
-  "confidence",
-  "rating",
-  "ratingTag",
-  "review",
-  "callout",
-  "detective",
-]);
-
 export interface PostRoundAiPayload {
   jobId: string;
   mode: "local" | "online";
@@ -183,68 +172,8 @@ function exactKeys(
     (required ? required.every((key) => Object.hasOwn(value, key)) : true);
 }
 
-function boundedText(value: unknown, max: number): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= max &&
-    value === value.trim()
-  );
-}
-
-function validAttribution(
-  value: unknown,
-  textKey: "text" | "reason",
-): boolean {
-  const item = object(value);
-  return (
-    item !== null &&
-    exactKeys(item, ["playerId", textKey]) &&
-    boundedText(item.playerId, 100) &&
-    boundedText(item[textKey], 180)
-  );
-}
-
 function validCritic(value: unknown): value is CriticVerdict {
-  const critic = object(value);
-  if (!critic || !exactKeys(critic, VERDICT_KEYS)) return false;
-  if (
-    critic.title !== undefined &&
-    !boundedText(critic.title, 80)
-  ) return false;
-  if (
-    critic.subjectGuess !== undefined &&
-    !boundedText(critic.subjectGuess, 100)
-  ) return false;
-  if (
-    critic.ratingTag !== undefined &&
-    !boundedText(critic.ratingTag, 60)
-  ) return false;
-  if (
-    critic.review !== undefined &&
-    !boundedText(critic.review, 360)
-  ) return false;
-  if (
-    critic.confidence !== undefined &&
-    (!Number.isInteger(critic.confidence) ||
-      (critic.confidence as number) < 0 ||
-      (critic.confidence as number) > 100)
-  ) return false;
-  if (
-    critic.rating !== undefined &&
-    (!Number.isInteger(critic.rating) ||
-      (critic.rating as number) < 1 ||
-      (critic.rating as number) > 10)
-  ) return false;
-  if (
-    critic.callout !== undefined &&
-    !validAttribution(critic.callout, "text")
-  ) return false;
-  if (
-    critic.detective !== undefined &&
-    !validAttribution(critic.detective, "reason")
-  ) return false;
-  return Object.keys(critic).length > 0;
+  return typeof parseCriticVerdict(value) !== "string";
 }
 
 function validateResult(value: unknown): PostRoundAiResult | null {
