@@ -1,5 +1,6 @@
 import { AiProviderError } from "./ai-errors";
 import {
+  deleteSource,
   getSource,
   putJobResult,
   putRendition,
@@ -200,6 +201,8 @@ export async function runPostRoundAi(
       if (env.ARCHIVES) {
         await publishCompletedAiResult(env as ArchiveEnv, result);
       }
+      // Both branches are done with the upload; keeping it just accrues cost.
+      await deleteSource(env, payload.jobId);
       return result;
     },
   );

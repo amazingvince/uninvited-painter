@@ -161,29 +161,6 @@ input {
   line-height: 0.9;
 }
 
-.shout--hero {
-  font-size: 58px;
-  line-height: 0.85;
-  letter-spacing: -0.045em;
-}
-
-.shout--title {
-  font-size: 38px;
-  line-height: 0.9;
-  letter-spacing: -0.04em;
-}
-
-.shout--head {
-  font-size: 28px;
-  letter-spacing: -0.03em;
-}
-
-.shout--word {
-  font-size: 56px;
-  line-height: 0.9;
-  letter-spacing: -0.045em;
-}
-
 .kicker {
   font-size: 11px;
   font-weight: 700;
@@ -210,7 +187,6 @@ input {
 }
 
 .u-muted { color: var(--muted); }
-.u-muted-dark { color: var(--muted-dark); }
 .u-red { color: var(--red); }
 .u-gold { color: var(--gold); }
 .u-center { text-align: center; }
@@ -258,10 +234,17 @@ input {
 .btn--red { background: var(--red); color: var(--cream-on-red); }
 .btn--ink { background: var(--ink); color: var(--cream); }
 .btn--outline { border: 3px solid currentColor; padding: 17px; }
-.btn--cream { background: var(--cream); color: var(--ink); }
 /* This label explains what the room is still waiting for, so it has to be the
-   most readable disabled state in the app, not the least. */
-.btn--disabled { background: var(--rule); color: var(--ink); opacity: 0.75; pointer-events: none; }
+   most readable disabled state in the app, not the least. Btn sets the real
+   disabled attribute; pointer-events still covers the raw <button> call sites
+   that only borrow the class. */
+.btn--disabled {
+  background: var(--rule);
+  color: var(--ink);
+  opacity: 0.75;
+  cursor: default;
+  pointer-events: none;
+}
 .btn--split { justify-content: space-between; text-align: left; }
 .btn:active { transform: translateY(1px); }
 
@@ -309,7 +292,6 @@ input {
   color: var(--cream);
 }
 
-.chip--now { background: var(--green); }
 .chip--wait {
   border: 2px solid var(--rule);
   color: var(--muted);
@@ -785,23 +767,8 @@ input {
   height: 100%;
 }
 
-.rendition-reveal__result {
-  animation: renditionWipe 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
 .rendition-reveal button {
   min-height: 44px;
-}
-
-@keyframes renditionWipe {
-  from {
-    opacity: 0;
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    opacity: 1;
-    clip-path: inset(0);
-  }
 }
 
 /* On phones the payoff leads: the rendition gets the space, and the original

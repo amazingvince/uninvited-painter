@@ -1,15 +1,11 @@
-// Link previews: iMessage/WhatsApp/Discord crawlers read raw HTML without
-// running JS, so og: tags are injected into the SPA shell server-side.
+// Serves the SPA shell with route-specific link-preview tags swapped in.
+// iMessage/WhatsApp/Discord crawlers read raw HTML without running JS, so the
+// tags have to be in the response, not applied by the app.
+//
+// The tag builders themselves live in shared/og.ts; only the rewriting needs
+// the Workers runtime.
 
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-}
-
-function metaTags(tags: Record<string, string>): string {
-  return Object.entries(tags)
-    .map(([property, content]) => `<meta property="${property}" content="${escapeAttr(content)}">`)
-    .join("");
-}
+import { metaTags } from "../shared/og";
 
 export async function serveShellWithOg(
   request: Request,
@@ -18,40 +14,17 @@ export async function serveShellWithOg(
 ): Promise<Response> {
   // With SPA fallback the assets binding returns index.html for any app route.
   const shell = await env.ASSETS.fetch(request);
+  // index.html carries a generic preview so untouched routes still look like
+  // something. A crawler keeps the first tag it meets, so the generic copies
+  // must go before the specific ones are appended.
+  const drop = { element: (el: { remove: () => void }) => el.remove() };
   return new HTMLRewriter()
+    .on('meta[property^="og:"]', drop)
+    .on('meta[property^="twitter:"]', drop)
     .on("head", {
       element(el) {
         el.append(metaTags(tags), { html: true });
       },
     })
     .transform(shell);
-}
-
-export function roomTags(origin: string, code: string): Record<string, string> {
-  return {
-    "og:title": `Room ${code} — The Uninvited Painter`,
-    "og:description":
-      "Everyone gets one stroke. One player was never told the word. Tap to take a seat.",
-    "og:image": `${origin}/og-room.png`,
-    "og:url": `${origin}/r/${code}`,
-    "og:type": "website",
-    "twitter:card": "summary_large_image",
-  };
-}
-
-export function archiveTags(
-  origin: string,
-  id: string,
-  title: string,
-  rounds: number,
-  hasImage: boolean,
-): Record<string, string> {
-  return {
-    "og:title": `${title} — The Uninvited Painter`,
-    "og:description": `${rounds} round${rounds === 1 ? "" : "s"} of collective forgery, preserved for the record.`,
-    "og:image": hasImage ? `${origin}/api/archives/${id}/og.png` : `${origin}/og-room.png`,
-    "og:url": `${origin}/a/${id}`,
-    "og:type": "website",
-    "twitter:card": "summary_large_image",
-  };
 }

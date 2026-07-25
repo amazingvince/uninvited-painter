@@ -63,6 +63,7 @@ export function JoinCode({
       <div className="footer">
         <button
           className={code.length === 4 && !checking ? "btn btn--red" : "btn btn--disabled"}
+          disabled={code.length !== 4 || checking}
           onClick={() => code.length === 4 && onEnter(code)}
         >
           {checking ? "Checking…" : "Enter room"}

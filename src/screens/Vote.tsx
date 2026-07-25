@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { SEAT_TEXT_COLORS } from "../../shared/palette";
 import type { Player, Stroke } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
+import { passesCompleteLabel } from "../lib/labels";
 import { Screen, Btn, Swatch } from "../components/ui";
 
 export function Vote({
@@ -15,6 +16,7 @@ export function Vote({
   players,
   strokes,
   votersIn,
+  passes,
   onLock,
 }: {
   voterId: string;
@@ -24,6 +26,7 @@ export function Vote({
   players: Player[];
   strokes: Stroke[];
   votersIn: string[];
+  passes?: number;
   onLock: (targetId: string) => void;
 }) {
   const [choice, setChoice] = useState<string | null>(null);
@@ -39,7 +42,9 @@ export function Vote({
   return (
     <Screen>
       <div className="header">
-        <div className="kicker u-red">Both passes complete</div>
+        <div className="kicker u-red">
+          {passes === undefined ? "Both passes complete" : passesCompleteLabel(passes)}
+        </div>
         <div className="shout" style={{ fontSize: 38, lineHeight: 0.9 }}>
           Name the fraud
         </div>

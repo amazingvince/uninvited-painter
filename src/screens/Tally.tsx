@@ -1,6 +1,7 @@
 // C2 Tally — bars animate up from zero. Online: appears on all devices at once.
 
 import { useEffect, useState } from "react";
+import { voteTally } from "../../shared/engine";
 import type { Player } from "../../shared/types";
 import { Screen, Btn } from "../components/ui";
 
@@ -11,15 +12,13 @@ export function Tally({
   fakeWasAccused,
   buttonLabel,
   onContinue,
-  waiting,
 }: {
   votes: Record<string, string>;
   players: Player[];
   accusedId: string | null;
   fakeWasAccused: boolean;
-  buttonLabel?: string;
-  onContinue?: () => void;
-  waiting?: string;
+  buttonLabel: string;
+  onContinue: () => void;
 }) {
   const [grown, setGrown] = useState(false);
   useEffect(() => {
@@ -27,9 +26,7 @@ export function Tally({
     return () => clearTimeout(id);
   }, []);
 
-  const tally: Record<string, number> = {};
-  for (const target of Object.values(votes)) tally[target] = (tally[target] ?? 0) + 1;
-  const ranked = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  const ranked = Object.entries(voteTally(votes)).sort((a, b) => b[1] - a[1]);
   const max = Math.max(1, ...ranked.map(([, n]) => n));
   const accused = accusedId ? players.find((p) => p.id === accusedId) : null;
 
@@ -80,13 +77,9 @@ export function Tally({
         </div>
       </div>
       <div className="footer footer--rule">
-        {onContinue ? (
-          <Btn variant="red" onClick={onContinue}>
-            {buttonLabel ?? "Continue"}
-          </Btn>
-        ) : (
-          <div className="note u-center pulse">{waiting ?? "Waiting…"}</div>
-        )}
+        <Btn variant="red" onClick={onContinue}>
+          {buttonLabel}
+        </Btn>
       </div>
     </Screen>
   );

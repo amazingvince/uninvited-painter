@@ -14,6 +14,7 @@ export function HoldToReveal({
   card,
   onFirstRelease,
   label = "Hold to read your card",
+  resetKey,
 }: {
   /** The inert screen shown until press-and-hold. */
   gate: ReactNode;
@@ -23,9 +24,18 @@ export function HoldToReveal({
   onFirstRelease?: () => void;
   /** Accessible name for the hold control. */
   label?: string;
+  /** Change this to re-arm `onFirstRelease`. Online play needs it: if the
+   *  socket was down when the card was read, the "seen" never reached the
+   *  room, and without a way to fire again the gate is a dead end for
+   *  everyone at the table. */
+  resetKey?: unknown;
 }) {
   const [held, setHeld] = useState(false);
   const releasedOnce = useRef(false);
+
+  useEffect(() => {
+    releasedOnce.current = false;
+  }, [resetKey]);
 
   const release = () => {
     setHeld(false);

@@ -2,7 +2,16 @@
 // One authoritative state object per room; both modes run the same reducer
 // (local mode keeps it in memory, online mode keeps it in the Durable Object).
 
-export type DeckId = "animals" | "food" | "movies" | "objects" | "everything" | "house";
+/** Single source of truth: the validator and the type cannot drift apart. */
+export const DECK_IDS = [
+  "animals",
+  "food",
+  "movies",
+  "objects",
+  "everything",
+  "house",
+] as const;
+export type DeckId = (typeof DECK_IDS)[number];
 export type QmMode = "rotate" | "off";
 export type Mode = "local" | "online";
 export type WinMode = "rounds" | "score10";
@@ -94,6 +103,9 @@ export interface RoundState {
   word: string;
   category: string; // display name of the deck the word came from
   qmId: string | null;
+  /** Whether the round was dealt with a question master. Survives the QM being
+   *  dropped (which nulls qmId), so a void can still rewind the rotation. */
+  hadQm?: boolean;
   fakeId: string;
   /** Artists (everyone except the QM) in play order. */
   turnOrder: string[];

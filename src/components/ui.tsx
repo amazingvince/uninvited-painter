@@ -51,16 +51,20 @@ export function Btn({
   split,
   style,
 }: {
-  variant?: "red" | "ink" | "outline" | "cream" | "disabled";
+  variant?: "red" | "ink" | "outline" | "disabled";
   onClick?: () => void;
   children: ReactNode;
   disabled?: boolean;
   split?: boolean;
   style?: CSSProperties;
 }) {
-  const cls = `btn btn--${disabled ? "disabled" : variant}${split ? " btn--split" : ""}`;
+  // Every call site says variant="disabled" rather than disabled — which used
+  // to leave the button focusable, so Tab+Enter still fired onClick. Both
+  // routes now set the real attribute.
+  const off = disabled || variant === "disabled";
+  const cls = `btn btn--${off ? "disabled" : variant}${split ? " btn--split" : ""}`;
   return (
-    <button className={cls} onClick={onClick} disabled={disabled} style={style}>
+    <button className={cls} onClick={onClick} disabled={off} style={style}>
       {children}
     </button>
   );

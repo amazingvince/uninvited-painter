@@ -29,6 +29,21 @@ function steps(settings?: Settings): string[] {
   ];
 }
 
+/** The two Luna options are independent. A detective-only room gets no title,
+ *  subject guess, rating or review at all — the provider is told to return
+ *  null for them — so promising a review there is a lie. */
+function lunaDoes(settings?: Settings): string {
+  const critic = !!settings?.aiCritic;
+  const detective = !!settings?.aiDetective;
+  if (critic && detective) {
+    return "She reviews it, guesses the subject, and names a suspect — her opinion is entertainment and never changes the score.";
+  }
+  if (detective) {
+    return "She names a suspect and says why — entertainment only, never part of the score.";
+  }
+  return "She reviews it and guesses the subject — entertainment only, never part of the score.";
+}
+
 export function RulesSheet({
   onClose,
   settings,
@@ -102,10 +117,7 @@ export function RulesSheet({
               </div>
               <div className="body-copy" style={{ fontSize: 14 }}>
                 An art critic looks at the finished picture without being told the
-                word.{" "}
-                {settings?.aiDetective
-                  ? "She reviews it, guesses the subject, and names a suspect — her opinion is entertainment and never changes the score."
-                  : "She reviews it and guesses the subject — entertainment only, never part of the score."}
+                word. {lunaDoes(settings)}
               </div>
             </div>
           )}

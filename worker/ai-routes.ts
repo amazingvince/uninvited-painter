@@ -11,19 +11,20 @@ import {
   validateReferencePng,
 } from "./ai-input";
 import {
+  DAILY_AI_JOB_LIMIT,
   getJob,
   getRendition,
   isJobPrivate,
+  putJobResult,
   putPendingJob,
   putSource,
   withinDailyAiBudget,
   type AiJobStoreEnv,
   type PostRoundAiPayload,
+  type PostRoundAiResult,
 } from "./ai-jobs";
 
 const META_MAX_BYTES = 16 * 1024;
-/** Paid jobs per calendar day across the whole deployment. */
-const DAILY_AI_JOB_LIMIT = 300;
 const AI_TONES = new Set<AiTone>(["witty", "savage", "absurd"]);
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 
@@ -284,10 +285,23 @@ export async function handleLocalAiPost(
       },
     });
   } catch {
-    // Stable Workflow IDs make a concurrent duplicate harmless. If pending
-    // state exists, the original instance owns the work.
-    const concurrent = await getJob(env, payload.jobId);
-    if (!concurrent) return json({ error: "Could not start AI" }, 503);
+    // Stable Workflow IDs make a concurrent duplicate harmless — but re-reading
+    // the job here cannot detect one, because putPendingJob above just wrote
+    // that record. `existing` was read before the write and can: it was null,
+    // so this request owns the job and nothing will ever run it. Settle both
+    // branches instead of returning a pending status the browser would poll
+    // for four minutes before giving up.
+    const settled: PostRoundAiResult = {
+      jobId: payload.jobId,
+      roundNo: payload.roundNo,
+      criticStatus: "unavailable",
+      critic: null,
+      renditionStatus: "unavailable",
+      renditionId: null,
+      updatedAt: Date.now(),
+    };
+    await putJobResult(env, settled);
+    return json(settled);
   }
   return json(pending, 202);
 }

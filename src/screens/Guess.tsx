@@ -2,8 +2,8 @@
 // the word. 30s — guessing right steals the round.
 
 import { useState } from "react";
-import { useNow } from "../lib/useNow";
-import type { Stroke } from "../../shared/types";
+import { formatClock, useNow } from "../lib/useNow";
+import { GUESS_MS, type Stroke } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
 import { Screen, Kicker, Btn } from "../components/ui";
 
@@ -20,7 +20,6 @@ export function Guess({
 }) {
   const [text, setText] = useState("");
   const now = useNow(250, deadline !== null);
-  const secondsLeft = deadline === null ? null : Math.max(0, Math.ceil((deadline - now) / 1000));
 
   return (
     <Screen tone="ink">
@@ -74,7 +73,8 @@ export function Guess({
             Say it out loud, then submit
           </Btn>
           <div className="small u-center" style={{ color: "var(--muted-dark)" }}>
-            {secondsLeft !== null ? `${secondsLeft}s` : "30s"} · guessing right steals the round
+            {formatClock(deadline === null ? GUESS_MS : deadline - now)} · guessing right steals
+            the round
           </div>
         </div>
       </div>
@@ -90,7 +90,6 @@ export function GuessWait({
   deadline: number | null;
 }) {
   const now = useNow(250, deadline !== null);
-  const secondsLeft = deadline === null ? null : Math.max(0, Math.ceil((deadline - now) / 1000));
   return (
     <Screen tone="ink">
       <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--cream)" }}>
@@ -108,9 +107,9 @@ export function GuessWait({
         <div className="body-copy" style={{ color: "var(--muted-dark)" }}>
           One guess at the word steals the round back. Keep your faces still.
         </div>
-        {secondsLeft !== null && (
+        {deadline !== null && (
           <div className="shout u-gold" style={{ fontSize: 64 }}>
-            0:{String(secondsLeft).padStart(2, "0")}
+            {formatClock(deadline - now)}
           </div>
         )}
       </div>

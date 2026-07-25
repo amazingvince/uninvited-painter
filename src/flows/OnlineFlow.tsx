@@ -7,12 +7,14 @@ import {
   activeArtists,
   drawerOf,
   isGameOver,
+  isGamePaused,
   mustSee,
   passOf,
 } from "../../shared/engine";
 import type { PublicRoundState } from "../../shared/protocol";
 import { useOnlineRoom } from "../game/onlineClient";
 import { useGameCues } from "../lib/cues";
+import { passesCompleteLabel, roundLabel } from "../lib/labels";
 import {
   PostRoundAiUploadError,
   uploadOnlineAiSource,
@@ -20,7 +22,7 @@ import {
 import { drawingReferencePng } from "../lib/share";
 import { cueLock } from "../lib/sound";
 import { useWakeLock } from "../lib/useWakeLock";
-import { Screen, Btn, Kicker } from "../components/ui";
+import { Screen, Btn } from "../components/ui";
 import { HoldToReveal } from "../components/HoldToReveal";
 import { RulesSheet } from "../components/RulesSheet";
 import { ScreenFade } from "../components/ScreenFade";
@@ -155,8 +157,13 @@ export function OnlineFlow({
       watch ||
       !room.joined ||
       !state ||
-      state.phase !== "voting" ||
+      // The server accepts the upload through the reveal, so the retry window
+      // has to as well: a 429 during voting used to arm a 5s retry that could
+      // never fire, because the last ballot had already closed the phase and
+      // the room silently got no AI at all.
+      !["voting", "guessing", "reveal"].includes(state.phase) ||
       !round ||
+      round.outcome === "voided" ||
       !you?.playerId ||
       (!state.settings.aiCritic && !state.settings.aiDetective) ||
       !round.turnOrder.includes(you.playerId) ||
@@ -313,6 +320,7 @@ export function OnlineFlow({
               qmName={me.name}
               roundNo={r.roundNo}
               totalRounds={state.settings.rounds}
+              scoreMode={state.settings.winMode === "score10"}
               category={r.category}
               word={you!.word ?? ""}
               artists={r.turnOrder.length}
@@ -322,7 +330,7 @@ export function OnlineFlow({
           ) : (
             <Waiting
               tone="ink"
-              kicker={`Round ${r.roundNo} / ${state.settings.rounds}`}
+              kicker={roundLabel(r.roundNo, state.settings)}
               title={
                 <>
                   {qm?.name ?? "The question master"}
@@ -377,7 +385,7 @@ export function OnlineFlow({
       } else {
         body = (
           <Waiting
-            kicker={`Round ${r.roundNo} / ${state.settings.rounds}`}
+            kicker={roundLabel(r.roundNo, state.settings)}
             title={
               <>
                 Cards are
@@ -421,7 +429,6 @@ export function OnlineFlow({
             <Spectate
               kicker={`${code} · pass ${pass} · ${r.turnIndex + 1} of ${r.schedule.length}`}
               drawerName={drawer?.name ?? "…"}
-              drawerColor={drawer?.colorIndex ?? 0}
               strokes={r.strokes}
               live={room.live}
               chips={chips}
@@ -477,6 +484,7 @@ export function OnlineFlow({
             players={state.players}
             strokes={r.strokes}
             votersIn={r.votersIn}
+            passes={state.settings.passes}
             onLock={(targetId) => {
               cueLock();
               room.send({ t: "vote", targetId });
@@ -486,7 +494,7 @@ export function OnlineFlow({
       } else {
         body = (
           <Waiting
-            kicker="Both passes complete"
+            kicker={passesCompleteLabel(state.settings.passes)}
             title={
               <>
                 Ballots
@@ -574,9 +582,7 @@ export function OnlineFlow({
             isLastRound={isLastRound}
             nextLabel={
               voided
-                ? isHost
-                  ? "Re-deal the round"
-                  : undefined
+                ? "Re-deal the round"
                 : reveal.aiExhibition
                   ? "What it became"
                   : "Standings"
@@ -639,10 +645,7 @@ export function OnlineFlow({
     }
   }
 
-  const paused =
-    state &&
-    Object.keys(state.holds).length > 0 &&
-    ["dealing", "drawing", "voting", "guessing"].includes(state.phase);
+  const paused = state && isGamePaused(state);
 
   // Screen identity — changing it plays the entry transition.
   const screenId = (() => {
@@ -874,7 +877,6 @@ function WatchBody({
       <Spectate
         kicker={`Watching ${code} · ${round.turnIndex + 1} of ${round.schedule.length}`}
         drawerName={drawer?.name ?? "…"}
-        drawerColor={drawer?.colorIndex ?? 0}
         strokes={round.strokes}
         live={live}
         chips={turnChips(round, state.players)}
@@ -981,5 +983,3 @@ function ErrorToast({ message, onDone }: { message: string; onDone: () => void }
     </div>
   );
 }
-
-export { Kicker };

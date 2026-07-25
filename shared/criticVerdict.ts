@@ -139,8 +139,11 @@ export function parseCriticVerdict(
 
   if (input.detective !== undefined && input.detective !== null) {
     const parsed = attribution(input.detective, "reason", rules.eligibleIds, mode);
-    if (!parsed) return "Bad critic detective";
-    clean.detective = { playerId: parsed.playerId, reason: parsed.body };
+    // Same rule as the callout: an accusation naming someone who has since
+    // been dropped goes with them rather than binning the title, subject
+    // guess, rating and review alongside it. `requireDetective` below still
+    // catches a provider that simply failed to produce one.
+    if (parsed) clean.detective = { playerId: parsed.playerId, reason: parsed.body };
   }
 
   if (rules.requireCritic) {

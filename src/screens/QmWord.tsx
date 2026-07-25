@@ -1,12 +1,14 @@
 // A4 Question master — the only ink-flood screen in setup. Dark = private.
 
 import type { ReactNode } from "react";
+import { numberWord, roundLabel } from "../lib/labels";
 import { Screen, Kicker, Btn } from "../components/ui";
 
 export function QmWord({
   qmName,
   roundNo,
   totalRounds,
+  scoreMode,
   category,
   word,
   artists,
@@ -16,6 +18,7 @@ export function QmWord({
   qmName: string;
   roundNo: number;
   totalRounds: number;
+  scoreMode?: boolean;
   category: string;
   word: string;
   artists: number;
@@ -31,7 +34,10 @@ export function QmWord({
     <Screen tone="ink">
       <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--cream)" }}>
         <span>
-          Round {roundNo} / {totalRounds}
+          {roundLabel(roundNo, {
+            winMode: scoreMode ? "score10" : "rounds",
+            rounds: totalRounds,
+          })}
         </span>
         <span className="u-red">Question master</span>
       </div>
@@ -82,9 +88,4 @@ export function QmWord({
       </div>
     </Screen>
   );
-}
-
-function numberWord(n: number): string {
-  const words = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
-  return words[n] ?? String(n);
 }

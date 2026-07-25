@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SEAT_COLORS, nextFreeColor } from "../../shared/palette";
 import type { PublicRoomState } from "../../shared/protocol";
 import { deckList } from "../../shared/decks";
+import { lengthLabel } from "../lib/labels";
 import { Screen, Kicker, Btn } from "../components/ui";
 
 export function JoinerSetup({
@@ -98,7 +99,7 @@ export function JoinerSetup({
           </Kicker>
           <div className="shout" style={{ fontSize: 22, letterSpacing: "-0.02em" }}>
             {state
-              ? `${state.players.length} in the room${deckName ? ` · ${deckName}` : ""} · ${state.settings.rounds} rounds`
+              ? `${state.players.length} in the room${deckName ? ` · ${deckName}` : ""} · ${lengthLabel(state.settings)}`
               : "…"}
           </div>
           <div className="note" style={{ fontSize: 13, color: "inherit", fontWeight: 600 }}>

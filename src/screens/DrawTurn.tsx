@@ -270,6 +270,7 @@ export function DrawTurn({
             )}
             <button
               className={segs.length > 0 ? "btn btn--ink" : "btn btn--disabled"}
+              disabled={segs.length === 0}
               onClick={commitNow}
             >
               End turn

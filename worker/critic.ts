@@ -80,32 +80,38 @@ function nullable(schema: Record<string, unknown>): Record<string, unknown> {
   return { anyOf: [schema, { type: "null" }] };
 }
 
+/**
+ * Bounded, non-empty text.
+ *
+ * minLength matters: without it an empty string is schema-valid, and the
+ * parser then rejects the whole verdict over one blank optional field —
+ * discarding a title, rating and review we have already paid for. The schema
+ * the model is held to and the validator that checks it have to agree.
+ */
+function textSchema(maxLength: number): Record<string, unknown> {
+  return { type: "string", minLength: 1, maxLength };
+}
+
 const VERDICT_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    title: nullable({ type: "string", maxLength: TEXT_LIMITS.title }),
-    subjectGuess: nullable({
-      type: "string",
-      maxLength: TEXT_LIMITS.subjectGuess,
-    }),
+    title: nullable(textSchema(TEXT_LIMITS.title)),
+    subjectGuess: nullable(textSchema(TEXT_LIMITS.subjectGuess)),
     confidence: nullable({
       type: "integer",
       minimum: 0,
       maximum: 100,
     }),
     rating: nullable({ type: "integer", minimum: 1, maximum: 10 }),
-    ratingTag: nullable({
-      type: "string",
-      maxLength: TEXT_LIMITS.ratingTag,
-    }),
-    review: nullable({ type: "string", maxLength: TEXT_LIMITS.review }),
+    ratingTag: nullable(textSchema(TEXT_LIMITS.ratingTag)),
+    review: nullable(textSchema(TEXT_LIMITS.review)),
     callout: nullable({
       type: "object",
       additionalProperties: false,
       properties: {
-        playerId: { type: "string" },
-        text: { type: "string", maxLength: TEXT_LIMITS.callout },
+        playerId: textSchema(TEXT_LIMITS.playerId),
+        text: textSchema(TEXT_LIMITS.callout),
       },
       required: ["playerId", "text"],
     }),
@@ -113,8 +119,8 @@ const VERDICT_SCHEMA = {
       type: "object",
       additionalProperties: false,
       properties: {
-        playerId: { type: "string" },
-        reason: { type: "string", maxLength: TEXT_LIMITS.detective },
+        playerId: textSchema(TEXT_LIMITS.playerId),
+        reason: textSchema(TEXT_LIMITS.detective),
       },
       required: ["playerId", "reason"],
     }),

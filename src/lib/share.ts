@@ -1,6 +1,7 @@
 // PNG export: single drawings and the C6 contact sheet. Strokes are vector
 // data (normalised 0..1) re-rendered at export resolution — never bitmaps.
 
+import { splitSegments } from "../../shared/geometry";
 import { SEAT_COLORS } from "../../shared/palette";
 import type { ArchiveEntry, Stroke } from "../../shared/types";
 import { buildCurve } from "./curves";
@@ -18,15 +19,21 @@ function drawStrokes(
   ctx.lineJoin = "round";
   ctx.lineWidth = size * 0.017;
   for (const stroke of strokes) {
-    const curve = buildCurve(stroke.points, size);
-    if (!curve) continue;
     ctx.strokeStyle = SEAT_COLORS[stroke.colorIndex] ?? "#121212";
-    ctx.beginPath();
-    ctx.moveTo(curve.x0, curve.y0);
-    for (const s of curve.segs) {
-      ctx.bezierCurveTo(s.c1x, s.c1y, s.c2x, s.c2y, s.x, s.y);
+    // Honour the pen lifts. Drawing the whole point list as one path joins
+    // segments the player deliberately separated, so a free-pen turn exported
+    // with phantom lines — including in the 1024px reference sent to Luna and
+    // GPT Image 2, which then rendered strokes nobody drew.
+    for (const seg of splitSegments(stroke.points, stroke.breaks)) {
+      const curve = buildCurve(seg, size);
+      if (!curve) continue;
+      ctx.beginPath();
+      ctx.moveTo(curve.x0, curve.y0);
+      for (const s of curve.segs) {
+        ctx.bezierCurveTo(s.c1x, s.c1y, s.c2x, s.c2y, s.x, s.y);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
   }
   ctx.restore();
 }

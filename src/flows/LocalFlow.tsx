@@ -24,6 +24,7 @@ import {
   startLocalAiJob,
 } from "../lib/postRoundAi";
 import { drawingReferencePng } from "../lib/share";
+import { passesLabel, roundLabel } from "../lib/labels";
 import { cueLock, cueReveal, cueRound } from "../lib/sound";
 import { useWakeLock } from "../lib/useWakeLock";
 import { useRevealSequence } from "../lib/revealSequence";
@@ -31,6 +32,7 @@ import { Screen, Btn } from "../components/ui";
 import { StrokePaths } from "../components/CanvasBoard";
 import { RulesSheet } from "../components/RulesSheet";
 import { ScreenFade } from "../components/ScreenFade";
+import { VerdictChip } from "../components/VerdictChip";
 import { Roster } from "../screens/Roster";
 import { DeckSettings } from "../screens/DeckSettings";
 import { HouseWords } from "../screens/HouseWords";
@@ -334,7 +336,7 @@ export function LocalFlow({
       const key = `qm-${round.roundNo}`;
       body = !acks[key] ? (
         <Interstitial
-          kicker={`Round ${round.roundNo} / ${state.settings.rounds}`}
+          kicker={roundLabel(round.roundNo, state.settings)}
           right="Question master"
           avatar={qm.name.slice(0, 1).toUpperCase()}
           title={
@@ -361,6 +363,7 @@ export function LocalFlow({
           qmName={qm.name}
           roundNo={round.roundNo}
           totalRounds={state.settings.rounds}
+          scoreMode={state.settings.winMode === "score10"}
           category={round.category}
           word={round.word}
           artists={round.turnOrder.length}
@@ -476,7 +479,7 @@ export function LocalFlow({
               {voter.name}
             </>
           }
-          body="Both passes are on the wall. Time to name the fraud — quietly."
+          body={`${passesLabel(state.settings.passes)} on the wall. Time to name the fraud — quietly.`}
           buttonLabel={`${voter.name} has it`}
           onButton={() => ack(key)}
           footer={
@@ -503,6 +506,7 @@ export function LocalFlow({
           players={state.players}
           strokes={round.strokes}
           votersIn={Object.keys(round.votes)}
+          passes={state.settings.passes}
           onLock={(targetId) => {
             cueLock();
             dispatch({ type: "CAST_VOTE", voterId: voter.id, targetId, now: Date.now() });
@@ -606,6 +610,7 @@ export function LocalFlow({
         />
       );
     } else {
+      const { critic: skippedCritic, rendition: skippedRendition } = reveal.skipped;
       body = (
         <Standings
           players={state.players}
@@ -620,6 +625,24 @@ export function LocalFlow({
               setAcks({});
             }
           }}
+          banner={
+            <>
+              {skippedCritic && (
+                <VerdictChip
+                  ai={round.ai}
+                  target="critic"
+                  onOpen={() => reveal.setStep("critic")}
+                />
+              )}
+              {skippedRendition && (
+                <VerdictChip
+                  ai={round.ai}
+                  target="rendition"
+                  onOpen={() => reveal.setStep("rendition")}
+                />
+              )}
+            </>
+          }
         />
       );
     }

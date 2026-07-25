@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { SEAT_COLORS } from "../../shared/palette";
 import type { Player, RoundState, Stroke } from "../../shared/types";
 import { CanvasBoard, type LiveStroke } from "../components/CanvasBoard";
-import { ClockChip, Screen, Swatch } from "../components/ui";
+import { ClockChip, Screen } from "../components/ui";
 
 export interface TurnChip {
   player: Player;
@@ -39,27 +39,25 @@ export function turnChips(
 export function Spectate({
   kicker,
   drawerName,
-  drawerColor,
   strokes,
   live,
   chips,
   strokeNo,
   strokeTotal,
   banner,
-  liveBadge,
   deadline,
   onHeaderAction,
   headerAction,
 }: {
   kicker: string;
   drawerName: string;
-  drawerColor: number;
   strokes: Stroke[];
   live?: Record<string, LiveStroke>;
   chips: TurnChip[];
   strokeNo: number;
   strokeTotal: number;
   banner?: ReactNode;
+  /** Unused: every spectator view is live, so the badge is unconditional. */
   liveBadge?: boolean;
   deadline?: number | null;
   onHeaderAction?: () => void;
@@ -78,14 +76,10 @@ export function Spectate({
             {drawerName} is drawing
           </div>
         </div>
-        {liveBadge ? (
-          <div className="kicker" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--green)", letterSpacing: "0.1em" }}>
-            <span className="pulse" style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--green)" }} />
-            Live
-          </div>
-        ) : (
-          <Swatch index={drawerColor} size={18} />
-        )}
+        <div className="kicker" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--green)", letterSpacing: "0.1em" }}>
+          <span className="pulse" style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--green)" }} />
+          Live
+        </div>
       </div>
       <CanvasBoard strokes={strokes} live={live} corner={`${String(strokeNo).padStart(2, "0")} / ${strokeTotal}`} />
       <div
@@ -96,7 +90,7 @@ export function Spectate({
           {chips.map(({ player, status, suffix }) => (
             <span
               key={player.id}
-              className={status === "now" ? "chip" : status === "done" ? "chip" : "chip chip--wait"}
+              className={status === "wait" ? "chip chip--wait" : "chip"}
               style={status === "now" ? { background: SEAT_COLORS[player.colorIndex] } : undefined}
             >
               {player.name}

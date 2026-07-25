@@ -21,7 +21,8 @@ import {
   handleArchiveRendition,
   getArchive,
 } from "./archives";
-import { archiveTags, roomTags, serveShellWithOg } from "./og";
+import { archiveTags, roomTags, watchTags } from "../shared/og";
+import { serveShellWithOg } from "./og";
 import {
   runPostRoundAi,
   type PostRoundWorkflowEnv,
@@ -147,9 +148,11 @@ export default {
     }
 
     // App routes that want og tags for link-preview crawlers.
-    const roomPage = url.pathname.match(/^\/r\/([A-Za-z]{4})$/);
+    const roomPage = url.pathname.match(/^\/(r|w)\/([A-Za-z]{4})$/);
     if (roomPage && (request.method === "GET" || request.method === "HEAD")) {
-      return serveShellWithOg(request, env, roomTags(url.origin, normalizeRoomCode(roomPage[1])));
+      const code = normalizeRoomCode(roomPage[2]);
+      const tags = roomPage[1] === "w" ? watchTags : roomTags;
+      return serveShellWithOg(request, env, tags(url.origin, code));
     }
     const archivePage = url.pathname.match(/^\/a\/([a-z2-9]{12})$/);
     if (archivePage && (request.method === "GET" || request.method === "HEAD")) {

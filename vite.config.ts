@@ -11,8 +11,10 @@ export default defineConfig({
       manifest: {
         name: "The Uninvited Painter",
         short_name: "Painter",
+        // App-level copy describes the app, not one room's settings — passes
+        // are configurable, so the number stays out of it.
         description:
-          "Everyone gets one stroke. Two passes. One player was never told what the picture is.",
+          "Everyone gets one stroke. One player was never told what the picture is.",
         theme_color: "#f2ede1",
         background_color: "#f2ede1",
         display: "standalone",

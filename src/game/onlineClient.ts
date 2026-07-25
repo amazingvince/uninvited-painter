@@ -3,6 +3,7 @@
 // ride a separate ephemeral channel.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { drawerOf } from "../../shared/engine";
 import type { ClientMsg, PublicRoomState, ServerMsg, YouView } from "../../shared/protocol";
 import type { StrokePoints } from "../../shared/types";
 import type { LiveStroke } from "../components/CanvasBoard";
@@ -19,8 +20,14 @@ export interface OnlineRoom {
   join: (name: string, colorIndex: number) => void;
   send: (msg: ClientMsg) => void;
   sendLive: (batch: StrokePoints, newSegment?: boolean) => void;
+  sendLiveClear: () => void;
   clearError: () => void;
 }
+
+/** Ink and handshakes are worthless once replayed: live points are stale by
+ *  the time the socket returns, and join/rejoin is redone on open anyway. */
+const EPHEMERAL_MSGS = new Set<ClientMsg["t"]>(["live", "liveClear", "join", "rejoin"]);
+const OUTBOX_MAX = 32;
 
 export function useOnlineRoom(code: string, watch = false): OnlineRoom {
   const [connected, setConnected] = useState(false);
@@ -35,6 +42,7 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
   const liveBuf = useRef<number[]>([]);
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const goneRef = useRef(false);
+  const outbox = useRef<ClientMsg[]>([]);
 
   useEffect(() => {
     let closed = false;
@@ -54,6 +62,11 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
         if (!watch && hasJoined(code)) {
           ws.send(JSON.stringify({ t: "rejoin", token: roomToken(code) } satisfies ClientMsg));
         }
+        // Replay what the player did while the socket was down — after the
+        // rejoin, so the room knows whose actions these are.
+        const queued = outbox.current;
+        outbox.current = [];
+        for (const msg of queued) ws.send(JSON.stringify(msg));
       };
 
       ws.onmessage = (e) => {
@@ -76,7 +89,7 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
             // In-progress overlays only make sense for the current drawer.
             const drawer =
               msg.state.phase === "drawing" && msg.state.round
-                ? msg.state.round.schedule[msg.state.round.turnIndex]
+                ? drawerOf(msg.state.round)
                 : null;
             setLive((prev) => {
               const next: Record<string, LiveStroke> = {};
@@ -171,8 +184,29 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
+      return;
+    }
+    // Anything the player actually decided has to survive a flaky socket.
+    // Dropping a "seen" is how one locked phone leaves an entire room waiting
+    // on a card that was read minutes ago; dropping a "commit" loses a stroke
+    // with no trace. The DO re-validates every replayed message, so a stale
+    // one is refused rather than misapplied.
+    if (!EPHEMERAL_MSGS.has(msg.t) && outbox.current.length < OUTBOX_MAX) {
+      outbox.current.push(msg);
     }
   }, []);
+
+  /** Clear the in-flight ink, cancelling anything still sitting in the buffer.
+   *  Sending the clear on its own would race the 40ms flush and leave a
+   *  phantom nib on every spectator's screen for the rest of the turn. */
+  const sendLiveClear = useCallback(() => {
+    if (liveTimer.current !== null) {
+      clearTimeout(liveTimer.current);
+      liveTimer.current = null;
+    }
+    liveBuf.current = [];
+    send({ t: "liveClear" });
+  }, [send]);
 
   const join = useCallback(
     (name: string, colorIndex: number) => {
@@ -210,5 +244,8 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
 
   const clearError = useCallback(() => setError(null), []);
 
-  return { connected, joined, gone, state, you, error, live, join, send, sendLive, clearError };
+  return {
+    connected, joined, gone, state, you, error, live,
+    join, send, sendLive, sendLiveClear, clearError,
+  };
 }

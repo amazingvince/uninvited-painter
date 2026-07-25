@@ -538,13 +538,32 @@ describe("AI result mapping is shared", () => {
       type: "RESOLVE_ROUND_CRITIC",
       roundNo: state.round!.roundNo,
       jobId: JOB_ID,
-      // Names an artist who is not in this round.
-      verdict: sampleVerdict({ detective: { playerId: "ghost", reason: "Nope." } }),
+      // Malformed rather than merely stale: the engine validates strictly, so
+      // an over-long title is refused outright.
+      verdict: sampleVerdict({ title: "x".repeat(500) }),
     };
     expect(reduce(state, bad).ok).toBe(false);
     const settled = reduce(state, aiFallbackEvent(bad)!);
     expect(settled.ok).toBe(true);
     if (!settled.ok) return;
     expect(settled.state.round!.ai.criticStatus).toBe("unavailable");
+  });
+
+  it("keeps a paid verdict whose suspect left the round, minus the accusation", () => {
+    // The detective is decoration and never scores, so a playerId that is no
+    // longer eligible drops with the accusation — binning the title, rating
+    // and review alongside it would throw away a call we already paid for.
+    const state = revealedRoomWithPendingAi();
+    const result = reduce(state, {
+      type: "RESOLVE_ROUND_CRITIC",
+      roundNo: state.round!.roundNo,
+      jobId: JOB_ID,
+      verdict: sampleVerdict({ detective: { playerId: "ghost", reason: "Nope." } }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.round!.ai.criticStatus).toBe("ready");
+    expect(result.state.round!.ai.critic?.title).toBeTruthy();
+    expect(result.state.round!.ai.critic?.detective).toBeUndefined();
   });
 });

@@ -74,10 +74,12 @@ export function AiSettings({
           </div>
         </div>
       )}
-      <div className="note" style={{ fontSize: 12, lineHeight: 1.45 }}>
-        The finished drawing is sent to OpenAI and uses API credits. GPT Image
-        2 automatically makes the realistic version while everyone votes.
-      </div>
+      {enabled && (
+        <div className="note" style={{ fontSize: 12, lineHeight: 1.45 }}>
+          The finished drawing is sent to OpenAI and uses API credits. GPT Image
+          2 automatically makes the realistic version while everyone votes.
+        </div>
+      )}
     </section>
   );
 }

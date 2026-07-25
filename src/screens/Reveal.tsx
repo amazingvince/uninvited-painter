@@ -3,9 +3,11 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { voteTally } from "../../shared/engine";
 import { guessMatches } from "../../shared/fuzzy";
 import type { Outcome, Player, RoundState } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
+import { numberWord } from "../lib/labels";
 import { drawingPng, shareOrDownload } from "../lib/share";
 import { Screen, Btn } from "../components/ui";
 
@@ -59,9 +61,7 @@ function headline(outcome: Outcome, fake: string): [string, ReactNode] {
 
 function summaryLine(round: RoundState, players: Player[]): string {
   const fake = players.find((p) => p.id === round.fakeId)?.name ?? "?";
-  const tally: Record<string, number> = {};
-  for (const t of Object.values(round.votes)) tally[t] = (tally[t] ?? 0) + 1;
-  const counts = Object.values(tally).sort((a, b) => b - a);
+  const counts = Object.values(voteTally(round.votes)).sort((a, b) => b - a);
   const voteStr = counts.length >= 2 ? `${counts[0]}–${counts[1]}` : counts.length ? `${counts[0]}–0` : "";
   switch (round.outcome) {
     case "survived":
@@ -82,18 +82,17 @@ function summaryLine(round: RoundState, players: Player[]): string {
 export function Reveal({
   round,
   players,
-  totalRounds,
-  isLastRound,
   onNext,
   nextLabel,
   waiting,
 }: {
   round: RoundState;
   players: Player[];
-  totalRounds: number;
-  isLastRound: boolean;
+  /** Unused: the caller composes nextLabel, so it owns the round arithmetic. */
+  totalRounds?: number;
+  isLastRound?: boolean;
   onNext?: () => void;
-  nextLabel?: string;
+  nextLabel: string;
   waiting?: string;
 }) {
   const outcome = round.outcome ?? "survived";
@@ -127,12 +126,6 @@ export function Reveal({
         ]
       : []),
   ];
-
-  const defaultNext = voided
-    ? "Re-deal the round"
-    : isLastRound
-      ? "Close the exhibition"
-      : `Round ${round.roundNo + 1} of ${totalRounds}`;
 
   return (
     <Screen>
@@ -250,7 +243,7 @@ export function Reveal({
         <div style={{ marginTop: "auto" }} className="btn-stack">
           {onNext ? (
             <Btn variant="red" onClick={onNext}>
-              {nextLabel ?? defaultNext}
+              {nextLabel}
             </Btn>
           ) : (
             <div className="note u-center pulse">{waiting ?? "Waiting for the host…"}</div>
@@ -271,9 +264,4 @@ export function Reveal({
       </div>
     </Screen>
   );
-}
-
-function numberWord(n: number): string {
-  const words = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
-  return words[n] ?? String(n);
 }

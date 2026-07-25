@@ -11,9 +11,11 @@ import { redactState, type ClientMsg, type ServerMsg } from "../shared/protocol"
 import { ROOM_TTL_MS, type GameEvent, type RoomState } from "../shared/types";
 import { validateReferencePng } from "./ai-input";
 import {
+  DAILY_AI_JOB_LIMIT,
   markJobPrivate,
   putPendingJob,
   putSource,
+  withinDailyAiBudget,
   type PostRoundAiResult,
 } from "./ai-jobs";
 import { aiFallbackEvent, aiResultEvents } from "../shared/aiResults";
@@ -24,9 +26,20 @@ interface Attachment {
   playerId: string | null;
 }
 
+/** A pending AI job and the moment the room stops waiting for it. */
+interface AiWatchdog {
+  roundNo: number;
+  at: number;
+}
+
+/** Sustained messages per second per socket, and the burst it may bank. */
+const SOCKET_RATE = 40;
+const SOCKET_BURST = 120;
+
 export class RoomDO extends DurableObject<Env> {
   private cached: RoomState | null | undefined;
   private aiStartGate: Promise<void> = Promise.resolve();
+  private socketBudget = new WeakMap<WebSocket, { tokens: number; at: number }>();
   /** Ephemeral per-turn budget for the live relay (resets with the instance —
    *  hibernation wiping it just refills the bucket, which is harmless). */
   private liveBudget: { turnKey: string; coords: number } = { turnKey: "", coords: 0 };
@@ -97,7 +110,20 @@ export class RoomDO extends DurableObject<Env> {
     // Persist the authoritative job assignment before any R2 or Workflow work,
     // so concurrent uploads can only ever observe and reuse this job.
     await this.persistAndBroadcast(started.state);
+    // Arm the watchdog before any outside work. Nothing else in the DO can
+    // settle an AI branch, so if this instance dies between here and the
+    // Workflow actually running — eviction, a deploy, a failed R2 write — the
+    // round would otherwise sit on "Luna is still deciding" for the rest of
+    // the game, in the archive as well as on screen.
+    await this.armAiWatchdog(jobId, roundNo);
     try {
+      // Spend against the same daily ceiling the local route uses. Online play
+      // is the path real games take, so leaving it uncapped meant the limit
+      // never applied to anything that mattered. Over budget settles both
+      // branches through the catch below, so the reveal still resolves.
+      if (!(await withinDailyAiBudget(this.env, DAILY_AI_JOB_LIMIT))) {
+        throw new Error("Daily AI budget spent");
+      }
       await putSource(this.env, jobId, png);
       // Room jobs are never served over the public polling endpoint.
       await markJobPrivate(this.env, jobId);
@@ -133,7 +159,49 @@ export class RoomDO extends DurableObject<Env> {
     return { jobId };
   }
 
+  /**
+   * A refilling per-socket allowance. Generous enough that fast legitimate
+   * play (live ink at ~25 messages a second while drawing) never notices, and
+   * low enough that a loop cannot melt the room. Held in instance memory: it
+   * resets if the DO hibernates, which is fine — so does the attack.
+   */
+  private withinSocketBudget(ws: WebSocket): boolean {
+    const now = Date.now();
+    const bucket = this.socketBudget.get(ws) ?? { tokens: SOCKET_BURST, at: now };
+    const refill = ((now - bucket.at) / 1000) * SOCKET_RATE;
+    bucket.tokens = Math.min(SOCKET_BURST, bucket.tokens + refill);
+    bucket.at = now;
+    if (bucket.tokens < 1) {
+      this.socketBudget.set(ws, bucket);
+      return false;
+    }
+    bucket.tokens -= 1;
+    this.socketBudget.set(ws, bucket);
+    return true;
+  }
+
+  /** How long an AI job may stay pending before the room gives up on it. */
+  private static readonly AI_WATCHDOG_MS = 5 * 60_000;
+
+  private async aiWatchdogs(): Promise<Record<string, AiWatchdog>> {
+    return (await this.ctx.storage.get<Record<string, AiWatchdog>>("aiWatchdogs")) ?? {};
+  }
+
+  private async armAiWatchdog(jobId: string, roundNo: number): Promise<void> {
+    const watchdogs = await this.aiWatchdogs();
+    watchdogs[jobId] = { roundNo, at: Date.now() + RoomDO.AI_WATCHDOG_MS };
+    await this.ctx.storage.put("aiWatchdogs", watchdogs);
+  }
+
+  private async clearAiWatchdog(jobId: string): Promise<void> {
+    const watchdogs = await this.aiWatchdogs();
+    if (!(jobId in watchdogs)) return;
+    delete watchdogs[jobId];
+    await this.ctx.storage.put("aiWatchdogs", watchdogs);
+  }
+
   async completeAiJob(result: PostRoundAiResult): Promise<void> {
+    await this.clearAiWatchdog(result.jobId);
     let state = await this.getState();
     if (!state) return;
 
@@ -187,6 +255,11 @@ export class RoomDO extends DurableObject<Env> {
   // -------------------------------------------------------------------------
 
   async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): Promise<void> {
+    // Most messages cost a full state write plus a redacted broadcast to every
+    // socket in the room. Without a ceiling one seated client can loop a cheap
+    // message and make the room unplayable for everyone else while billing a
+    // storage write per iteration. Ink is metered separately, per turn.
+    if (!this.withinSocketBudget(ws)) return;
     let msg: ClientMsg;
     try {
       msg = JSON.parse(typeof raw === "string" ? raw : new TextDecoder().decode(raw));
@@ -327,6 +400,14 @@ export class RoomDO extends DurableObject<Env> {
             await this.ctx.storage.put("tokens", tokens);
             return;
           }
+          // "Carry on without them" is for seats that are actually empty.
+          // Allowing it on a live player turned it into a fake-artist oracle:
+          // dropping the fake voids the round and dropping anyone else does
+          // not, so the host could name a suspect and read the answer off the
+          // next broadcast, one player at a time.
+          const target = state.players.find((p) => p.id === msg.playerId);
+          if (!target) return this.sendError(ws, "No such player");
+          if (target.connected) return this.sendError(ws, "They're still here");
           if (round && msg.playerId === round.fakeId) {
             return await this.dispatch(ws, { type: "VOID_ROUND" });
           }
@@ -432,6 +513,24 @@ export class RoomDO extends DurableObject<Env> {
       }
     }
 
+    // AI jobs that never reported back: settle both branches so the reveal
+    // ladder and the archive entry reach a terminal state.
+    const watchdogs = await this.aiWatchdogs();
+    let watchdogsChanged = false;
+    for (const [jobId, watchdog] of Object.entries(watchdogs)) {
+      if (watchdog.at > now) continue;
+      for (const type of ["FAIL_ROUND_CRITIC", "FAIL_ROUND_RENDITION"] as const) {
+        const result = reduce(state, { type, roundNo: watchdog.roundNo, jobId });
+        if (result.ok) {
+          state = result.state;
+          changed = true;
+        }
+      }
+      delete watchdogs[jobId];
+      watchdogsChanged = true;
+    }
+    if (watchdogsChanged) await this.ctx.storage.put("aiWatchdogs", watchdogs);
+
     if (state.phase === "guessing" && state.round?.guessDeadline != null) {
       if (state.round.guessDeadline <= now && Object.keys(state.holds).length === 0) {
         const result = reduce(state, { type: "GUESS_TIMEOUT", now });
@@ -528,8 +627,12 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   private async persist(state: RoomState): Promise<void> {
-    this.cached = state;
+    // Cache only after the write lands. Caching first meant a failed put (a
+    // state grown past the per-value ceiling, say) left the instance serving
+    // a version it could not durably store — every later move failed the same
+    // way and the room silently rewound on eviction.
     await this.ctx.storage.put("state", state);
+    this.cached = state;
   }
 
   private async persistAndBroadcast(state: RoomState): Promise<void> {
@@ -602,6 +705,11 @@ export class RoomDO extends DurableObject<Env> {
       times.push(state.round.turnDeadline);
     }
     times.push(...Object.values(state.holds));
+    // Watchdogs are independent of gameplay: a held seat must not postpone
+    // giving up on an AI job that is never coming back.
+    for (const watchdog of Object.values(await this.aiWatchdogs())) {
+      times.push(watchdog.at);
+    }
     const emptySince = await this.ctx.storage.get<number>("emptySince");
     if (emptySince !== undefined && this.liveSockets().length === 0) {
       times.push(emptySince + ROOM_TTL_MS);

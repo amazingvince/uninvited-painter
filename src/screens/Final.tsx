@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { ArchiveEntry, Player } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
 import { criticAccuracy, criticChoice } from "../lib/aiStats";
+import { numberWord } from "../lib/labels";
 import { contactSheetPng, drawingPng, publishArchive, shareOrDownload } from "../lib/share";
 import { renditionImageUrl } from "./RenditionReveal";
 import { Confetti } from "../components/Confetti";
@@ -14,13 +15,13 @@ import { Screen, Btn, Kicker } from "../components/ui";
 export function Final({
   players,
   archive,
-  totalRounds,
   onAgain,
   waiting,
 }: {
   players: Player[];
   archive: ArchiveEntry[];
-  totalRounds: number;
+  /** Unused: the header counts the rounds actually played, not the cap. */
+  totalRounds?: number;
   onAgain?: () => void;
   waiting?: string;
 }) {
@@ -65,7 +66,9 @@ export function Final({
     <Screen>
       <Confetti />
       <div style={{ background: "var(--red)", color: "var(--cream-on-red)", padding: "22px 20px", flex: "none" }}>
-        <Kicker>Exhibition closed · {totalRounds} rounds</Kicker>
+        <Kicker>
+          Exhibition closed · {archive.length} {archive.length === 1 ? "round" : "rounds"}
+        </Kicker>
         <div className="shout" style={{ fontSize: 44, lineHeight: 0.88, letterSpacing: "-0.045em" }}>
           {winner?.name} takes
           <br />
@@ -207,9 +210,4 @@ export function Final({
       </div>
     </Screen>
   );
-}
-
-function numberWord(n: number): string {
-  const words = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];
-  return words[n] ?? String(n);
 }

@@ -53,6 +53,7 @@ export interface AiR2Bucket {
     options?: AiR2PutOptions,
   ): Promise<unknown>;
   get(key: string): Promise<AiR2Object | null>;
+  delete?(key: string): Promise<unknown>;
 }
 
 export interface AiJobStoreEnv {
@@ -115,6 +116,12 @@ export async function isJobPrivate(
   if (!JOB_ID_RE.test(jobId)) return true;
   return (await env.ARTWORK.get(jobPrivateKey(jobId))) !== null;
 }
+
+/** Paid jobs per calendar day across the whole deployment. Lives here so the
+ *  local route and the room's Durable Object spend against one ceiling —
+ *  keeping a private copy in ai-routes.ts left online play, the path real
+ *  games take, with no cap at all. */
+export const DAILY_AI_JOB_LIMIT = 300;
 
 /**
  * A hard daily ceiling on paid image/critic jobs. The per-IP rate limiter
@@ -303,6 +310,24 @@ export async function putSource(
   png: ArrayBuffer,
 ): Promise<void> {
   await env.ARTWORK.put(jobSourceKey(jobId), png, PRIVATE_PNG);
+}
+
+/**
+ * Drop the uploaded reference once both branches have read it.
+ *
+ * A source PNG is up to 2 MB and nothing reads it after the job settles, so
+ * without this every round leaves one behind for good. Best-effort: an
+ * orphaned object costs storage, a thrown error would cost the result.
+ */
+export async function deleteSource(
+  env: AiJobStoreEnv,
+  jobId: string,
+): Promise<void> {
+  try {
+    await env.ARTWORK.delete?.(jobSourceKey(jobId));
+  } catch {
+    /* the lifecycle rule on jobs/ is the backstop */
+  }
 }
 
 export async function getSource(

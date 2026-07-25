@@ -10,6 +10,7 @@ import {
 } from "../shared/engine";
 import { guessMatches } from "../shared/fuzzy";
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from "../shared/codes";
+import { prepareRoundEvent } from "../shared/decks";
 import type { GameEvent, RoomState } from "../shared/types";
 import { redactState } from "../shared/protocol";
 
@@ -896,5 +897,132 @@ describe("turn-style options", () => {
     // the host can still drop the missing player without any hold
     const dropped = apply(state, { type: "DROP_PLAYER", playerId: "p2", now: 0 });
     expect(dropped.round!.droppedIds).toContain("p2");
+  });
+});
+
+describe("seat holds do not outlive their round", () => {
+  /** Caught fake, then a bystander closes their tab while the fake guesses. */
+  function heldDuringGuess(): RoomState {
+    let state = drawAll(dealtRound());
+    expect(state.phase).toBe("voting");
+    for (const voter of ["p1", "p2", "p3", "p4", "p5", "p6"]) {
+      state = apply(state, {
+        type: "CAST_VOTE",
+        voterId: voter,
+        targetId: voter === "p1" ? "p2" : "p1",
+        now: 0,
+      });
+    }
+    expect(state.phase).toBe("guessing");
+    state = apply(state, { type: "SET_CONNECTED", playerId: "p5", connected: false, now: 1_000 });
+    expect(state.holds.p5).toBeGreaterThan(0);
+    return state;
+  }
+
+  it("releases the hold when the round is scored", () => {
+    const state = apply(heldDuringGuess(), {
+      type: "SUBMIT_GUESS",
+      playerId: "p1",
+      text: "seal",
+      matched: false,
+    });
+    expect(state.phase).toBe("reveal");
+    expect(state.holds).toEqual({});
+  });
+
+  it("releases the hold when the round is voided", () => {
+    const state = apply(heldDuringGuess(), { type: "VOID_ROUND" });
+    expect(state.holds).toEqual({});
+  });
+
+  it("does not pause the next round on behalf of an absent player", () => {
+    let state = apply(heldDuringGuess(), {
+      type: "SUBMIT_GUESS",
+      playerId: "p1",
+      text: "seal",
+      matched: false,
+    });
+    // p5 is still away, so they sit the next round out entirely.
+    state = apply(state, {
+      type: "START_ROUND",
+      word: "otter",
+      category: "Animals",
+      qmId: "p0",
+      fakeId: "p2",
+      turnOrder: ["p1", "p2", "p3", "p4", "p6"],
+    });
+    state = apply(state, { type: "DEAL", now: 2_000 });
+    for (const id of ["p0", "p1", "p2", "p3", "p4", "p6"]) {
+      state = apply(state, { type: "MARK_SEEN", playerId: id, now: 2_000 });
+    }
+    expect(state.phase).toBe("drawing");
+    // The round must be playable immediately — not frozen behind a stale hold.
+    expect(
+      reduce(state, {
+        type: "COMMIT_STROKE",
+        playerId: currentDrawerId(state)!,
+        points: LINE,
+        now: 2_000,
+      }).ok,
+    ).toBe(true);
+  });
+});
+
+describe("house deck fairness", () => {
+  /** prepareRoundEvent is typed as GameEvent; narrow it to the round it builds. */
+  function startEvent(state: RoomState, rng: () => number) {
+    const event = prepareRoundEvent(state, rng);
+    if (event.type !== "START_ROUND") throw new Error(`Expected START_ROUND, got ${event.type}`);
+    return event;
+  }
+
+  /** Everyone writes "pizza"; p0..p4 also pad the pot to the minimum. */
+  function sharedWordLobby(): RoomState {
+    let state = lobbyWith(5);
+    state = apply(state, { type: "SET_SETTINGS", settings: { deckId: "house", qmMode: "off" } });
+    for (let i = 0; i < 5; i++) {
+      state = apply(state, { type: "ADD_HOUSE_WORDS", playerId: `p${i}`, words: ["pizza"] });
+    }
+    state = apply(state, {
+      type: "ADD_HOUSE_WORDS",
+      playerId: "p0",
+      words: ["kite", "ladder", "compass", "anchor", "violin", "cactus", "lantern"],
+    });
+    return state;
+  }
+
+  it("never deals the fake a word they wrote, even when others wrote it too", () => {
+    const state = sharedWordLobby();
+    expect(state.customWords.filter((w) => w.word === "pizza")).toHaveLength(5);
+    // Sweep the whole rng range rather than sampling — the bug was probabilistic.
+    for (let i = 0; i < 200; i++) {
+      const event = startEvent(state, () => i / 200);
+      const authors = state.customWords
+        .filter((w) => w.word.toLowerCase() === event.word.toLowerCase())
+        .map((w) => w.authorId);
+      expect(authors).not.toContain(event.fakeId);
+    }
+  });
+
+  it("borrows from the built-in decks rather than deal the fake their own word", () => {
+    // p0 writes the entire pot, so whenever p0 is the fake nothing in the
+    // house deck is eligible and the round has to fall back.
+    let state = lobbyWith(5);
+    state = apply(state, { type: "SET_SETTINGS", settings: { deckId: "house", qmMode: "off" } });
+    const pot = [
+      "kite", "ladder", "compass", "anchor", "violin", "cactus",
+      "lantern", "pizza", "harbour", "puppet", "cellar", "trumpet",
+    ];
+    state = apply(state, { type: "ADD_HOUSE_WORDS", playerId: "p0", words: pot });
+
+    let fellBack = 0;
+    for (let i = 0; i < 200; i++) {
+      const event = startEvent(state, () => i / 200);
+      if (event.fakeId !== "p0") continue;
+      fellBack += 1;
+      expect(event.category).not.toBe("House deck");
+      expect(pot).not.toContain(event.word.toLowerCase());
+    }
+    expect(fellBack).toBeGreaterThan(0);
   });
 });

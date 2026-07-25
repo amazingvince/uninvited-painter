@@ -61,12 +61,29 @@ function drawWordFor(
   rng: () => number,
 ): { word: string; category: string } {
   if (state.settings.deckId === "house") {
-    const used = new Set(usedWords);
-    const pool = state.customWords.filter(
-      (w) => w.authorId !== fakeId && !used.has(w.word),
+    const used = new Set(usedWords.map((w) => w.toLowerCase()));
+    // Exclude by word text, not by row. Submissions are deduped per author
+    // (deduping across the pot would leak whether a word is already in it), so
+    // a word several people wrote appears several times — filtering on
+    // authorId alone leaves the fake's own word in the pool under someone
+    // else's name, and a fake who knows the word cannot lose.
+    const theirs = new Set(
+      state.customWords
+        .filter((w) => w.authorId === fakeId)
+        .map((w) => w.word.toLowerCase()),
     );
+    // One entry per distinct word, so a popular word isn't weighted by how
+    // many people happened to write it.
+    const pool: string[] = [];
+    const seen = new Set<string>();
+    for (const { word } of state.customWords) {
+      const key = word.toLowerCase();
+      if (theirs.has(key) || used.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      pool.push(word);
+    }
     if (pool.length > 0) {
-      return { word: pool[Math.floor(rng() * pool.length)].word, category: "House deck" };
+      return { word: pool[Math.floor(rng() * pool.length)], category: "House deck" };
     }
     // Pool dry for this fake — borrow from the full collection instead.
   }

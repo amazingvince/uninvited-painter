@@ -36,23 +36,6 @@ export const SEAT_TEXT_COLORS = [
   "#0d5c8a",
 ] as const;
 
-export const UI = {
-  cream: "#f2ede1",
-  ink: "#121212",
-  red: "#d92b1f",
-  redDeep: "#8f1a11",
-  rule: "#c9c2b0",
-  paper: "#fffbf0",
-  muted: "#6b665c",
-  mutedDark: "#8d8779", // muted on dark grounds
-  gold: "#f0d070",
-  barTrack: "#dcd5c4",
-  creamOnRed: "#f7f2e6",
-  mutedOnRed: "#f7d4cf",
-  green: "#3f7a2c",
-  amber: "#f0a012",
-} as const;
-
 export function nextFreeColor(taken: number[]): number {
   for (let i = 0; i < SEAT_COLORS.length; i++) {
     if (!taken.includes(i)) return i;

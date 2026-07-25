@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { SEAT_COLORS } from "../../shared/palette";
+import { MIN_STROKE_COORDS } from "../../shared/types";
 import type { Stroke, StrokePoints } from "../../shared/types";
 import { splitSegments } from "../../shared/geometry";
 import { buildCurve } from "../lib/curves";
@@ -124,7 +125,7 @@ export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasB
       gestureLen.current = 0;
       setDraft(null);
       if (!d) return;
-      if (pts.length < 6) {
+      if (pts.length < MIN_STROKE_COORDS) {
         d.onMisTap?.();
         return;
       }

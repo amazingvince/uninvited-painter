@@ -4,7 +4,7 @@
 // role assignment) is decided by the caller and carried in on the event.
 
 import {
-  GRACE_MS,
+  DECK_IDS,
   GUESS_MS,
   HOLD_MS,
   HOUSE_MAX_WORDS,
@@ -34,7 +34,18 @@ import { AI_ID_RE } from "./ids";
 /** Committed strokes cap out well above the client's own sampling limit. */
 const MAX_STROKE_COORDS = 2400;
 
-export { GRACE_MS, GUESS_MS, HOLD_MS, MIN_PLAYERS, MAX_PLAYERS };
+/**
+ * Clamp to the canvas and round to the millimetre.
+ *
+ * Raw pointer samples serialise as ~18 characters each ("0.4632107023411371").
+ * A 12-player, 3-pass round is thousands of them, stored twice once the round
+ * is archived — enough to push a Durable Object past its per-value ceiling
+ * (which bricks the room) and a saved local game past the localStorage quota.
+ * Three decimals is finer than the board ever renders.
+ */
+function quantise(n: number): number {
+  return Math.round(Math.min(1, Math.max(0, n)) * 1000) / 1000;
+}
 
 export function aiEnabled(
   settings: Pick<Settings, "aiCritic" | "aiDetective">,
@@ -112,6 +123,7 @@ export function normalizeRoom(state: RoomState): RoomState {
   if (state.round) {
     state.round.turnDeadline ??= null;
     state.round.ai ??= emptyRoundAi();
+    state.round.hadQm ??= state.round.qmId !== null;
   }
   for (const entry of state.archive ?? []) {
     entry.ai ??= emptyRoundAi();
@@ -175,12 +187,6 @@ export function currentDrawerId(state: RoomState): string | null {
   return drawerOf(state.round);
 }
 
-export function strokesRemaining(
-  round: Pick<RoundState, "schedule" | "turnIndex">,
-): number {
-  return round.schedule.length - round.turnIndex;
-}
-
 /** Everyone required to see their card before drawing starts. */
 export function mustSee(
   round: Pick<RoundState, "turnOrder" | "droppedIds" | "qmId">,
@@ -217,10 +223,18 @@ export function accusedFromVotes(
   return tied ? null : best;
 }
 
-export function isGamePaused(state: RoomState): boolean {
+/** A held seat freezes the round. "dealing" counts — SET_CONNECTED takes a
+ *  hold there too, so leaving it out told the player the room was live when
+ *  every action was already being refused. */
+export function isGamePaused(
+  state: Pick<RoomState, "holds" | "phase">,
+): boolean {
   return (
     Object.keys(state.holds).length > 0 &&
-    (state.phase === "drawing" || state.phase === "voting" || state.phase === "guessing")
+    (state.phase === "dealing" ||
+      state.phase === "drawing" ||
+      state.phase === "voting" ||
+      state.phase === "guessing")
   );
 }
 
@@ -295,10 +309,14 @@ function validateVerdict(
   eligible: Set<string>,
   verdict: CriticVerdict,
 ): CriticVerdict | string {
+  // Completeness was already enforced at the provider boundary; what the
+  // engine adds is that every named player still belongs to this round.
+  // Re-requiring the detective here would reject a verdict whose suspect was
+  // dropped between the upload and the result — throwing away a paid review
+  // to protect a line of flavour text.
   return parseCriticVerdict(verdict, {
     eligibleIds: eligible,
     requireCritic: settings.aiCritic,
-    requireDetective: settings.aiDetective,
   });
 }
 
@@ -387,6 +405,10 @@ function finishRound(state: RoomState, outcome: NonNullable<RoundState["outcome"
   }
   state.phase = "reveal";
   round.turnDeadline = null;
+  // A seat hold belongs to the round that created it. Left standing it pauses
+  // the *next* round on behalf of someone who isn't even in it — the room sits
+  // frozen until the hold expires and the alarm drops them.
+  state.holds = {};
   // The reveal waits on host taps — make sure the host seat is a live one.
   ensureLiveHost(state);
 }
@@ -468,10 +490,22 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
     }
 
     case "RENAME_PLAYER": {
+      // Names are fixed once the game starts, exactly as colours are: two
+      // identical names on the ballot make the vote ambiguous, and letting
+      // anyone take a rival's name mid-round is an impersonation gift.
+      if (state.phase !== "lobby") return fail("Names are fixed once the game starts");
       const player = playerById(state, event.playerId);
       if (!player) return fail("No such player");
       const trimmed = event.name.trim().slice(0, 18);
       if (!trimmed) return fail("A name is required");
+      if (trimmed === player.name) return { ok: true, state }; // no-op, don't broadcast
+      if (
+        state.players.some(
+          (p) => p.id !== player.id && p.name.toLowerCase() === trimmed.toLowerCase(),
+        )
+      ) {
+        return fail("That name is taken");
+      }
       player.name = trimmed;
       return { ok: true, state };
     }
@@ -510,6 +544,11 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
     case "SET_SETTINGS": {
       if (state.phase !== "lobby") return fail("Settings are fixed once the game starts");
       const next = { ...state.settings, ...event.settings };
+      // deckId and qmMode are validated too: an unknown deck is persisted
+      // happily and then throws inside prepareRoundEvent, which the DO can
+      // only report as "Something went wrong" on every future round start.
+      if (!DECK_IDS.includes(next.deckId)) return fail("Bad deck");
+      if (!["rotate", "off"].includes(next.qmMode)) return fail("Bad QM mode");
       if (![3, 5, 7].includes(next.rounds)) return fail("Rounds must be 3, 5 or 7");
       if (![1, 2, 3].includes(next.passes)) return fail("Passes must be 1, 2 or 3");
       if (![0, 60, 90].includes(next.strokeClock)) return fail("Bad stroke clock");
@@ -669,10 +708,12 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
           }
         }
       }
-      if (!event.connected && (state.phase === "lobby" || state.phase === "reveal" || state.phase === "closed")) {
-        // Host duties gate progress in these phases; don't strand the room.
-        ensureLiveHost(state);
-      }
+      // Host duty gates progress in every phase, so it must never sit on a
+      // dark seat. This used to run only in lobby/reveal/closed, which left a
+      // relaxed room permanently deadlocked when the host vanished mid-round:
+      // no hold is taken there, so no alarm ever fires, and drop and void are
+      // both host-only — nobody left could unstick it.
+      if (!event.connected) ensureLiveHost(state);
       return { ok: true, state };
     }
 
@@ -705,6 +746,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
         word: event.word,
         category: event.category,
         qmId: event.qmId,
+        hadQm: event.qmId !== null,
         fakeId: event.fakeId,
         turnOrder: event.turnOrder,
         schedule: Array.from({ length: state.settings.passes }, () => event.turnOrder).flat(),
@@ -792,7 +834,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       round.strokes.push({
         playerId: event.playerId,
         colorIndex: player.colorIndex,
-        points: event.points.map((n) => Math.min(1, Math.max(0, n))),
+        points: event.points.map(quantise),
         ...(breaks.length > 0 ? { breaks } : {}),
       });
       round.turnIndex += 1;
@@ -862,7 +904,15 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
     }
 
     case "DROP_PLAYER": {
-      if (!round || state.phase === "lobby" || state.phase === "closed") {
+      // "reveal" is refused as well: that round is scored and archived, and
+      // dropping into it would delete ballots from a tally already shown on
+      // screen and already paid out in points.
+      if (
+        !round ||
+        state.phase === "lobby" ||
+        state.phase === "reveal" ||
+        state.phase === "closed"
+      ) {
         return fail("No round to drop from");
       }
       if (round.droppedIds.includes(event.playerId)) return fail("Already dropped");
@@ -890,6 +940,12 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
         }
       }
       if (state.phase === "dealing") {
+        // Same floor the drawing and voting branches enforce — without it a
+        // round can reach the ballot with one artist left, who may not vote
+        // for themselves and so can never resolve it.
+        if (activeArtists(round).length < 2) {
+          return fail("Too few artists left — void the round");
+        }
         if (round.dealt && mustSee(round).every((id) => round.seen.includes(id))) {
           state.phase = "drawing";
           armTurnClock(state, event.now);
@@ -923,9 +979,11 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       // Give the word back and undo the duty ticks — the round never happened.
       state.usedWords = state.usedWords.filter((w) => w !== round.word);
       state.fakeCounts[round.fakeId] = Math.max(0, (state.fakeCounts[round.fakeId] ?? 1) - 1);
-      if (round.qmId !== null) state.qmIndex = Math.max(0, state.qmIndex - 1);
-      state.holds = {};
-      finishRound(state, "voided");
+      // hadQm, not qmId: a QM who was dropped mid-round has already had qmId
+      // nulled, and testing that would skip the rewind and cost them their
+      // turn at question-master duty in a round that never happened.
+      if (round.hadQm) state.qmIndex = Math.max(0, state.qmIndex - 1);
+      finishRound(state, "voided"); // clears the holds too
       return { ok: true, state };
     }
 
