@@ -99,6 +99,65 @@ export function jobRenditionKey(jobId: string): string {
   return `jobs/${jobId}/rendition.jpg`;
 }
 
+function jobPrivateKey(jobId: string): string {
+  assertJobId(jobId);
+  return `jobs/${jobId}/private`;
+}
+
+/**
+ * Online jobs are delivered only through the room's redacted state broadcast,
+ * which withholds the verdict until the reveal. Marking them private keeps the
+ * public polling endpoint (a local-mode channel) from becoming a side door to
+ * Luna's word guess mid-round.
+ */
+export async function markJobPrivate(
+  env: AiJobStoreEnv,
+  jobId: string,
+): Promise<void> {
+  await env.ARTWORK.put(jobPrivateKey(jobId), "1", {
+    httpMetadata: { contentType: "text/plain" },
+  });
+}
+
+export async function isJobPrivate(
+  env: AiJobStoreEnv,
+  jobId: string,
+): Promise<boolean> {
+  if (!JOB_ID_RE.test(jobId)) return true;
+  return (await env.ARTWORK.get(jobPrivateKey(jobId))) !== null;
+}
+
+/**
+ * A hard daily ceiling on paid image/critic jobs. The per-IP rate limiter
+ * shapes bursts; this bounds the bill when someone brings many IPs. Counting
+ * is best-effort (R2 read-modify-write can race under heavy concurrency) —
+ * that is fine for a spend guard.
+ */
+export async function withinDailyAiBudget(
+  env: AiJobStoreEnv,
+  limit: number,
+  now = Date.now(),
+): Promise<boolean> {
+  const day = new Date(now).toISOString().slice(0, 10);
+  const key = `budget/${day}`;
+  let used = 0;
+  try {
+    const existing = await env.ARTWORK.get(key);
+    if (existing) used = Number.parseInt(await existing.text(), 10) || 0;
+  } catch {
+    return true; // never let the meter itself break the game
+  }
+  if (used >= limit) return false;
+  try {
+    await env.ARTWORK.put(key, String(used + 1), {
+      httpMetadata: { contentType: "text/plain" },
+    });
+  } catch {
+    /* counting is best-effort */
+  }
+  return true;
+}
+
 export function archiveRenditionKey(
   archiveId: string,
   roundNo: number,

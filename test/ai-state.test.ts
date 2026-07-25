@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiEnabled, createRoom, currentDrawerId, normalizeRoom, reduce } from "../shared/engine";
+import { aiEnabled, createRoom, currentDrawerId, emptyRoundAi, normalizeRoom, reduce } from "../shared/engine";
 import type { CriticVerdict, GameEvent, RoomState, Settings } from "../shared/types";
 import { redactState } from "../shared/protocol";
 import {
@@ -452,5 +452,61 @@ describe("post-round AI state", () => {
     const visible = redactState(state, "p1").state.round!.ai;
     expect(visible.critic?.title).toBe("Untitled Emergency");
     expect(visible.renditionId).toBe(JOB_ID);
+  });
+});
+
+describe("AI job started during the reveal", () => {
+  it("stamps the archive too, so the verdict is not discarded", () => {
+    // Reproduces the wedge: uploads begun during voting can land after a fast
+    // unanimous vote has already archived the round.
+    let state = revealedRoomWithPendingAi();
+    const roundNo = state.round!.roundNo;
+    const jobId = "11111111-1111-4111-8111-111111111111";
+
+    // Rewind to an un-started job in the reveal phase.
+    state = {
+      ...state,
+      round: { ...state.round!, ai: emptyRoundAi() },
+      archive: state.archive.map((entry) =>
+        entry.roundNo === roundNo ? { ...entry, ai: emptyRoundAi() } : entry,
+      ),
+    };
+    expect(state.phase).toBe("reveal");
+
+    const started = reduce(state, { type: "START_ROUND_AI", roundNo, jobId });
+    expect(started.ok).toBe(true);
+    if (!started.ok) return;
+    const archived = started.state.archive.find((e) => e.roundNo === roundNo);
+    expect(archived?.ai?.jobId).toBe(jobId);
+    expect(archived?.ai?.criticStatus).toBe("pending");
+
+    // The result must now land on both copies rather than being refused.
+    const resolved = reduce(started.state, {
+      type: "RESOLVE_ROUND_CRITIC",
+      roundNo,
+      jobId,
+      verdict: sampleVerdict({
+        detective: { playerId: "p0", reason: "Late, but still pointing." },
+      }),
+    });
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    expect(resolved.state.round!.ai.criticStatus).toBe("ready");
+    expect(
+      resolved.state.archive.find((e) => e.roundNo === roundNo)?.ai?.criticStatus,
+    ).toBe("ready");
+  });
+
+  it("still refuses a result for a job nobody is waiting on", () => {
+    const state = revealedRoomWithPendingAi();
+    const result = reduce(state, {
+      type: "RESOLVE_ROUND_CRITIC",
+      roundNo: state.round!.roundNo,
+      jobId: "99999999-9999-4999-8999-999999999999",
+      verdict: sampleVerdict({
+        detective: { playerId: "p0", reason: "Nobody asked." },
+      }),
+    });
+    expect(result.ok).toBe(false);
   });
 });

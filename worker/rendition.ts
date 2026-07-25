@@ -30,7 +30,12 @@ function invalid(message: string): AiProviderError {
 }
 
 function cleanWord(value: string): string {
-  const word = value.replace(/\s+/g, " ").trim();
+  // House-deck words are player-written and land inside the prompt, so strip
+  // anything that could close the quote and start giving instructions.
+  const word = value
+    .replace(/[^\p{L}\p{N} '\-&.]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (word.length < 2 || word.length > HOUSE_WORD_MAX_LEN) {
     throw new AiProviderError(
       "The rendition word is invalid.",

@@ -27,6 +27,7 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
   useEffect(() => {
     let cancelled = false;
     let loaded = false;
+    let retries = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const load = async () => {
       try {
@@ -49,7 +50,15 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
           timer = setTimeout(load, 5000);
         }
       } catch {
-        if (!cancelled && !loaded) setStatus("missing");
+        if (cancelled) return;
+        if (!loaded) {
+          setStatus("missing");
+        } else if (retries < 6) {
+          // A blip mid-poll (phone locking, flaky wifi) must not permanently
+          // strand a still-pending verdict.
+          retries += 1;
+          timer = setTimeout(load, 5000);
+        }
       }
     };
     void load();
@@ -116,7 +125,7 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
           <div className="ai-gallery-stats">
             {choice && (
               <div>
-                <div className="kicker u-red">Luna&apos;s critic&apos;s choice</div>
+                <div className="kicker u-red">Luna&apos;s choice</div>
                 <div className="shout" style={{ fontSize: 20 }}>
                   Round {choice.roundNo} · {choice.ai?.critic?.title ?? choice.word}
                 </div>

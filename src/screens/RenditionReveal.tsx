@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RoundAi, Stroke } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
+import { cueUnveil } from "../lib/sound";
 import { Btn, Screen } from "../components/ui";
 
 export function renditionImageUrl(renditionId: string): string {
@@ -19,19 +20,44 @@ export function RenditionReveal({
   onNext: () => void;
 }) {
   const [showRendition, setShowRendition] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const unveiledFor = useRef<string | null>(null);
 
+  // Decode before unveiling: the wipe should reveal a picture, not a blank
+  // frame that pops in a beat later.
   useEffect(() => {
     setShowRendition(false);
+    setImageFailed(false);
     if (ai.renditionStatus !== "ready" || !ai.renditionId) return;
-    if (
+    let cancelled = false;
+    const reduced =
       typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    ) {
-      setShowRendition(true);
-      return;
-    }
-    const timer = setTimeout(() => setShowRendition(true), 650);
-    return () => clearTimeout(timer);
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const started = Date.now();
+
+    const image = new Image();
+    image.src = renditionImageUrl(ai.renditionId);
+    void image
+      .decode()
+      .then(() => {
+        if (cancelled) return;
+        const wait = reduced ? 0 : Math.max(0, 650 - (Date.now() - started));
+        setTimeout(() => {
+          if (cancelled) return;
+          setShowRendition(true);
+          if (!reduced && unveiledFor.current !== ai.renditionId) {
+            unveiledFor.current = ai.renditionId;
+            cueUnveil();
+          }
+        }, wait);
+      })
+      .catch(() => {
+        if (!cancelled) setImageFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [ai.renditionId, ai.renditionStatus]);
 
   const original = (
@@ -58,14 +84,14 @@ export function RenditionReveal({
           {title ?? "Untitled"} — after a brief argument with reality
         </div>
 
-        {ai.renditionStatus === "ready" && ai.renditionId ? (
+        {ai.renditionStatus === "ready" && ai.renditionId && !imageFailed ? (
           showRendition ? (
-            <div className="rendition-pair">
+            <div className="rendition-pair rendition-pair--unveil">
               <figure>
                 {original}
                 <figcaption className="kicker">What it was</figcaption>
               </figure>
-              <figure className="rendition-reveal__result">
+              <figure className="rendition-reveal__result" style={{ position: "relative" }}>
                 <img
                   src={renditionImageUrl(ai.renditionId)}
                   alt="AI-generated realistic rendition based on the players' drawing"
@@ -99,7 +125,7 @@ export function RenditionReveal({
 
         <div style={{ marginTop: "auto" }}>
           <Btn variant="red" onClick={onNext}>
-            Standings
+            {ai.renditionStatus === "pending" ? "Skip ahead — standings" : "Standings"}
           </Btn>
         </div>
       </div>

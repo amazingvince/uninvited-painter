@@ -96,3 +96,18 @@ export function cueRound(): void {
   tone(523, 0.1, { gain: 0.05 });
   tone(659, 0.16, { gain: 0.05, delay: 0.1 });
 }
+
+/** Luna clears her throat — the verdict has arrived. */
+export function cueVerdict(): void {
+  tone(784, 0.12, { type: "triangle", gain: 0.06 });
+  tone(988, 0.1, { type: "triangle", gain: 0.05, delay: 0.13 });
+  tone(1319, 0.22, { type: "triangle", gain: 0.055, delay: 0.24 });
+  buzz([15, 40, 15]);
+}
+
+/** The curtain comes off the reality treatment. */
+export function cueUnveil(): void {
+  tone(440, 0.5, { type: "sine", gain: 0.05, slideTo: 880 });
+  tone(1760, 0.18, { type: "triangle", gain: 0.04, delay: 0.42 });
+  buzz(35);
+}

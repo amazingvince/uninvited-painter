@@ -168,12 +168,28 @@ export function LocalFlow({
       aiPollers.current.set(job.jobId, poller);
       void (async () => {
         const delays = [1000, 1500, 2500, 4000, 5000];
+        // A workflow that died mid-flight must not leave Luna "deciding"
+        // forever — after this long the verdict is declared lost.
+        const giveUpAt = Date.now() + 4 * 60_000;
         let attempt = 0;
         try {
           while (!poller.cancelled) {
             const delay = delays[Math.min(attempt, delays.length - 1)];
             await new Promise((resolve) => setTimeout(resolve, delay));
             if (poller.cancelled) return;
+            if (Date.now() > giveUpAt) {
+              applyAiEvent({
+                type: "FAIL_ROUND_CRITIC",
+                roundNo: poller.roundNo,
+                jobId: job.jobId,
+              });
+              applyAiEvent({
+                type: "FAIL_ROUND_RENDITION",
+                roundNo: poller.roundNo,
+                jobId: job.jobId,
+              });
+              return;
+            }
             attempt += 1;
             try {
               const result = await getLocalAiJob(job.jobId);
@@ -537,7 +553,9 @@ export function LocalFlow({
     // isGameOver, not a rounds comparison — score-to-10 games end on points.
     const isLastRound = isGameOver(state);
     const tallyKey = `tally-${round.roundNo}`;
-    if (revealStep === "critic") {
+    // Derive rather than trust the stored step: a voided round lands one frame
+    // before the effect can correct it.
+    if (revealStep === "critic" && !voided) {
       body = (
         <CriticVerdict
           ai={round.ai}

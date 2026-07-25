@@ -17,6 +17,8 @@ import {
   getJob,
   putRendition,
   type AiR2Object,
+  markJobPrivate,
+  putPendingJob,
   type AiR2PutOptions,
   type PostRoundAiPayload,
 } from "../worker/ai-jobs";
@@ -369,5 +371,49 @@ describe("online AI ownership boundary", () => {
     expect(() =>
       onlineAiPayload(voided, PLAYER_IDS[1], 1, JOB_ID),
     ).toThrow(/voided/i);
+  });
+});
+
+describe("AI result access boundaries", () => {
+  it("never hands the jobId back to the browser for a room job", async () => {
+    const { env } = setup();
+    const request = await multipartRequest(
+      "https://game.test/api/rooms/MOLT/ai",
+      {
+        token: "seat-token",
+        roundNo: "1",
+        image: new Blob([png1024().buffer as ArrayBuffer], {
+          type: "image/png",
+        }),
+      },
+    );
+    const response = await handleOnlineAiPost(request, env, "MOLT");
+    const body = (await response.json()) as Record<string, unknown>;
+    // Possession of the id is enough to poll the verdict — which contains
+    // Luna's guess at the secret word — so it must not leave the DO.
+    expect(body.jobId).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain(JOB_ID);
+  });
+
+  it("refuses to serve a room job over the public polling endpoint", async () => {
+    const { env } = setup();
+    await putPendingJob(env, {
+      jobId: JOB_ID,
+      mode: "online",
+      roomCode: "MOLT",
+      roundNo: 1,
+      word: "penguin",
+      tone: "witty",
+      criticEnabled: true,
+      detectiveEnabled: false,
+      artists: [{ id: PLAYER_IDS[0], color: "#d92b1f" }],
+    });
+    // Pollable while unmarked (the local-mode channel)…
+    expect((await handleAiStatus(env, JOB_ID)).status).toBe(200);
+    await markJobPrivate(env, JOB_ID);
+    // …and invisible once it belongs to a room.
+    const response = await handleAiStatus(env, JOB_ID);
+    expect(response.status).toBe(404);
+    expect(JSON.stringify(await response.json())).not.toContain("penguin");
   });
 });

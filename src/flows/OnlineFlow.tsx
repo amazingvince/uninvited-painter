@@ -34,6 +34,7 @@ import { RenditionReveal } from "../screens/RenditionReveal";
 import { Standings } from "../screens/Standings";
 import { Final } from "../screens/Final";
 import { DisconnectOverlay, ReconnectingBanner } from "../screens/Disconnect";
+import { VerdictChip } from "../components/VerdictChip";
 
 type RevealStep = "critic" | "attribution" | "rendition" | "standings";
 
@@ -85,6 +86,10 @@ export function OnlineFlow({
   const [revealStep, setRevealStep] =
     useState<RevealStep>("attribution");
   const [aiRetryTick, setAiRetryTick] = useState(0);
+  // Skipping a still-thinking Luna shouldn't lose her — these arm the
+  // "verdict is in" chip on the standings screen.
+  const skippedCriticRef = useRef(false);
+  const skippedRenditionRef = useRef(false);
   const aiUploadAttempts = useRef(new Map<number, number>());
   const aiUploadComplete = useRef(new Set<number>());
   const aiUploadInFlight = useRef(new Set<number>());
@@ -111,6 +116,8 @@ export function OnlineFlow({
   });
 
   useEffect(() => {
+    skippedCriticRef.current = false;
+    skippedRenditionRef.current = false;
     setRevealStep(
       round?.outcome !== "voided" &&
         !!state &&
@@ -534,12 +541,18 @@ export function OnlineFlow({
         !voided && (state.settings.aiCritic || state.settings.aiDetective);
       // isGameOver, not a rounds comparison — score-to-10 games end on points.
       const isLastRound = isGameOver(state);
-      if (revealStep === "critic") {
+      // Derive rather than trust the stored step: a voided round arrives in the
+      // same broadcast that flips the phase, one frame ahead of the effect.
+      if (revealStep === "critic" && !voided) {
         body = (
           <CriticVerdict
             ai={r.ai}
             players={state.players}
-            onNext={() => setRevealStep("attribution")}
+            onNext={() => {
+              // Remember an unfinished verdict so it can announce itself later.
+              if (r.ai.criticStatus === "pending") skippedCriticRef.current = true;
+              setRevealStep("attribution");
+            }}
           />
         );
       } else if (
@@ -602,10 +615,15 @@ export function OnlineFlow({
             ai={r.ai}
             strokes={r.strokes}
             title={r.ai.critic?.title}
-            onNext={() => setRevealStep("standings")}
+            onNext={() => {
+              if (r.ai.renditionStatus === "pending") skippedRenditionRef.current = true;
+              setRevealStep("standings");
+            }}
           />
         );
       } else {
+        const skippedCritic = skippedCriticRef.current;
+        const skippedRendition = skippedRenditionRef.current;
         body = (
           <Standings
             players={state.players}
@@ -614,6 +632,24 @@ export function OnlineFlow({
             nextLabel={isLastRound ? "Close the exhibition" : `Round ${state.roundsPlayed + 1}`}
             onNext={isHost ? () => room.send({ t: "next" }) : undefined}
             waiting="Waiting for the host…"
+            banner={
+              <>
+                {skippedCritic && (
+                  <VerdictChip
+                    ai={r.ai}
+                    target="critic"
+                    onOpen={() => setRevealStep("critic")}
+                  />
+                )}
+                {skippedRendition && (
+                  <VerdictChip
+                    ai={r.ai}
+                    target="rendition"
+                    onOpen={() => setRevealStep("rendition")}
+                  />
+                )}
+              </>
+            }
           />
         );
       }

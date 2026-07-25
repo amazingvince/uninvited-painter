@@ -1,6 +1,7 @@
 // C5 Standings — between rounds. Local: shown on the passed phone; online: on
 // every device.
 
+import type { ReactNode } from "react";
 import type { Player } from "../../shared/types";
 import { Screen, Btn, Swatch } from "../components/ui";
 
@@ -11,6 +12,7 @@ export function Standings({
   onNext,
   nextLabel,
   waiting,
+  banner,
 }: {
   players: Player[];
   roundsPlayed: number;
@@ -18,6 +20,8 @@ export function Standings({
   onNext?: () => void;
   nextLabel?: string;
   waiting?: string;
+  /** Late-arriving AI results announce themselves here. */
+  banner?: ReactNode;
 }) {
   const ranked = [...players].sort((a, b) => b.score - a.score);
   return (
@@ -49,7 +53,8 @@ export function Standings({
           Fake artist duty rotates so nobody plays it twice before everyone has.
         </div>
       </div>
-      <div className="footer footer--rule">
+      <div className="footer footer--rule btn-stack">
+        {banner}
         {onNext ? (
           <Btn variant="ink" onClick={onNext}>
             {nextLabel ?? `Round ${roundsPlayed + 1}`}

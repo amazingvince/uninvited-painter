@@ -359,6 +359,26 @@ function aiTargets(
   return targets;
 }
 
+/**
+ * The targets a result may still land on: same job, still waiting. A target
+ * that never got the job stamped (or already settled) is skipped rather than
+ * failing the whole result — one stale copy must not bin a paid verdict.
+ */
+function aiPendingTargets(
+  state: RoomState,
+  roundNo: number,
+  jobId: string,
+  branch: "critic" | "rendition",
+): { ai: RoundAi; eligible: Set<string>; archive?: ArchiveEntry }[] {
+  return aiTargets(state, roundNo).filter(
+    ({ ai }) =>
+      ai.jobId === jobId &&
+      (branch === "critic"
+        ? ai.criticStatus === "pending"
+        : ai.renditionStatus === "pending"),
+  );
+}
+
 function updateCriticMatches(entry: ArchiveEntry): void {
   const verdict = entry.ai?.critic;
   if (!verdict) return;
@@ -541,22 +561,25 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (!AI_ID_RE.test(event.jobId)) {
         return fail("Bad AI job");
       }
-      round.ai = {
+      const started: RoundAi = {
         jobId: event.jobId,
         criticStatus: "pending",
         critic: null,
         renditionStatus: "pending",
         renditionId: null,
       };
+      round.ai = started;
+      // A job started in the reveal phase must also mark the archive entry —
+      // it was written while the round's AI was still idle, and a result that
+      // can't match every target would otherwise be discarded.
+      const archived = archiveForRound(state, event.roundNo);
+      if (archived && archived.ai?.jobId == null) archived.ai = { ...started };
       return { ok: true, state };
     }
 
     case "RESOLVE_ROUND_CRITIC": {
-      const targets = aiTargets(state, event.roundNo);
-      if (targets.length === 0) return fail("Stale AI round");
-      if (targets.some(({ ai }) => ai.jobId !== event.jobId || ai.criticStatus !== "pending")) {
-        return fail("Stale AI job");
-      }
+      const targets = aiPendingTargets(state, event.roundNo, event.jobId, "critic");
+      if (targets.length === 0) return fail("Stale AI job");
       const eligible = new Set(targets.flatMap((target) => [...target.eligible]));
       const verdict = validateVerdict(state.settings, eligible, event.verdict);
       if (typeof verdict === "string") return fail(verdict);
@@ -569,11 +592,8 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
     }
 
     case "FAIL_ROUND_CRITIC": {
-      const targets = aiTargets(state, event.roundNo);
-      if (targets.length === 0) return fail("Stale AI round");
-      if (targets.some(({ ai }) => ai.jobId !== event.jobId || ai.criticStatus !== "pending")) {
-        return fail("Stale AI job");
-      }
+      const targets = aiPendingTargets(state, event.roundNo, event.jobId, "critic");
+      if (targets.length === 0) return fail("Stale AI job");
       for (const { ai } of targets) {
         ai.criticStatus = "unavailable";
         ai.critic = null;
@@ -582,12 +602,9 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
     }
 
     case "RESOLVE_ROUND_RENDITION": {
-      const targets = aiTargets(state, event.roundNo);
-      if (targets.length === 0) return fail("Stale AI round");
-      if (targets.some(({ ai }) => ai.jobId !== event.jobId || ai.renditionStatus !== "pending")) {
-        return fail("Stale AI job");
-      }
       if (!AI_ID_RE.test(event.renditionId)) return fail("Bad rendition");
+      const targets = aiPendingTargets(state, event.roundNo, event.jobId, "rendition");
+      if (targets.length === 0) return fail("Stale AI job");
       for (const { ai } of targets) {
         ai.renditionStatus = "ready";
         ai.renditionId = event.renditionId;
@@ -596,11 +613,8 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
     }
 
     case "FAIL_ROUND_RENDITION": {
-      const targets = aiTargets(state, event.roundNo);
-      if (targets.length === 0) return fail("Stale AI round");
-      if (targets.some(({ ai }) => ai.jobId !== event.jobId || ai.renditionStatus !== "pending")) {
-        return fail("Stale AI job");
-      }
+      const targets = aiPendingTargets(state, event.roundNo, event.jobId, "rendition");
+      if (targets.length === 0) return fail("Stale AI job");
       for (const { ai } of targets) {
         ai.renditionStatus = "unavailable";
         ai.renditionId = null;

@@ -11,6 +11,7 @@ import { redactState, type ClientMsg, type ServerMsg } from "../shared/protocol"
 import { ROOM_TTL_MS, type GameEvent, type RoomState } from "../shared/types";
 import { validateReferencePng } from "./ai-input";
 import {
+  markJobPrivate,
   putPendingJob,
   putSource,
   type PostRoundAiResult,
@@ -97,6 +98,8 @@ export class RoomDO extends DurableObject<Env> {
     await this.persistAndBroadcast(started.state);
     try {
       await putSource(this.env, jobId, png);
+      // Room jobs are never served over the public polling endpoint.
+      await markJobPrivate(this.env, jobId);
       await putPendingJob(this.env, payload);
       await this.env.POST_ROUND_AI.create({
         id: jobId,
@@ -107,7 +110,10 @@ export class RoomDO extends DurableObject<Env> {
         },
       });
     } catch (error) {
-      let failed = started.state;
+      // Re-read: game events (strokes, votes, a whole reveal) may have landed
+      // while we were out at R2 — failing onto the stale snapshot would roll
+      // them back.
+      let failed = (await this.getState()) ?? started.state;
       const critic = reduce(failed, {
         type: "FAIL_ROUND_CRITIC",
         roundNo,

@@ -274,8 +274,18 @@ describe("post-round AI workflow", () => {
     );
 
     const result = await runPostRoundAi(env, input, step);
-    expect(roomNames).toEqual(["MOLT"]);
-    expect(completions).toEqual([result]);
+    // Two publishes, both to the same room: the verdict lands as soon as Luna
+    // is done, then again once the slow rendition settles.
+    expect(roomNames).toEqual(["MOLT", "MOLT"]);
+    expect(completions).toHaveLength(2);
+    expect(completions[0]).toMatchObject({
+      criticStatus: "ready",
+      renditionStatus: "pending",
+      renditionId: null,
+    });
+    expect(completions[1]).toEqual(result);
+    expect(result.renditionStatus).toBe("ready");
+    expect(step.calls).toContain("publish critic");
     expect(step.calls.at(-1)).toBe("publish result");
   });
 

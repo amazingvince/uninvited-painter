@@ -8,6 +8,7 @@ import { StrokePaths } from "../components/CanvasBoard";
 import { criticAccuracy, criticChoice } from "../lib/aiStats";
 import { contactSheetPng, drawingPng, publishArchive, shareOrDownload } from "../lib/share";
 import { renditionImageUrl } from "./RenditionReveal";
+import { Confetti } from "../components/Confetti";
 import { Screen, Btn, Kicker } from "../components/ui";
 
 export function Final({
@@ -62,6 +63,7 @@ export function Final({
 
   return (
     <Screen>
+      <Confetti />
       <div style={{ background: "var(--red)", color: "var(--cream-on-red)", padding: "22px 20px", flex: "none" }}>
         <Kicker>Exhibition closed · {totalRounds} rounds</Kicker>
         <div className="shout" style={{ fontSize: 44, lineHeight: 0.88, letterSpacing: "-0.045em" }}>
@@ -80,7 +82,7 @@ export function Final({
           <div className="ai-gallery-stats">
             {choice && (
               <div>
-                <div className="kicker u-red">Luna&apos;s critic&apos;s choice</div>
+                <div className="kicker u-red">Luna&apos;s choice</div>
                 <div className="shout" style={{ fontSize: 20 }}>
                   Round {choice.roundNo} · {choice.ai?.critic?.title ?? choice.word}
                 </div>

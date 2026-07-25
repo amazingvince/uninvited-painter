@@ -113,6 +113,11 @@ export async function uploadOnlineAiSource(
   } catch {
     throw new PostRoundAiUploadError(true);
   }
+  // 429 means the limiter is shaping a burst (every artist uploads at once) —
+  // worth another go, unlike a 4xx that says the request itself was wrong.
+  if (response.status === 429 || response.status >= 500) {
+    throw new PostRoundAiUploadError(true);
+  }
   if (![200, 202, 409].includes(response.status)) {
     throw new PostRoundAiUploadError(false);
   }

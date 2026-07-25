@@ -12,13 +12,17 @@ import {
 import {
   getJob,
   getRendition,
+  isJobPrivate,
   putPendingJob,
   putSource,
+  withinDailyAiBudget,
   type AiJobStoreEnv,
   type PostRoundAiPayload,
 } from "./ai-jobs";
 
 const META_MAX_BYTES = 16 * 1024;
+/** Paid jobs per calendar day across the whole deployment. */
+const DAILY_AI_JOB_LIMIT = 300;
 const JOB_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const AI_TONES = new Set<AiTone>(["witty", "savage", "absurd"]);
@@ -263,6 +267,12 @@ export async function handleLocalAiPost(
   const existing = await getJob(env, payload.jobId);
   if (existing) return json(existing);
 
+  // This endpoint is unauthenticated by design (pass-one-phone has no room),
+  // so a spend ceiling backs up the per-IP limiter.
+  if (!(await withinDailyAiBudget(env, DAILY_AI_JOB_LIMIT))) {
+    return json({ error: "Luna has hit her daily gallery budget." }, 429);
+  }
+
   await putSource(env, payload.jobId, png);
   const pending = await putPendingJob(env, payload);
   try {
@@ -311,10 +321,11 @@ export async function handleOnlineAiPost(
   if (!png) return json({ error: "Bad drawing image" }, 400);
 
   try {
-    const result = await env.ROOM
-      .getByName(code)
-      .startAiJob(token, Number(rawRoundNo), png);
-    return json(result, 202);
+    await env.ROOM.getByName(code).startAiJob(token, Number(rawRoundNo), png);
+    // Deliberately no jobId in the reply: online results reach players only
+    // through the room's redacted broadcast, which withholds Luna's guess
+    // until the reveal. Handing the id back would let the fake artist poll it.
+    return json({ ok: true }, 202);
   } catch {
     return json({ error: "AI could not start for this round" }, 400);
   }
@@ -325,6 +336,8 @@ export async function handleAiStatus(
   jobId: string,
 ): Promise<Response> {
   if (!validJobId(jobId)) return json({ error: "Bad AI job" }, 400);
+  // Online jobs are room-private — the DO broadcast is their only channel.
+  if (await isJobPrivate(env, jobId)) return json({ error: "Not found" }, 404);
   const result = await getJob(env, jobId);
   return result ? json(result) : json({ error: "Not found" }, 404);
 }

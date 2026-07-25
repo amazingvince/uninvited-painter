@@ -146,10 +146,33 @@ export async function runPostRoundAi(
       renditionId: null,
     }));
 
-  const [critic, rendition] = await Promise.all([
-    criticPromise,
-    renditionPromise,
-  ]);
+  // Luna is quick; the image model is not. Publishing the verdict the moment
+  // it lands means the critic screen has something to say instead of making
+  // the whole table wait on a painting.
+  const critic = await criticPromise;
+  await step
+    .do(
+      "publish critic",
+      { retries: { limit: 2, delay: "2 seconds", backoff: "exponential" }, timeout: "30 seconds" },
+      async () => {
+        const partial: PostRoundAiResult = {
+          jobId: payload.jobId,
+          roundNo: payload.roundNo,
+          ...critic,
+          renditionStatus: "pending",
+          renditionId: null,
+          updatedAt: Date.now(),
+        };
+        await putJobResult(env, partial);
+        if (payload.mode === "online" && payload.roomCode) {
+          await env.ROOM.getByName(payload.roomCode).completeAiJob(partial);
+        }
+        return partial;
+      },
+    )
+    .catch(() => undefined); // a failed early publish is retried by the final one
+
+  const rendition = await renditionPromise;
 
   return step.do(
     "publish result",
