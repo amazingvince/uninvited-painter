@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { SEAT_COLORS } from "../../shared/palette";
 import type { Stroke, StrokePoints } from "../../shared/types";
+import { splitSegments } from "../../shared/geometry";
+import { buildCurve } from "../lib/curves";
 
 const VIEW = 1000;
 const STROKE_W = 17;
@@ -13,11 +15,15 @@ const STROKE_W = 17;
 const MIN_STEP = 0.004;
 const MAX_POINTS = 1200; // coords, i.e. 600 samples
 
-export function strokePath(points: StrokePoints): string {
-  if (points.length < 2) return "";
-  let d = `M${(points[0] * VIEW).toFixed(1)} ${(points[1] * VIEW).toFixed(1)}`;
-  for (let i = 2; i < points.length; i += 2) {
-    d += `L${(points[i] * VIEW).toFixed(1)} ${(points[i + 1] * VIEW).toFixed(1)}`;
+export function strokePath(points: StrokePoints, breaks: number[] = []): string {
+  let d = "";
+  for (const seg of splitSegments(points, breaks)) {
+    const curve = buildCurve(seg, VIEW);
+    if (!curve) continue;
+    d += `M${curve.x0.toFixed(1)} ${curve.y0.toFixed(1)}`;
+    for (const s of curve.segs) {
+      d += `C${s.c1x.toFixed(1)} ${s.c1y.toFixed(1)} ${s.c2x.toFixed(1)} ${s.c2y.toFixed(1)} ${s.x.toFixed(1)} ${s.y.toFixed(1)}`;
+    }
   }
   return d;
 }
@@ -45,7 +51,7 @@ export function StrokePaths({
       {ordered.map(({ s, i }) => (
         <path
           key={i}
-          d={strokePath(s.points)}
+          d={strokePath(s.points, s.breaks)}
           stroke={
             highlight && s.playerId !== highlight
               ? "#c9c2b0"
@@ -65,6 +71,7 @@ export function StrokePaths({
 export interface LiveStroke {
   colorIndex: number;
   points: StrokePoints;
+  breaks?: number[];
 }
 
 interface CanvasBoardProps {
@@ -82,6 +89,8 @@ interface CanvasBoardProps {
     onPenUp: (points: StrokePoints) => void;
     /** Fewer than 3 points — a mis-tap. */
     onMisTap?: () => void;
+    /** Ink left for this gesture (normalised units) — the pen runs dry at 0. */
+    inkRemaining?: number;
     disabled?: boolean;
   };
 }
@@ -89,6 +98,7 @@ interface CanvasBoardProps {
 export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
   const pointsRef = useRef<number[]>([]);
+  const gestureLen = useRef(0);
   const activePointer = useRef<number | null>(null);
   const [draft, setDraft] = useState<StrokePoints | null>(null);
 
@@ -106,6 +116,21 @@ export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasB
       return [x, y];
     };
 
+    const finish = () => {
+      activePointer.current = null;
+      const d = drawingRef.current;
+      const pts = pointsRef.current;
+      pointsRef.current = [];
+      gestureLen.current = 0;
+      setDraft(null);
+      if (!d) return;
+      if (pts.length < 6) {
+        d.onMisTap?.();
+        return;
+      }
+      d.onPenUp(pts);
+    };
+
     const down = (e: PointerEvent) => {
       const d = drawingRef.current;
       if (!d || d.disabled) return;
@@ -117,6 +142,7 @@ export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasB
         activePointer.current = null;
         pointsRef.current = [];
       }
+      if (d.inkRemaining !== undefined && d.inkRemaining <= 0.01) return; // pen is dry
       e.preventDefault();
       activePointer.current = e.pointerId;
       try {
@@ -126,6 +152,7 @@ export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasB
       }
       const [x, y] = norm(e);
       pointsRef.current = [x, y];
+      gestureLen.current = 0;
       setDraft([x, y]);
       d.onLive?.([x, y]);
     };
@@ -136,28 +163,32 @@ export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasB
       e.preventDefault();
       const pts = pointsRef.current;
       if (pts.length >= MAX_POINTS) return;
-      const [x, y] = norm(e);
+      let [x, y] = norm(e);
       const lx = pts[pts.length - 2];
       const ly = pts[pts.length - 1];
-      if (Math.hypot(x - lx, y - ly) < MIN_STEP) return;
+      const dist = Math.hypot(x - lx, y - ly);
+      if (dist < MIN_STEP) return;
+      if (d.inkRemaining !== undefined && gestureLen.current + dist >= d.inkRemaining) {
+        // The pen runs dry mid-motion: clamp to the last affordable point and end.
+        const t = Math.max(0, (d.inkRemaining - gestureLen.current) / dist);
+        x = lx + (x - lx) * t;
+        y = ly + (y - ly) * t;
+        if (t > 0.05) {
+          pts.push(x, y);
+          d.onLive?.([x, y]);
+        }
+        finish();
+        return;
+      }
+      gestureLen.current += dist;
       pts.push(x, y);
       setDraft([...pts]);
       d.onLive?.([x, y]);
     };
 
     const up = (e: PointerEvent) => {
-      const d = drawingRef.current;
       if (activePointer.current !== e.pointerId) return;
-      activePointer.current = null;
-      const pts = pointsRef.current;
-      pointsRef.current = [];
-      setDraft(null);
-      if (!d) return;
-      if (pts.length < 6) {
-        d.onMisTap?.();
-        return;
-      }
-      d.onPenUp(pts);
+      finish();
     };
 
     el.addEventListener("pointerdown", down);
@@ -181,7 +212,7 @@ export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasB
         {liveEntries.map(([pid, s]) => (
           <path
             key={pid}
-            d={strokePath(s.points)}
+            d={strokePath(s.points, s.breaks)}
             stroke={SEAT_COLORS[s.colorIndex]}
             strokeWidth={STROKE_W}
             fill="none"
@@ -191,7 +222,7 @@ export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasB
         ))}
         {pending && (
           <path
-            d={strokePath(pending.points)}
+            d={strokePath(pending.points, pending.breaks)}
             stroke={SEAT_COLORS[pending.colorIndex]}
             strokeWidth={STROKE_W}
             fill="none"

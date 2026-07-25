@@ -1,9 +1,11 @@
-// C6 Close of exhibition — winner plus every drawing made.
-// Share = one PNG contact sheet.
+// C6 Close of exhibition — winner plus every drawing made. Publishing hangs
+// the whole game at a permanent /a/:id page; the PNG contact sheet remains as
+// the offline keepsake.
 
+import { useState } from "react";
 import type { ArchiveEntry, Player } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
-import { contactSheetPng, drawingPng, shareOrDownload } from "../lib/share";
+import { contactSheetPng, drawingPng, publishArchive, shareOrDownload } from "../lib/share";
 import { Screen, Btn, Kicker } from "../components/ui";
 
 export function Final({
@@ -24,6 +26,35 @@ export function Final({
   const undetected = archive.filter(
     (e) => e.outcome === "survived" && e.fakeName === winner?.name,
   ).length;
+  const [publishState, setPublishState] = useState<
+    { kind: "idle" } | { kind: "busy" } | { kind: "done"; url: string } | { kind: "error" }
+  >({ kind: "idle" });
+
+  const publish = async () => {
+    if (publishState.kind === "busy") return;
+    setPublishState({ kind: "busy" });
+    try {
+      const url = await publishArchive({
+        title: `${winner?.name ?? "?"} takes the gallery`,
+        players: ranked.map((p) => ({ name: p.name, colorIndex: p.colorIndex, score: p.score })),
+        // Keep in sync with the server's 48-entry cap (long score-to-10 games).
+        entries: archive.slice(-48),
+      });
+      setPublishState({ kind: "done", url });
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        /* clipboard unavailable */
+      }
+      try {
+        await navigator.share?.({ title: "The Uninvited Painter — our gallery", url });
+      } catch {
+        /* cancelled */
+      }
+    } catch {
+      setPublishState({ kind: "error" });
+    }
+  };
 
   return (
     <Screen>
@@ -85,16 +116,34 @@ export function Final({
         ) : (
           <div className="note u-center pulse">{waiting ?? "Waiting for the host…"}</div>
         )}
-        <Btn
-          variant="outline"
+        {publishState.kind === "done" ? (
+          <button
+            className="btn btn--outline"
+            style={{ fontSize: 13, letterSpacing: "0.02em" }}
+            onClick={() => navigator.clipboard?.writeText(publishState.url).catch(() => {})}
+          >
+            {publishState.url.replace(/^https?:\/\//, "")} — copied
+          </button>
+        ) : (
+          <Btn variant="outline" onClick={publish}>
+            {publishState.kind === "busy"
+              ? "Hanging it in the archive…"
+              : publishState.kind === "error"
+                ? "Publishing failed — try again"
+                : "Publish the archive"}
+          </Btn>
+        )}
+        <button
+          className="kicker u-muted u-center"
+          style={{ letterSpacing: "0.1em", padding: "4px 0" }}
           onClick={() =>
             contactSheetPng(archive, `${winner?.name ?? "?"} takes the gallery`).then((blob) =>
               shareOrDownload(blob, "painter-archive.png"),
             )
           }
         >
-          Share the archive
-        </Btn>
+          Save as PNG instead
+        </button>
       </div>
     </Screen>
   );

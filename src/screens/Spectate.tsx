@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { SEAT_COLORS } from "../../shared/palette";
 import type { Player, RoundState, Stroke } from "../../shared/types";
 import { CanvasBoard, type LiveStroke } from "../components/CanvasBoard";
-import { Screen, Swatch } from "../components/ui";
+import { ClockChip, Screen, Swatch } from "../components/ui";
 
 export interface TurnChip {
   player: Player;
@@ -47,6 +47,7 @@ export function Spectate({
   strokeTotal,
   banner,
   liveBadge,
+  deadline,
   onHeaderAction,
   headerAction,
 }: {
@@ -60,6 +61,7 @@ export function Spectate({
   strokeTotal: number;
   banner?: ReactNode;
   liveBadge?: boolean;
+  deadline?: number | null;
   onHeaderAction?: () => void;
   headerAction?: string;
 }) {
@@ -67,7 +69,10 @@ export function Spectate({
     <Screen>
       <div className="header header-row">
         <div>
-          <div className="kicker u-muted">{kicker}</div>
+          <div className="kicker u-muted" style={{ display: "flex", gap: 10 }}>
+            <span>{kicker}</span>
+            <ClockChip deadline={deadline} />
+          </div>
           <div className="shout" style={{ fontSize: 26 }}>
             {drawerName} is drawing
           </div>

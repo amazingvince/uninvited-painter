@@ -54,9 +54,9 @@ function startedRound(): RoomState {
 
 function dealtRound(): RoomState {
   let state = startedRound();
-  state = apply(state, { type: "DEAL" });
+  state = apply(state, { type: "DEAL", now: 0 });
   for (const id of ["p0", "p1", "p2", "p3", "p4", "p5", "p6"]) {
-    state = apply(state, { type: "MARK_SEEN", playerId: id });
+    state = apply(state, { type: "MARK_SEEN", playerId: id, now: 0 });
   }
   return state;
 }
@@ -66,7 +66,7 @@ const LINE = [0.1, 0.1, 0.5, 0.5, 0.9, 0.9];
 function drawAll(state: RoomState): RoomState {
   while (state.phase === "drawing") {
     state = apply(state, {
-      type: "COMMIT_STROKE",
+      type: "COMMIT_STROKE", now: 0,
       playerId: currentDrawerId(state)!,
       points: LINE,
     });
@@ -149,18 +149,18 @@ describe("start round", () => {
     state = apply(state, { type: "REDRAW_WORD", word: "octopus", category: "Animals" });
     expect(state.round!.word).toBe("octopus");
     expect(state.usedWords).toEqual(["octopus"]);
-    state = apply(state, { type: "DEAL" });
+    state = apply(state, { type: "DEAL", now: 0 });
     expect(reduce(state, { type: "REDRAW_WORD", word: "owl", category: "Animals" }).ok).toBe(false);
   });
 
   it("moves to drawing only after everyone has seen their card", () => {
     let state = startedRound();
-    state = apply(state, { type: "DEAL" });
+    state = apply(state, { type: "DEAL", now: 0 });
     for (const id of ["p0", "p1", "p2", "p3", "p4", "p5"]) {
-      state = apply(state, { type: "MARK_SEEN", playerId: id });
+      state = apply(state, { type: "MARK_SEEN", playerId: id, now: 0 });
       expect(state.phase).toBe("dealing");
     }
-    state = apply(state, { type: "MARK_SEEN", playerId: "p6" });
+    state = apply(state, { type: "MARK_SEEN", playerId: "p6", now: 0 });
     expect(state.phase).toBe("drawing");
   });
 });
@@ -169,7 +169,7 @@ describe("drawing", () => {
   it("enforces turn order over two passes and flips to voting after 2n strokes", () => {
     let state = dealtRound();
     expect(currentDrawerId(state)).toBe("p1");
-    expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p2", points: LINE }).ok).toBe(false);
+    expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p2", points: LINE, now: 0 }).ok).toBe(false);
     state = drawAll(state);
     expect(state.round!.strokes).toHaveLength(12);
     expect(state.phase).toBe("voting");
@@ -177,12 +177,12 @@ describe("drawing", () => {
 
   it("rejects mis-taps (fewer than 3 points)", () => {
     const state = dealtRound();
-    expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p1", points: [0.5, 0.5, 0.6, 0.6] }).ok).toBe(false);
+    expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p1", points: [0.5, 0.5, 0.6, 0.6], now: 0 }).ok).toBe(false);
   });
 
   it("stamps the drawer's colour on the stroke", () => {
     let state = dealtRound();
-    state = apply(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE });
+    state = apply(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE, now: 0 });
     expect(state.round!.strokes[0].colorIndex).toBe(1);
   });
 });
@@ -298,7 +298,7 @@ describe("full game", () => {
         fakeId: pickFake(state, ids, () => 0),
         turnOrder: ids,
       });
-      for (const id of ids) state = apply(state, { type: "MARK_SEEN", playerId: id });
+      for (const id of ids) state = apply(state, { type: "MARK_SEEN", playerId: id, now: 0 });
       state = drawAll(state);
       const fake = state.round!.fakeId;
       for (const voter of ids) {
@@ -351,16 +351,16 @@ describe("disconnects", () => {
     let state = dealtRound();
     state = apply(state, { type: "SET_CONNECTED", playerId: "p3", connected: false, now: 1000 });
     expect(state.holds.p3).toBe(31_000);
-    expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE }).ok).toBe(false);
+    expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE, now: 0 }).ok).toBe(false);
     state = apply(state, { type: "SET_CONNECTED", playerId: "p3", connected: true, now: 5000 });
     expect(state.holds.p3).toBeUndefined();
-    expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE }).ok).toBe(true);
+    expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE, now: 0 }).ok).toBe(true);
   });
 
   it("dropping a player removes their remaining turns but keeps committed strokes", () => {
     let state = dealtRound();
-    state = apply(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE });
-    state = apply(state, { type: "COMMIT_STROKE", playerId: "p2", points: LINE });
+    state = apply(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE, now: 0 });
+    state = apply(state, { type: "COMMIT_STROKE", playerId: "p2", points: LINE, now: 0 });
     state = apply(state, { type: "DROP_PLAYER", playerId: "p2", now: 0 });
     expect(state.round!.strokes).toHaveLength(2);
     expect(state.round!.schedule.filter((id) => id === "p2")).toHaveLength(1); // only the taken turn
@@ -528,7 +528,7 @@ describe("review regressions", () => {
     expect(state.round!.qmId).toBeNull();
     expect(state.round!.dealt).toBe(true); // cards go out without the QM
     for (const id of ["p1", "p2", "p3", "p4", "p5", "p6"]) {
-      state = apply(state, { type: "MARK_SEEN", playerId: id });
+      state = apply(state, { type: "MARK_SEEN", playerId: id, now: 0 });
     }
     expect(state.phase).toBe("drawing");
   });
@@ -611,7 +611,7 @@ describe("review regressions", () => {
     expect(reduce(state, { type: "ADD_PLAYER", player: { id: "x", name: "X", colorIndex: -1 } }).ok).toBe(false);
     const playing = dealtRound();
     const huge = Array.from({ length: 3000 }, () => 0.5);
-    expect(reduce(playing, { type: "COMMIT_STROKE", playerId: "p1", points: huge }).ok).toBe(false);
+    expect(reduce(playing, { type: "COMMIT_STROKE", playerId: "p1", points: huge, now: 0 }).ok).toBe(false);
   });
 
   it("voiding a round rewinds the QM rotation", () => {
@@ -643,5 +643,258 @@ describe("round preparation", () => {
     }
     // …and not the same order every time.
     expect(orders.size).toBeGreaterThan(1);
+  });
+});
+
+describe("stroke clock", () => {
+  function clockedRound(): RoomState {
+    let state = lobbyWith(5);
+    state = apply(state, {
+      type: "SET_SETTINGS",
+      settings: { qmMode: "off", strokeClock: 60 },
+    });
+    state = apply(state, {
+      type: "START_ROUND",
+      word: "owl",
+      category: "Animals",
+      qmId: null,
+      fakeId: "p1",
+      turnOrder: ["p0", "p1", "p2", "p3", "p4"],
+    });
+    for (const id of ["p0", "p1", "p2", "p3", "p4"]) {
+      state = apply(state, { type: "MARK_SEEN", playerId: id, now: 100_000 });
+    }
+    return state;
+  }
+
+  it("arms when drawing starts and re-arms per turn", () => {
+    let state = clockedRound();
+    expect(state.phase).toBe("drawing");
+    expect(state.round!.turnDeadline).toBe(160_000);
+    state = apply(state, { type: "COMMIT_STROKE", playerId: "p0", points: LINE, now: 130_000 });
+    expect(state.round!.turnDeadline).toBe(190_000);
+  });
+
+  it("forfeits an idle turn on timeout, but never early", () => {
+    let state = clockedRound();
+    expect(reduce(state, { type: "TURN_TIMEOUT", now: 159_000 }).ok).toBe(false);
+    state = apply(state, { type: "TURN_TIMEOUT", now: 161_000 });
+    expect(state.round!.turnIndex).toBe(1);
+    expect(state.round!.strokes).toHaveLength(0); // no stroke for the forfeited pass
+    expect(currentDrawerId(state)).toBe("p1");
+    expect(state.round!.turnDeadline).toBe(221_000);
+  });
+
+  it("gives the ballot a doubled clock and force-resolves with cast votes", () => {
+    let state = clockedRound();
+    while (state.phase === "drawing") {
+      state = apply(state, {
+        type: "COMMIT_STROKE",
+        playerId: currentDrawerId(state)!,
+        points: LINE,
+        now: 200_000,
+      });
+    }
+    expect(state.phase).toBe("voting");
+    expect(state.round!.turnDeadline).toBe(200_000 + 120_000);
+    state = apply(state, { type: "CAST_VOTE", voterId: "p0", targetId: "p1", now: 210_000 });
+    state = apply(state, { type: "CAST_VOTE", voterId: "p2", targetId: "p1", now: 211_000 });
+    state = apply(state, { type: "TURN_TIMEOUT", now: 320_001 });
+    expect(state.phase).toBe("guessing"); // 2 votes, both on the fake
+    expect(state.round!.accusedId).toBe("p1");
+  });
+
+  it("stays off when strokeClock is 0 and pauses freeze it", () => {
+    let base = dealtRound(); // default settings: clock off
+    expect(base.round!.turnDeadline).toBeNull();
+    let state = clockedRound();
+    state = apply(state, { type: "SET_CONNECTED", playerId: "p3", connected: false, now: 120_000 });
+    expect(reduce(state, { type: "TURN_TIMEOUT", now: 500_000 }).ok).toBe(false); // paused
+    state = apply(state, { type: "SET_CONNECTED", playerId: "p3", connected: true, now: 400_000 });
+    expect(state.round!.turnDeadline).toBe(410_000); // pause gave time back
+  });
+});
+
+describe("passes and win mode", () => {
+  it("builds the schedule from the passes setting", () => {
+    let state = lobbyWith(5);
+    state = apply(state, { type: "SET_SETTINGS", settings: { qmMode: "off", passes: 3 } });
+    state = apply(state, {
+      type: "START_ROUND",
+      word: "owl",
+      category: "Animals",
+      qmId: null,
+      fakeId: "p1",
+      turnOrder: ["p0", "p1", "p2", "p3", "p4"],
+    });
+    expect(state.round!.schedule).toHaveLength(15);
+  });
+
+  it("score mode closes at 10+ points but not before three rounds", async () => {
+    const { isGameOver } = await import("../shared/engine");
+    let state = lobbyWith(5);
+    state = apply(state, { type: "SET_SETTINGS", settings: { winMode: "score10" } });
+    state.players[0].score = 12;
+    state.roundsPlayed = 2;
+    expect(isGameOver(state)).toBe(false);
+    state.roundsPlayed = 3;
+    expect(isGameOver(state)).toBe(true);
+    state.players[0].score = 9;
+    expect(isGameOver(state)).toBe(false);
+  });
+});
+
+describe("house deck", () => {
+  it("collects deduped words with authors, capped and lobby-only", () => {
+    let state = lobbyWith(5);
+    state = apply(state, { type: "ADD_HOUSE_WORDS", playerId: "p0", words: ["Kite", " kite ", "x", "windmill"] });
+    expect(state.customWords).toEqual([
+      { word: "Kite", authorId: "p0" },
+      { word: "windmill", authorId: "p0" },
+    ]);
+    state = apply(state, { type: "REMOVE_HOUSE_WORD", playerId: "p0", word: "Kite" });
+    expect(state.customWords).toHaveLength(1);
+    // someone else can't remove your word
+    state = apply(state, { type: "ADD_HOUSE_WORDS", playerId: "p1", words: ["lantern"] });
+    state = apply(state, { type: "REMOVE_HOUSE_WORD", playerId: "p0", word: "lantern" });
+    expect(state.customWords.map((w) => w.word)).toContain("lantern");
+  });
+
+  it("refuses to start on a thin house deck", () => {
+    let state = lobbyWith(5);
+    state = apply(state, { type: "SET_SETTINGS", settings: { deckId: "house", qmMode: "off" } });
+    state = apply(state, { type: "ADD_HOUSE_WORDS", playerId: "p0", words: ["kite", "windmill"] });
+    expect(
+      reduce(state, {
+        type: "START_ROUND",
+        word: "kite",
+        category: "House deck",
+        qmId: null,
+        fakeId: "p1",
+        turnOrder: ["p0", "p1", "p2", "p3", "p4"],
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("never hands the fake a word they authored", async () => {
+    const { prepareRoundEvent } = await import("../shared/decks");
+    let state = lobbyWith(5);
+    state = apply(state, { type: "SET_SETTINGS", settings: { deckId: "house", qmMode: "off" } });
+    // p0 writes 12 words; everyone else writes one each
+    state = apply(state, {
+      type: "ADD_HOUSE_WORDS",
+      playerId: "p0",
+      words: Array.from({ length: 12 }, (_, i) => `p0word${i}`),
+    });
+    for (const id of ["p1", "p2", "p3", "p4"]) {
+      state = apply(state, { type: "ADD_HOUSE_WORDS", playerId: id, words: [`${id}word`] });
+    }
+    for (let i = 0; i < 60; i++) {
+      const event = prepareRoundEvent(state);
+      if (event.type !== "START_ROUND") throw new Error("expected START_ROUND");
+      const author = state.customWords.find((w) => w.word === event.word)?.authorId;
+      expect(author).toBeDefined();
+      expect(author).not.toBe(event.fakeId);
+    }
+  });
+
+  it("redacts house words down to a count, except your own", () => {
+    let state = lobbyWith(5);
+    state = apply(state, { type: "ADD_HOUSE_WORDS", playerId: "p0", words: ["kite", "windmill"] });
+    state = apply(state, { type: "ADD_HOUSE_WORDS", playerId: "p1", words: ["lantern"] });
+    const view = redactState(state, "p1");
+    expect((view.state as unknown as Record<string, unknown>).customWords).toBeUndefined();
+    expect(view.state.houseWordCount).toBe(3);
+    expect(view.you.houseWords).toEqual(["lantern"]);
+  });
+});
+
+describe("migration", () => {
+  it("normalizes states persisted before the new fields existed", async () => {
+    const { normalizeRoom } = await import("../shared/engine");
+    const old = createRoom({ code: "MOLT", mode: "online", hostId: "" }) as unknown as Record<string, unknown>;
+    delete old.customWords;
+    (old.settings as Record<string, unknown>).passes = undefined;
+    delete (old.settings as Record<string, unknown>).strokeClock;
+    delete (old.settings as Record<string, unknown>).winMode;
+    const fixed = normalizeRoom(old as unknown as RoomState);
+    expect(fixed.customWords).toEqual([]);
+    expect(fixed.settings.passes).toBe(2);
+    expect(fixed.settings.strokeClock).toBe(0);
+    expect(fixed.settings.winMode).toBe("rounds");
+  });
+});
+
+describe("turn-style options", () => {
+  function optRound(settings: Record<string, unknown>): RoomState {
+    let state = lobbyWith(5);
+    state = apply(state, {
+      type: "SET_SETTINGS",
+      settings: { qmMode: "off", ...settings },
+    });
+    state = apply(state, {
+      type: "START_ROUND",
+      word: "owl",
+      category: "Animals",
+      qmId: null,
+      fakeId: "p1",
+      turnOrder: ["p0", "p1", "p2", "p3", "p4"],
+    });
+    for (const id of ["p0", "p1", "p2", "p3", "p4"]) {
+      state = apply(state, { type: "MARK_SEEN", playerId: id, now: 0 });
+    }
+    return state;
+  }
+
+  it("one-line rooms refuse segmented strokes; free-ink rooms accept them", () => {
+    const line = optRound({});
+    const seg: GameEvent = { type: "COMMIT_STROKE", playerId: "p0", points: [0.1, 0.1, 0.2, 0.2, 0.5, 0.5, 0.6, 0.6], breaks: [2], now: 0 };
+    expect(reduce(line, seg).ok).toBe(false);
+    let free = optRound({ penMode: "free" });
+    free = apply(free, seg);
+    expect(free.round!.strokes[0].breaks).toEqual([2]);
+  });
+
+  it("rejects incoherent segment breaks", () => {
+    const free = optRound({ penMode: "free" });
+    for (const breaks of [[1], [3], [4], [2, 2], [-1]]) {
+      expect(
+        reduce(free, {
+          type: "COMMIT_STROKE",
+          playerId: "p0",
+          points: [0.1, 0.1, 0.2, 0.2, 0.5, 0.5, 0.6, 0.6],
+          breaks,
+          now: 0,
+        }).ok,
+      ).toBe(false);
+    }
+  });
+
+  it("enforces the ink budget server-side", () => {
+    const short = optRound({ inkLimit: 60 });
+    // A stroke the full width of the canvas — 1.0 > 0.6 budget.
+    expect(
+      reduce(short, { type: "COMMIT_STROKE", playerId: "p0", points: [0, 0.5, 0.5, 0.5, 1, 0.5], now: 0 }).ok,
+    ).toBe(false);
+    const ok = apply(short, {
+      type: "COMMIT_STROKE",
+      playerId: "p0",
+      points: [0.2, 0.5, 0.4, 0.5, 0.5, 0.5],
+      now: 0,
+    });
+    expect(ok.round!.strokes).toHaveLength(1);
+  });
+
+  it("relaxed rooms never hold a seat — the game just waits", () => {
+    let state = optRound({ presence: "relaxed" });
+    state = apply(state, { type: "SET_CONNECTED", playerId: "p2", connected: false, now: 0 });
+    expect(state.holds).toEqual({});
+    // strokes keep flowing (no pause)
+    expect(
+      reduce(state, { type: "COMMIT_STROKE", playerId: "p0", points: LINE, now: 0 }).ok,
+    ).toBe(true);
+    // the host can still drop the missing player without any hold
+    const dropped = apply(state, { type: "DROP_PLAYER", playerId: "p2", now: 0 });
+    expect(dropped.round!.droppedIds).toContain("p2");
   });
 });

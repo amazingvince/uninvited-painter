@@ -1,12 +1,19 @@
-// D2 Host lobby — code is the hero. Only the host sees deck/round controls.
+// D2 Host lobby — code is the hero, QR beside it. Only the host sees the
+// deck/length/passes/clock controls.
 
 import { deckList } from "../../shared/decks";
 import type { PublicRoomState } from "../../shared/protocol";
-import { MIN_PLAYERS, MAX_PLAYERS, type Settings } from "../../shared/types";
+import { HOUSE_MIN_WORDS, MIN_PLAYERS, MAX_PLAYERS, type Settings } from "../../shared/types";
+import { QrCode } from "../components/QrCode";
 import { Screen, Kicker, Btn, Swatch } from "../components/ui";
 
-const DECK_CYCLE = ["animals", "food", "movies", "objects", "everything"] as const;
-const ROUND_CYCLE = [3, 5, 7];
+const DECK_CYCLE = ["animals", "food", "movies", "objects", "everything", "house"] as const;
+
+function deckLabel(id: string): string {
+  if (id === "everything") return "Everything";
+  if (id === "house") return "House deck";
+  return deckList().find((d) => d.id === id)?.name ?? id;
+}
 
 export function HostLobby({
   state,
@@ -17,6 +24,7 @@ export function HostLobby({
   onStart,
   onRules,
   onKick,
+  onHouseWords,
 }: {
   state: PublicRoomState;
   youId: string;
@@ -26,24 +34,32 @@ export function HostLobby({
   onStart: () => void;
   onRules: () => void;
   onKick?: (playerId: string) => void;
+  onHouseWords: () => void;
 }) {
-  const deckName =
-    state.settings.deckId === "everything"
-      ? "Everything"
-      : (deckList().find((d) => d.id === state.settings.deckId)?.name ?? state.settings.deckId);
+  const s = state.settings;
 
   const cycleDeck = () => {
-    const i = DECK_CYCLE.indexOf(state.settings.deckId as (typeof DECK_CYCLE)[number]);
+    const i = DECK_CYCLE.indexOf(s.deckId as (typeof DECK_CYCLE)[number]);
     onSettings({ deckId: DECK_CYCLE[(i + 1) % DECK_CYCLE.length] });
   };
-  const cycleRounds = () => {
-    const i = ROUND_CYCLE.indexOf(state.settings.rounds);
-    onSettings({ rounds: ROUND_CYCLE[(i + 1) % ROUND_CYCLE.length] });
+  const cycleLength = () => {
+    if (s.winMode === "score10") onSettings({ winMode: "rounds", rounds: 3 });
+    else if (s.rounds === 3) onSettings({ rounds: 5 });
+    else if (s.rounds === 5) onSettings({ rounds: 7 });
+    else onSettings({ winMode: "score10" });
   };
+  const cyclePasses = () => onSettings({ passes: (s.passes % 3) + 1 });
+  const cycleClock = () =>
+    onSettings({ strokeClock: s.strokeClock === 0 ? 60 : s.strokeClock === 60 ? 90 : 0 });
+  const cyclePen = () => onSettings({ penMode: s.penMode === "line" ? "free" : "line" });
+  const cycleInk = () =>
+    onSettings({ inkLimit: s.inkLimit === 0 ? 120 : s.inkLimit === 120 ? 60 : 0 });
+  const cyclePresence = () =>
+    onSettings({ presence: s.presence === "strict" ? "relaxed" : "strict" });
 
-  const copyLink = async () => {
+  const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(text);
     } catch {
       /* clipboard unavailable */
     }
@@ -57,25 +73,55 @@ export function HostLobby({
   };
 
   const enough = state.players.length >= MIN_PLAYERS;
+  const lengthLabel = s.winMode === "score10" ? "First to 10" : `${s.rounds} rounds`;
+
+  const settingRow = (label: string, value: string, onCycle: () => void) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
+        {label}
+      </span>
+      {isHost ? (
+        <button className="shout" style={{ fontSize: 14 }} onClick={onCycle}>
+          {value} ▾
+        </button>
+      ) : (
+        <span className="shout" style={{ fontSize: 14 }}>
+          {value}
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <Screen>
-      <div style={{ background: "var(--ink)", color: "var(--cream)", padding: 20, display: "flex", flexDirection: "column", gap: 4, flex: "none" }}>
-        <Kicker style={{ color: "var(--muted-dark)" }}>Room code</Kicker>
-        <div className="shout" style={{ fontSize: "clamp(56px, 20vw, 78px)", lineHeight: 0.86, letterSpacing: "0.06em" }}>
-          {state.code}
+      <div style={{ background: "var(--ink)", color: "var(--cream)", padding: 20, flex: "none" }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <Kicker style={{ color: "var(--muted-dark)" }}>Room code</Kicker>
+            <div className="shout" style={{ fontSize: "clamp(48px, 16vw, 72px)", lineHeight: 0.86, letterSpacing: "0.06em" }}>
+              {state.code}
+            </div>
+            <div className="small" style={{ color: "var(--muted-dark)", paddingTop: 6, overflowWrap: "anywhere" }}>
+              {shareUrl.replace(/^https?:\/\//, "")}
+            </div>
+          </div>
+          <QrCode url={shareUrl} size={116} />
         </div>
-        <div style={{ display: "flex", gap: 8, paddingTop: 10 }}>
-          <button className="btn btn--red" style={{ padding: 14, fontSize: 14 }} onClick={copyLink}>
+        <div style={{ display: "flex", gap: 8, paddingTop: 12 }}>
+          <button className="btn btn--red" style={{ padding: 14, fontSize: 14 }} onClick={() => copy(shareUrl)}>
             Copy link
           </button>
           <button className="btn" style={{ border: "2px solid var(--cream)", padding: 12, fontSize: 14 }} onClick={shareSheet}>
             Share sheet
           </button>
         </div>
-        <div className="small" style={{ color: "var(--muted-dark)", paddingTop: 8 }}>
-          {shareUrl.replace(/^https?:\/\//, "")}
-        </div>
+        <button
+          className="kicker"
+          style={{ color: "var(--muted-dark)", letterSpacing: "0.1em", paddingTop: 10 }}
+          onClick={() => copy(shareUrl.replace("/r/", "/w/"))}
+        >
+          Copy spectator link — watch only, no seat
+        </button>
       </div>
       <div className="grow scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column" }}>
         <div className="kicker" style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)", paddingBottom: 8 }}>
@@ -112,52 +158,37 @@ export function HostLobby({
           </div>
         ))}
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--rule)", paddingTop: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-              Deck
+          {settingRow("Deck", deckLabel(s.deckId), cycleDeck)}
+          <button
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "2px dashed var(--rule)", padding: "10px 12px" }}
+            onClick={onHouseWords}
+          >
+            <span className="kicker" style={{ fontSize: 12, letterSpacing: "0.08em" }}>
+              Write house words
             </span>
-            {isHost ? (
-              <button className="shout" style={{ fontSize: 14 }} onClick={cycleDeck}>
-                {deckName} ▾
-              </button>
-            ) : (
-              <span className="shout" style={{ fontSize: 14 }}>
-                {deckName}
-              </span>
-            )}
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-              Rounds
+            <span className="shout" style={{ fontSize: 14, color: state.houseWordCount >= HOUSE_MIN_WORDS ? "var(--green)" : "var(--red)" }}>
+              {state.houseWordCount} in the pot
             </span>
-            {isHost ? (
-              <button className="shout" style={{ fontSize: 14 }} onClick={cycleRounds}>
-                {state.settings.rounds} ▾
-              </button>
-            ) : (
-              <span className="shout" style={{ fontSize: 14 }}>
-                {state.settings.rounds}
-              </span>
-            )}
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-              Question master
-            </span>
-            {isHost ? (
-              <button
-                className="shout"
-                style={{ fontSize: 14 }}
-                onClick={() => onSettings({ qmMode: state.settings.qmMode === "rotate" ? "off" : "rotate" })}
-              >
-                {state.settings.qmMode === "rotate" ? "Rotate" : "Off"} ▾
-              </button>
-            ) : (
-              <span className="shout" style={{ fontSize: 14 }}>
-                {state.settings.qmMode === "rotate" ? "Rotate" : "Off"}
-              </span>
-            )}
-          </div>
+          </button>
+          {settingRow("Length", lengthLabel, cycleLength)}
+          {settingRow("Passes", String(s.passes), cyclePasses)}
+          {settingRow("Pen", s.penMode === "line" ? "One line" : "Free ink", cyclePen)}
+          {settingRow(
+            "Ink per turn",
+            s.inkLimit === 0 ? "Unlimited" : s.inkLimit === 120 ? "Long" : "Short",
+            cycleInk,
+          )}
+          {settingRow("Stroke clock", s.strokeClock === 0 ? "Off" : `${s.strokeClock}s`, cycleClock)}
+          {settingRow(
+            "Away players",
+            s.presence === "strict" ? "Pause 30s" : "Wait for them",
+            cyclePresence,
+          )}
+          {settingRow(
+            "Question master",
+            s.qmMode === "rotate" ? "Rotate" : "Auto word — all play",
+            () => onSettings({ qmMode: s.qmMode === "rotate" ? "off" : "rotate" }),
+          )}
           <button className="kicker u-muted" style={{ letterSpacing: "0.1em", textAlign: "left", paddingTop: 4 }} onClick={onRules}>
             How it works
           </button>

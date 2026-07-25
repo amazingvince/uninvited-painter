@@ -1,5 +1,21 @@
 import type { CSSProperties, ReactNode } from "react";
 import { SEAT_COLORS } from "../../shared/palette";
+import { formatClock, useNow } from "../lib/useNow";
+
+/** Small countdown chip for the stroke clock. Amber under ten seconds. */
+export function ClockChip({ deadline }: { deadline: number | null | undefined }) {
+  const now = useNow(250, deadline != null);
+  if (deadline == null) return null;
+  const left = Math.max(0, deadline - now);
+  return (
+    <span
+      className="kicker"
+      style={{ color: left < 10_000 ? "var(--amber)" : "var(--muted)", letterSpacing: "0.1em" }}
+    >
+      {formatClock(left)}
+    </span>
+  );
+}
 
 export function Screen({
   tone,

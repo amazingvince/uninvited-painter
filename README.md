@@ -8,8 +8,18 @@ picture is.
 
 Two modes:
 
-- **Pass one phone** — local play, the phone travels around the table.
-- **Play online** — room code + link, every phone draws on the same canvas.
+- **Pass one phone** — local play, the phone travels around the table (works
+  fully offline once installed — the app is a PWA).
+- **Play online** — room code, link and a lobby QR code; every phone draws on
+  the same canvas. A **spectator link** (`/w/CODE`) lets extras watch the wall
+  without a seat, and a finished game can be **published to a permanent
+  gallery page** (`/a/:id`) with link previews.
+
+Options per room: deck (four built-ins, "everything", or a **house deck** the
+players write themselves — the fake artist is never dealt a word they wrote),
+game length (3/5/7 rounds or first to 10 points), 1–3 passes, an optional
+60/90-second **stroke clock** so an idle player can't stall the round, and the
+rotating question master.
 
 ## Architecture
 
@@ -28,7 +38,10 @@ Two modes:
   order and guess matching are enforced in the DO — the client never decides
   (`shared/protocol.ts` → `redactState`).
 - **Decks** (`shared/decks/*.json`): animals, food, movies, objects — plus
-  "everything". No word repeats within a session.
+  "everything" and the per-room house deck. No word repeats within a session.
+- **Archives** (`worker/archives.ts`): published games live in Workers KV for
+  a year behind strictly-validated, unauthenticated endpoints; `worker/og.ts`
+  injects link-preview meta into the SPA shell with HTMLRewriter.
 
 ## Develop
 

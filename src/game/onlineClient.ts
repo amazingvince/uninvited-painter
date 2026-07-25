@@ -18,11 +18,11 @@ export interface OnlineRoom {
   live: Record<string, LiveStroke>;
   join: (name: string, colorIndex: number) => void;
   send: (msg: ClientMsg) => void;
-  sendLive: (batch: StrokePoints) => void;
+  sendLive: (batch: StrokePoints, newSegment?: boolean) => void;
   clearError: () => void;
 }
 
-export function useOnlineRoom(code: string): OnlineRoom {
+export function useOnlineRoom(code: string, watch = false): OnlineRoom {
   const [connected, setConnected] = useState(false);
   const [joined, setJoined] = useState(false);
   const [gone, setGone] = useState(false);
@@ -50,7 +50,8 @@ export function useOnlineRoom(code: string): OnlineRoom {
       ws.onopen = () => {
         attempts = 0;
         setConnected(true);
-        if (hasJoined(code)) {
+        // Watchers never take a seat — they just listen to the broadcasts.
+        if (!watch && hasJoined(code)) {
           ws.send(JSON.stringify({ t: "rejoin", token: roomToken(code) } satisfies ClientMsg));
         }
       };
@@ -87,11 +88,19 @@ export function useOnlineRoom(code: string): OnlineRoom {
           case "live":
             setLive((prev) => {
               const existing = prev[msg.playerId];
+              if (!existing) {
+                return {
+                  ...prev,
+                  [msg.playerId]: { colorIndex: msg.colorIndex, points: [...msg.points], breaks: [] },
+                };
+              }
+              const breaks = existing.breaks ?? [];
               return {
                 ...prev,
                 [msg.playerId]: {
                   colorIndex: msg.colorIndex,
-                  points: existing ? [...existing.points, ...msg.points] : [...msg.points],
+                  points: [...existing.points, ...msg.points],
+                  breaks: msg.newSegment ? [...breaks, existing.points.length / 2] : breaks,
                 },
               };
             });
@@ -156,7 +165,7 @@ export function useOnlineRoom(code: string): OnlineRoom {
       wsRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+  }, [code, watch]);
 
   const send = useCallback((msg: ClientMsg) => {
     const ws = wsRef.current;
@@ -173,7 +182,19 @@ export function useOnlineRoom(code: string): OnlineRoom {
   );
 
   const sendLive = useCallback(
-    (batch: StrokePoints) => {
+    (batch: StrokePoints, newSegment = false) => {
+      if (newSegment) {
+        // Flush the previous segment's tail, then mark the fresh one.
+        if (liveTimer.current !== null) {
+          clearTimeout(liveTimer.current);
+          liveTimer.current = null;
+        }
+        const tail = liveBuf.current;
+        liveBuf.current = [];
+        if (tail.length > 0) send({ t: "live", points: tail });
+        send({ t: "live", points: [...batch], newSegment: true });
+        return;
+      }
       liveBuf.current.push(...batch);
       if (liveTimer.current === null) {
         liveTimer.current = setTimeout(() => {

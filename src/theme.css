@@ -584,6 +584,87 @@ input {
 .avatar--ink { background: var(--ink); color: var(--cream); }
 .avatar--outline { border: 3px solid var(--ink); }
 
+/* ---- between-screen motion ---- */
+
+.fade-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: screenIn 0.18s ease-out;
+}
+
+.fade-wrap--flood::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: var(--ink);
+  pointer-events: none;
+  animation: floodOff 0.26s ease-in forwards;
+}
+
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes floodOff {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(101%);
+  }
+}
+
+/* Reveal: the picture draws itself back in. */
+.draw-in path {
+  stroke-dasharray: 2400;
+  stroke-dashoffset: 2400;
+  animation: drawIn 1s ease-out forwards 0.15s;
+}
+
+@keyframes drawIn {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.stagger-in > * {
+  opacity: 0;
+  animation: screenIn 0.3s ease-out forwards;
+}
+
+.stagger-in > *:nth-child(1) { animation-delay: 0.9s; }
+.stagger-in > *:nth-child(2) { animation-delay: 1.05s; }
+.stagger-in > *:nth-child(3) { animation-delay: 1.2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-wrap {
+    animation: none;
+  }
+  .fade-wrap--flood::before {
+    display: none;
+  }
+  .draw-in path {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .stagger-in > * {
+    opacity: 1;
+    animation: none;
+  }
+}
+
 .pulse {
   animation: pulse 1.4s ease-in-out infinite;
 }

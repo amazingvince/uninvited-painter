@@ -2,9 +2,10 @@
 // One authoritative state object per room; both modes run the same reducer
 // (local mode keeps it in memory, online mode keeps it in the Durable Object).
 
-export type DeckId = "animals" | "food" | "movies" | "objects" | "everything";
+export type DeckId = "animals" | "food" | "movies" | "objects" | "everything" | "house";
 export type QmMode = "rotate" | "off";
 export type Mode = "local" | "online";
+export type WinMode = "rounds" | "score10";
 
 export type Phase =
   | "lobby"
@@ -24,6 +25,9 @@ export interface Stroke {
   playerId: string;
   colorIndex: number;
   points: StrokePoints;
+  /** Free-pen turns: coordinate-pair indices where a new segment begins
+   *  (the pen lifted). Absent/empty = one unbroken line. */
+  breaks?: number[];
 }
 
 export interface Player {
@@ -34,10 +38,31 @@ export interface Player {
   connected: boolean;
 }
 
+export type PenMode = "line" | "free";
+export type Presence = "strict" | "relaxed";
+
 export interface Settings {
   deckId: DeckId;
   rounds: number; // 3 | 5 | 7
   qmMode: QmMode;
+  /** Strokes per artist per round. */
+  passes: number; // 1 | 2 | 3
+  /** Seconds per drawing turn (0 = no clock). Online only; voting gets 2×. */
+  strokeClock: number; // 0 | 60 | 90
+  winMode: WinMode;
+  /** "line": one unbroken line, lifting ends the turn. "free": draw several
+   *  segments inside the ink budget, an explicit End Turn submits. */
+  penMode: PenMode;
+  /** Ink budget per turn as a percentage of the canvas width (0 = unlimited). */
+  inkLimit: number; // 0 | 60 | 120
+  /** "strict": disconnects pause the game and seats auto-drop after 30s.
+   *  "relaxed": the room just waits — nobody is forced to keep the app open. */
+  presence: Presence;
+}
+
+export interface HouseWord {
+  word: string;
+  authorId: string;
 }
 
 export interface RoundState {
@@ -64,6 +89,9 @@ export interface RoundState {
   outcome: Outcome | null;
   scoreDelta: Record<string, number>;
   guessDeadline: number | null; // epoch ms
+  /** Stroke-clock deadline for the current drawing turn (or the whole ballot
+   *  while voting). null when the clock is off. */
+  turnDeadline: number | null;
 }
 
 export interface ArchiveEntry {
@@ -91,7 +119,15 @@ export interface RoomState {
   roundsPlayed: number;
   /** Disconnected mid-round: playerId -> seat-hold deadline (epoch ms). */
   holds: Record<string, number>;
+  /** The house deck: words written by the players themselves. */
+  customWords: HouseWord[];
 }
+
+export const HOUSE_MIN_WORDS = 12;
+export const HOUSE_MAX_WORDS = 100;
+export const HOUSE_WORD_MAX_LEN = 24;
+export const SCORE_TARGET = 10;
+export const SCORE_MIN_ROUNDS = 3;
 
 export const MIN_PLAYERS = 5;
 export const MAX_PLAYERS = 12;
@@ -123,9 +159,12 @@ export type GameEvent =
       turnOrder: string[];
     }
   | { type: "REDRAW_WORD"; word: string; category: string }
-  | { type: "DEAL" } // QM confirms the word; cards go out
-  | { type: "MARK_SEEN"; playerId: string }
-  | { type: "COMMIT_STROKE"; playerId: string; points: StrokePoints }
+  | { type: "DEAL"; now: number } // QM confirms the word; cards go out
+  | { type: "MARK_SEEN"; playerId: string; now: number }
+  | { type: "COMMIT_STROKE"; playerId: string; points: StrokePoints; breaks?: number[]; now: number }
+  | { type: "TURN_TIMEOUT"; now: number } // stroke clock ran out
+  | { type: "ADD_HOUSE_WORDS"; playerId: string; words: string[] }
+  | { type: "REMOVE_HOUSE_WORD"; playerId: string; word: string }
   | { type: "CAST_VOTE"; voterId: string; targetId: string; now: number }
   | { type: "SUBMIT_GUESS"; playerId: string; text: string; matched: boolean }
   | { type: "GUESS_TIMEOUT"; now: number }

@@ -3,6 +3,7 @@
 
 import { SEAT_COLORS } from "../../shared/palette";
 import type { ArchiveEntry, Stroke } from "../../shared/types";
+import { buildCurve } from "./curves";
 
 function drawStrokes(
   ctx: CanvasRenderingContext2D,
@@ -17,13 +18,13 @@ function drawStrokes(
   ctx.lineJoin = "round";
   ctx.lineWidth = size * 0.017;
   for (const stroke of strokes) {
-    const pts = stroke.points;
-    if (pts.length < 4) continue;
+    const curve = buildCurve(stroke.points, size);
+    if (!curve) continue;
     ctx.strokeStyle = SEAT_COLORS[stroke.colorIndex] ?? "#121212";
     ctx.beginPath();
-    ctx.moveTo(pts[0] * size, pts[1] * size);
-    for (let i = 2; i < pts.length; i += 2) {
-      ctx.lineTo(pts[i] * size, pts[i + 1] * size);
+    ctx.moveTo(curve.x0, curve.y0);
+    for (const s of curve.segs) {
+      ctx.bezierCurveTo(s.c1x, s.c1y, s.c2x, s.c2y, s.x, s.y);
     }
     ctx.stroke();
   }
@@ -113,6 +114,26 @@ export async function contactSheetPng(archive: ArchiveEntry[], title: string): P
   ctx.font = "600 24px Archivo, sans-serif";
   ctx.fillText("THE UNINVITED PAINTER", gap, height - 48);
   return toBlob(canvas);
+}
+
+/** Publish a finished game to its permanent /a/:id page. Returns the full URL. */
+export async function publishArchive(params: {
+  title: string;
+  players: { name: string; colorIndex: number; score: number }[];
+  entries: ArchiveEntry[];
+}): Promise<string> {
+  const form = new FormData();
+  form.append("meta", JSON.stringify(params));
+  try {
+    const png = await contactSheetPng(params.entries, params.title);
+    form.append("image", new File([png], "archive.png", { type: "image/png" }));
+  } catch {
+    // No preview image is fine — the page itself renders from strokes.
+  }
+  const res = await fetch("/api/archives", { method: "POST", body: form });
+  const data = (await res.json()) as { url?: string; error?: string };
+  if (!res.ok || !data.url) throw new Error(data.error ?? "Publishing failed");
+  return `${location.origin}${data.url}`;
 }
 
 export async function shareOrDownload(blob: Blob, filename: string): Promise<void> {

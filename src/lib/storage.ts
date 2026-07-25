@@ -1,3 +1,4 @@
+import { normalizeRoom } from "../../shared/engine";
 import type { RoomState } from "../../shared/types";
 
 const LOCAL_GAME = "painter.local.v1";
@@ -33,7 +34,7 @@ export function loadLocalGame(): RoomState | null {
   ) {
     return null;
   }
-  return saved;
+  return normalizeRoom(saved);
 }
 
 export function saveLocalGame(state: RoomState): void {

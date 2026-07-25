@@ -9,12 +9,24 @@ import { OnlineEntry } from "./screens/OnlineEntry";
 import { JoinCode } from "./screens/JoinCode";
 import { LocalFlow } from "./flows/LocalFlow";
 import { OnlineFlow } from "./flows/OnlineFlow";
+import { ArchivePage } from "./screens/ArchivePage";
+import { unlockAudio } from "./lib/sound";
 
 type HomeStep = "entrance" | "local" | "online" | "joincode";
 
 function roomCodeFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/r\/([A-Za-z]{4})$/);
   return match ? normalizeRoomCode(match[1]) : null;
+}
+
+function watchCodeFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/w\/([A-Za-z]{4})$/);
+  return match ? normalizeRoomCode(match[1]) : null;
+}
+
+function archiveIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/a\/([a-z2-9]{12})$/);
+  return match ? match[1] : null;
 }
 
 /** Fresh lobby carrying over the last game's roster, settings and rotation. */
@@ -43,7 +55,12 @@ export function App() {
   useEffect(() => {
     const onPop = () => setPath(location.pathname);
     window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    // Browsers gate audio behind a gesture — arm it on the first touch.
+    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("pointerdown", unlockAudio);
+    };
   }, []);
 
   const navigate = useCallback((to: string) => {
@@ -51,17 +68,32 @@ export function App() {
     setPath(to);
   }, []);
 
+  const goHome = () => {
+    navigate("/");
+    setStep("entrance");
+  };
+
   const roomCode = roomCodeFromPath(path);
   if (roomCode) {
     return (
       <div className="frame">
-        <OnlineFlow
-          code={roomCode}
-          onExit={() => {
-            navigate("/");
-            setStep("entrance");
-          }}
-        />
+        <OnlineFlow code={roomCode} onExit={goHome} />
+      </div>
+    );
+  }
+  const watchCode = watchCodeFromPath(path);
+  if (watchCode) {
+    return (
+      <div className="frame">
+        <OnlineFlow code={watchCode} watch onExit={goHome} />
+      </div>
+    );
+  }
+  const archiveId = archiveIdFromPath(path);
+  if (archiveId) {
+    return (
+      <div className="frame">
+        <ArchivePage id={archiveId} onHome={goHome} />
       </div>
     );
   }

@@ -7,9 +7,14 @@ import {
   GRACE_MS,
   GUESS_MS,
   HOLD_MS,
+  HOUSE_MAX_WORDS,
+  HOUSE_MIN_WORDS,
+  HOUSE_WORD_MAX_LEN,
   MAX_PLAYERS,
   MIN_PLAYERS,
   MIN_STROKE_COORDS,
+  SCORE_MIN_ROUNDS,
+  SCORE_TARGET,
   type GameEvent,
   type Player,
   type ReduceResult,
@@ -18,11 +23,24 @@ import {
   type Settings,
 } from "./types";
 import { SEAT_COLORS } from "./palette";
+import { strokeLength, validSegments } from "./geometry";
 
 /** Committed strokes cap out well above the client's own sampling limit. */
 const MAX_STROKE_COORDS = 2400;
 
 export { GRACE_MS, GUESS_MS, HOLD_MS, MIN_PLAYERS, MAX_PLAYERS };
+
+const DEFAULT_SETTINGS: Settings = {
+  deckId: "animals",
+  rounds: 5,
+  qmMode: "rotate",
+  passes: 2,
+  strokeClock: 0,
+  winMode: "rounds",
+  penMode: "line",
+  inkLimit: 0,
+  presence: "strict",
+};
 
 export function createRoom(params: {
   code: string;
@@ -36,7 +54,7 @@ export function createRoom(params: {
     hostId: params.hostId,
     phase: "lobby",
     players: [],
-    settings: { deckId: "animals", rounds: 5, qmMode: "rotate", ...params.settings },
+    settings: { ...DEFAULT_SETTINGS, ...params.settings },
     round: null,
     archive: [],
     usedWords: [],
@@ -44,7 +62,41 @@ export function createRoom(params: {
     qmIndex: 0,
     roundsPlayed: 0,
     holds: {},
+    customWords: [],
   };
+}
+
+/** Fill fields added after a state was persisted — old rooms survive deploys. */
+export function normalizeRoom(state: RoomState): RoomState {
+  const s = (state.settings ?? {}) as Partial<Settings>;
+  state.settings = {
+    deckId: s.deckId ?? DEFAULT_SETTINGS.deckId,
+    rounds: s.rounds ?? DEFAULT_SETTINGS.rounds,
+    qmMode: s.qmMode ?? DEFAULT_SETTINGS.qmMode,
+    passes: s.passes ?? DEFAULT_SETTINGS.passes,
+    strokeClock: s.strokeClock ?? DEFAULT_SETTINGS.strokeClock,
+    winMode: s.winMode ?? DEFAULT_SETTINGS.winMode,
+    penMode: s.penMode ?? DEFAULT_SETTINGS.penMode,
+    inkLimit: s.inkLimit ?? DEFAULT_SETTINGS.inkLimit,
+    presence: s.presence ?? DEFAULT_SETTINGS.presence,
+  };
+  state.customWords ??= [];
+  if (state.round) state.round.turnDeadline ??= null;
+  return state;
+}
+
+/** Has the exhibition run its course? (fixed rounds, or first to the target)
+ *  Accepts the redacted public state too — it only reads public fields. */
+export function isGameOver(
+  state: Pick<RoomState, "settings" | "roundsPlayed" | "players">,
+): boolean {
+  if (state.settings.winMode === "score10") {
+    return (
+      state.roundsPlayed >= SCORE_MIN_ROUNDS &&
+      state.players.some((p) => p.score >= SCORE_TARGET)
+    );
+  }
+  return state.roundsPlayed >= state.settings.rounds;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +246,7 @@ function finishRound(state: RoomState, outcome: NonNullable<RoundState["outcome"
     });
   }
   state.phase = "reveal";
+  round.turnDeadline = null;
   // The reveal waits on host taps — make sure the host seat is a live one.
   ensureLiveHost(state);
 }
@@ -203,13 +256,37 @@ function resolveVotesIfComplete(state: RoomState, now: number): void {
   const voters = activeArtists(round);
   if (!voters.every((id) => round.votes[id] !== undefined)) return;
   if (Object.keys(state.holds).length > 0) return; // paused — a held seat may return and re-vote
+  resolveVotes(state, now);
+}
+
+/** Count whatever ballots exist and move on — the all-in path and the
+ *  ballot-clock timeout both end here. */
+function resolveVotes(state: RoomState, now: number): void {
+  const round = state.round!;
   const accused = accusedFromVotes(round);
   round.accusedId = accused;
+  round.turnDeadline = null;
   if (accused !== null && accused === round.fakeId) {
     state.phase = "guessing";
     round.guessDeadline = now + GUESS_MS;
   } else {
     finishRound(state, "survived");
+  }
+}
+
+/** Arm (or clear) the stroke clock for the current turn / the whole ballot. */
+function armTurnClock(state: RoomState, now: number): void {
+  const round = state.round;
+  if (!round) return;
+  const clock = state.settings.strokeClock;
+  if (!clock) {
+    round.turnDeadline = null;
+  } else if (state.phase === "drawing") {
+    round.turnDeadline = now + clock * 1000;
+  } else if (state.phase === "voting") {
+    round.turnDeadline = now + 2 * clock * 1000;
+  } else {
+    round.turnDeadline = null;
   }
 }
 
@@ -294,7 +371,47 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (state.phase !== "lobby") return fail("Settings are fixed once the game starts");
       const next = { ...state.settings, ...event.settings };
       if (![3, 5, 7].includes(next.rounds)) return fail("Rounds must be 3, 5 or 7");
+      if (![1, 2, 3].includes(next.passes)) return fail("Passes must be 1, 2 or 3");
+      if (![0, 60, 90].includes(next.strokeClock)) return fail("Bad stroke clock");
+      if (!["rounds", "score10"].includes(next.winMode)) return fail("Bad win mode");
+      if (!["line", "free"].includes(next.penMode)) return fail("Bad pen mode");
+      if (![0, 60, 120].includes(next.inkLimit)) return fail("Bad ink limit");
+      if (!["strict", "relaxed"].includes(next.presence)) return fail("Bad presence mode");
       state.settings = next;
+      return { ok: true, state };
+    }
+
+    case "ADD_HOUSE_WORDS": {
+      if (state.phase !== "lobby") return fail("House words are written in the lobby");
+      // authorId "" = the table wrote it (local mode, shared phone) — no
+      // author to protect, so the fake-exclusion rule simply never applies.
+      if (event.playerId !== "" && !playerById(state, event.playerId)) {
+        return fail("No such player");
+      }
+      // Dedupe only against the caller's OWN words — deduping against the
+      // whole pot would let anyone probe whether a word is already in it
+      // (a membership oracle on the supposedly-secret house deck).
+      const own = new Set(
+        state.customWords
+          .filter((w) => w.authorId === event.playerId)
+          .map((w) => w.word.toLowerCase()),
+      );
+      for (const raw of event.words.slice(0, 20)) {
+        const word = String(raw).trim().slice(0, HOUSE_WORD_MAX_LEN);
+        if (word.length < 2) continue;
+        if (own.has(word.toLowerCase())) continue;
+        if (state.customWords.length >= HOUSE_MAX_WORDS) break;
+        state.customWords.push({ word, authorId: event.playerId });
+        own.add(word.toLowerCase());
+      }
+      return { ok: true, state };
+    }
+
+    case "REMOVE_HOUSE_WORD": {
+      if (state.phase !== "lobby") return fail("House words are fixed once the game starts");
+      state.customWords = state.customWords.filter(
+        (w) => !(w.authorId === event.playerId && w.word === event.word),
+      );
       return { ok: true, state };
     }
 
@@ -303,8 +420,10 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (!player) return fail("No such player");
       player.connected = event.connected;
       // Only seats that are actually in the round get held — a spectator or
-      // late joiner dropping their tab must not pause the game.
+      // late joiner dropping their tab must not pause the game. In relaxed
+      // rooms nobody is held at all: the game simply waits.
       const inRound =
+        state.settings.presence === "strict" &&
         state.round !== null &&
         (state.phase === "dealing" ||
           state.phase === "drawing" ||
@@ -321,17 +440,20 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
         if (state.phase === "voting" && state.round) {
           resolveVotesIfComplete(state, event.now);
         }
-        // The pause ate into the fake's guess clock — give it back.
-        if (
-          event.connected &&
-          state.phase === "guessing" &&
-          state.round &&
-          Object.keys(state.holds).length === 0
-        ) {
-          state.round.guessDeadline = Math.max(
-            state.round.guessDeadline ?? 0,
-            event.now + 10_000,
-          );
+        // The pause ate into the running clocks — give some time back.
+        if (event.connected && state.round && Object.keys(state.holds).length === 0) {
+          if (state.phase === "guessing") {
+            state.round.guessDeadline = Math.max(
+              state.round.guessDeadline ?? 0,
+              event.now + 10_000,
+            );
+          }
+          if (
+            (state.phase === "drawing" || state.phase === "voting") &&
+            state.round.turnDeadline !== null
+          ) {
+            state.round.turnDeadline = Math.max(state.round.turnDeadline, event.now + 10_000);
+          }
         }
       }
       if (!event.connected && (state.phase === "lobby" || state.phase === "reveal" || state.phase === "closed")) {
@@ -345,8 +467,11 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (state.phase !== "lobby" && state.phase !== "reveal") {
         return fail("A round is already underway");
       }
-      if (state.phase === "reveal" && state.roundsPlayed >= state.settings.rounds) {
+      if (state.phase === "reveal" && isGameOver(state)) {
         return fail("The exhibition is over — close the game");
+      }
+      if (state.settings.deckId === "house" && state.customWords.length < HOUSE_MIN_WORDS) {
+        return fail(`The house deck needs at least ${HOUSE_MIN_WORDS} words`);
       }
       const ids = state.players.map((p) => p.id);
       if (event.qmId !== null && !ids.includes(event.qmId)) return fail("Bad QM");
@@ -369,7 +494,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
         qmId: event.qmId,
         fakeId: event.fakeId,
         turnOrder: event.turnOrder,
-        schedule: [...event.turnOrder, ...event.turnOrder],
+        schedule: Array.from({ length: state.settings.passes }, () => event.turnOrder).flat(),
         turnIndex: 0,
         dealt: event.qmId === null, // no QM → cards go straight out
         seen: [],
@@ -381,6 +506,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
         outcome: null,
         scoreDelta: {},
         guessDeadline: null,
+        turnDeadline: null,
       };
       state.usedWords.push(event.word);
       state.fakeCounts[event.fakeId] = (state.fakeCounts[event.fakeId] ?? 0) + 1;
@@ -405,6 +531,10 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       round.dealt = true;
       // The QM has been staring at the word all along.
       if (round.qmId) round.seen.push(round.qmId);
+      if (mustSee(round).every((id) => round.seen.includes(id))) {
+        state.phase = "drawing";
+        armTurnClock(state, event.now);
+      }
       return { ok: true, state };
     }
 
@@ -415,6 +545,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (!round.seen.includes(event.playerId)) round.seen.push(event.playerId);
       if (mustSee(round).every((id) => round.seen.includes(id))) {
         state.phase = "drawing";
+        armTurnClock(state, event.now);
       }
       return { ok: true, state };
     }
@@ -430,17 +561,53 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (!event.points.every((n) => typeof n === "number" && n >= -0.01 && n <= 1.01)) {
         return fail("Stroke out of bounds");
       }
+      const breaks = event.breaks ?? [];
+      if (breaks.length > 0 && state.settings.penMode !== "free") {
+        return fail("One unbroken line — the pen never lifts in this room");
+      }
+      if (breaks.length > 24 || !validSegments(event.points, breaks)) {
+        return fail("Bad stroke segments");
+      }
+      if (state.settings.inkLimit > 0) {
+        // Slack for float noise only — the client meters with the same math.
+        if (strokeLength(event.points, breaks) > (state.settings.inkLimit / 100) * 1.02) {
+          return fail("That is more ink than the turn allows");
+        }
+      }
       const player = playerById(state, event.playerId)!;
       round.strokes.push({
         playerId: event.playerId,
         colorIndex: player.colorIndex,
         points: event.points.map((n) => Math.min(1, Math.max(0, n))),
+        ...(breaks.length > 0 ? { breaks } : {}),
       });
       round.turnIndex += 1;
       if (round.turnIndex >= round.schedule.length) {
         state.phase = "voting";
       }
+      armTurnClock(state, event.now);
       return { ok: true, state };
+    }
+
+    case "TURN_TIMEOUT": {
+      if (!round || round.turnDeadline === null) return fail("No clock running");
+      if (Object.keys(state.holds).length > 0) return fail("Paused");
+      if (event.now < round.turnDeadline) return fail("Not yet");
+      if (state.phase === "drawing") {
+        // The turn is forfeited — the pass moves on without a stroke.
+        round.turnIndex += 1;
+        if (round.turnIndex >= round.schedule.length) {
+          state.phase = "voting";
+        }
+        armTurnClock(state, event.now);
+        return { ok: true, state };
+      }
+      if (state.phase === "voting") {
+        // Ballot clock: count whatever is in. No ballots at all = a tie = acquittal.
+        resolveVotes(state, event.now);
+        return { ok: true, state };
+      }
+      return fail("No clock in this phase");
     }
 
     case "CAST_VOTE": {
@@ -511,11 +678,21 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (state.phase === "dealing") {
         if (round.dealt && mustSee(round).every((id) => round.seen.includes(id))) {
           state.phase = "drawing";
+          armTurnClock(state, event.now);
         }
       } else if (state.phase === "drawing") {
         if (activeArtists(round).length < 2) return fail("Too few artists left — void the round");
         if (round.turnIndex >= round.schedule.length) state.phase = "voting";
+        armTurnClock(state, event.now);
       } else if (state.phase === "voting") {
+        if (activeArtists(round).length < 2) {
+          return fail("Too few artists left — void the round");
+        }
+        // Reopened ballots need breathing room: a ballot clock that expired
+        // during the pause must not fire the instant the drop lands.
+        if (round.turnDeadline !== null && Object.keys(state.holds).length === 0) {
+          round.turnDeadline = Math.max(round.turnDeadline, event.now + 10_000);
+        }
         resolveVotesIfComplete(state, event.now);
       } else if (state.phase === "guessing" && Object.keys(state.holds).length === 0) {
         // The pause ate into the fake's guess clock — give some back.
@@ -540,7 +717,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
 
     case "CLOSE_GAME": {
       if (state.phase !== "reveal") return fail("Not at a reveal");
-      if (state.roundsPlayed < state.settings.rounds) return fail("Rounds remain");
+      if (!isGameOver(state)) return fail("Rounds remain");
       state.phase = "closed";
       state.round = null;
       return { ok: true, state };

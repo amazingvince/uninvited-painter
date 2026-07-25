@@ -25,8 +25,11 @@ export function JoinerSetup({
   const chosen = color !== null && !taken.includes(color) ? color : nextFreeColor(taken);
   const host = state?.players.find((p) => p.id === state.hostId);
   const deckName =
-    deckList().find((d) => d.id === state?.settings.deckId)?.name ??
-    (state?.settings.deckId === "everything" ? "Everything" : "");
+    state?.settings.deckId === "everything"
+      ? "Everything"
+      : state?.settings.deckId === "house"
+        ? "House deck"
+        : (deckList().find((d) => d.id === state?.settings.deckId)?.name ?? "");
   const midGame = state !== null && state.phase !== "lobby";
 
   return (

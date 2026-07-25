@@ -1,7 +1,7 @@
 // C1 Vote — you can't vote for yourself; the QM doesn't vote. Votes stay
 // hidden until everyone has locked in.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SEAT_COLORS } from "../../shared/palette";
 import type { Player, Stroke } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
@@ -28,6 +28,12 @@ export function Vote({
 }) {
   const [choice, setChoice] = useState<string | null>(null);
   const [zoom, setZoom] = useState(false);
+
+  // A candidate dropped mid-ballot must not stay selected — a locked vote for
+  // them would be refused by the engine anyway.
+  useEffect(() => {
+    if (choice && !candidates.includes(choice)) setChoice(null);
+  }, [candidates, choice]);
   const rows = [...(qmId ? [qmId] : []), ...candidates];
 
   return (

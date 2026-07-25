@@ -3,13 +3,19 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { isGameOver } from "../../shared/engine";
 import type { PublicRoundState } from "../../shared/protocol";
 import { useOnlineRoom } from "../game/onlineClient";
+import { useGameCues } from "../lib/cues";
+import { cueLock } from "../lib/sound";
+import { useWakeLock } from "../lib/useWakeLock";
 import { Screen, Btn, Kicker } from "../components/ui";
 import { HoldToReveal } from "../components/HoldToReveal";
 import { RulesSheet } from "../components/RulesSheet";
+import { ScreenFade } from "../components/ScreenFade";
 import { JoinerSetup } from "../screens/JoinerSetup";
 import { HostLobby } from "../screens/HostLobby";
+import { HouseWords } from "../screens/HouseWords";
 import { QmWord } from "../screens/QmWord";
 import { RoleCard } from "../screens/RoleCard";
 import { Spectate, turnChips } from "../screens/Spectate";
@@ -53,15 +59,39 @@ function Waiting({
   );
 }
 
-export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void }) {
-  const room = useOnlineRoom(code);
+export function OnlineFlow({
+  code,
+  watch = false,
+  onExit,
+}: {
+  code: string;
+  watch?: boolean;
+  onExit: () => void;
+}) {
+  const room = useOnlineRoom(code, watch);
   const [showRules, setShowRules] = useState(false);
+  const [showHouse, setShowHouse] = useState(false);
   const [peekCard, setPeekCard] = useState(false);
   const [tallySeen, setTallySeen] = useState<number>(0); // roundNo whose tally was dismissed
   const [revealStep, setRevealStep] = useState<"reveal" | "standings">("reveal");
 
   const { state, you } = room;
   const round = state?.round ?? null;
+
+  useWakeLock(state !== null && room.connected);
+  useGameCues({
+    phase: state?.phase ?? null,
+    yourTurn:
+      !watch &&
+      state?.phase === "drawing" &&
+      round?.schedule[round.turnIndex] === you?.playerId,
+    cardWaiting:
+      !watch &&
+      state?.phase === "dealing" &&
+      !!round?.dealt &&
+      (you?.role === "artist" || you?.role === "fake") &&
+      !round.seen.includes(you?.playerId ?? ""),
+  });
 
   useEffect(() => {
     setRevealStep("reveal");
@@ -71,6 +101,12 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
   // re-arm whenever fresh cards go out.
   useEffect(() => {
     if (state?.phase === "dealing" || state?.phase === "lobby") setTallySeen(0);
+  }, [state?.phase]);
+
+  // The round opening while someone is mid-edit must not trap them in the
+  // house-words editor (it's lobby-only).
+  useEffect(() => {
+    if (state && state.phase !== "lobby") setShowHouse(false);
   }, [state?.phase]);
 
   // Release the card peek if the pointer never comes back (e.g. system gesture).
@@ -112,9 +148,11 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
 
   let body: ReactNode;
   const me = state?.players.find((p) => p.id === you?.playerId);
-  const isHost = !!you?.isHost;
+  const isHost = !watch && !!you?.isHost;
 
-  if (!state || !room.joined || !me) {
+  if (watch) {
+    body = <WatchBody code={code} state={state} live={room.live} />;
+  } else if (!state || !room.joined || !me) {
     body = (
       <JoinerSetup
         code={code}
@@ -135,6 +173,7 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
         onStart={() => room.send({ t: "start" })}
         onRules={() => setShowRules(true)}
         onKick={(playerId) => room.send({ t: "dropPlayer", playerId })}
+        onHouseWords={() => setShowHouse(true)}
       />
     );
   } else if (state.phase === "closed") {
@@ -249,7 +288,9 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
     } else if (state.phase === "drawing") {
       const drawerId = r.schedule[r.turnIndex] ?? null;
       const drawer = state.players.find((p) => p.id === drawerId);
-      const pass = r.turnIndex < r.turnOrder.length ? 1 : 2;
+      // Which pass is this? Count the drawer's completed turns in the schedule.
+      const pass =
+        r.schedule.slice(0, r.turnIndex).filter((id) => id === drawerId).length + 1;
       if (drawerId === me.id) {
         body = (
           <DrawTurn
@@ -261,9 +302,12 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
             strokeNo={r.turnIndex + 1}
             strokeTotal={r.schedule.length}
             paused={Object.keys(state.holds).length > 0}
-            onLive={(batch) => room.sendLive(batch)}
+            deadline={r.turnDeadline}
+            penMode={state.settings.penMode}
+            inkLimit={state.settings.inkLimit}
+            onLive={(batch, newSegment) => room.sendLive(batch, newSegment)}
             onLiveClear={() => room.send({ t: "liveClear" })}
-            onCommit={(points) => room.send({ t: "commit", points })}
+            onCommit={(points, breaks) => room.send({ t: "commit", points, breaks })}
           />
         );
       } else {
@@ -282,6 +326,7 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
               strokeNo={r.turnIndex + 1}
               strokeTotal={r.schedule.length}
               liveBadge
+              deadline={r.turnDeadline}
               banner={
                 canPeek ? (
                   <div
@@ -330,7 +375,10 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
             players={state.players}
             strokes={r.strokes}
             votersIn={r.votersIn}
-            onLock={(targetId) => room.send({ t: "vote", targetId })}
+            onLock={(targetId) => {
+              cueLock();
+              room.send({ t: "vote", targetId });
+            }}
           />
         );
       } else {
@@ -375,7 +423,8 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
       }
     } else if (state.phase === "reveal") {
       const voided = r.outcome === "voided";
-      const isLastRound = state.roundsPlayed >= state.settings.rounds;
+      // isGameOver, not a rounds comparison — score-to-10 games end on points.
+      const isLastRound = isGameOver(state);
       if (!voided && r.outcome === "survived" && tallySeen !== r.roundNo && r.votes && Object.keys(r.votes).length > 0) {
         body = (
           <Tally
@@ -434,9 +483,51 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
     Object.keys(state.holds).length > 0 &&
     ["dealing", "drawing", "voting", "guessing"].includes(state.phase);
 
+  // Screen identity — changing it plays the entry transition.
+  const screenId = (() => {
+    if (watch) {
+      return `w:${state?.phase ?? "x"}:${round?.roundNo ?? 0}:${
+        state?.phase === "drawing" ? (round?.schedule[round.turnIndex] ?? "") : ""
+      }`;
+    }
+    if (!state || !room.joined || !me) return "join";
+    switch (state.phase) {
+      case "lobby":
+        return "lobby";
+      case "closed":
+        return "closed";
+      case "dealing":
+        return `deal:${round?.roundNo}:${
+          !round?.dealt
+            ? you?.role === "qm"
+              ? "qm"
+              : "wait"
+            : round && !round.seen.includes(me.id) && (you?.role === "artist" || you?.role === "fake")
+              ? "card"
+              : "seen"
+        }`;
+      case "drawing":
+        return `draw:${round?.roundNo}:${round?.schedule[round.turnIndex] ?? "?"}`;
+      case "voting":
+        return `vote:${round?.roundNo}:${round?.votersIn.includes(me.id) ? "waiting" : "ballot"}`;
+      case "guessing":
+        return `guess:${round?.roundNo}:${
+          tallySeen !== round?.roundNo ? "tally" : me.id === round?.fakeId ? "input" : "wait"
+        }`;
+      case "reveal":
+        return `reveal:${round?.roundNo}:${revealStep}:${round?.outcome ?? ""}`;
+    }
+  })();
+  const flood =
+    screenId.startsWith("deal:") && (screenId.endsWith(":qm") || screenId.endsWith(":card"))
+      ? true
+      : screenId.startsWith("guess:") && screenId.endsWith(":input");
+
   return (
     <>
-      {body}
+      <ScreenFade id={screenId} flood={flood}>
+        {body}
+      </ScreenFade>
       {paused && state && (
         <DisconnectOverlay
           state={state}
@@ -444,12 +535,226 @@ export function OnlineFlow({ code, onExit }: { code: string; onExit: () => void 
           onDrop={(playerId) => room.send({ t: "dropPlayer", playerId })}
         />
       )}
-      {room.joined && !room.connected && !room.gone && <ReconnectingBanner />}
+      {!watch &&
+        isHost &&
+        state &&
+        state.settings.presence === "relaxed" &&
+        ["dealing", "drawing", "voting", "guessing"].includes(state.phase) && (
+          <AwayNudge state={state} onDrop={(playerId) => room.send({ t: "dropPlayer", playerId })} />
+        )}
+      {(room.joined || watch) && !room.connected && !room.gone && <ReconnectingBanner />}
+      {watch && (
+        <div
+          className="kicker"
+          style={{
+            position: "absolute",
+            bottom: "calc(10px + env(safe-area-inset-bottom))",
+            right: 12,
+            zIndex: 35,
+            background: "var(--ink)",
+            color: "var(--gold)",
+            padding: "7px 10px",
+            letterSpacing: "0.12em",
+          }}
+        >
+          Watching · {code}
+        </div>
+      )}
+      {showHouse && state && you && (
+        <div className="overlay">
+          <HouseWords
+            ownWords={you.houseWords}
+            totalCount={state.houseWordCount}
+            note="Your words stay yours — nobody else sees them, and the fake artist is never dealt a word they wrote."
+            onAdd={(words) => room.send({ t: "houseWords", add: words })}
+            onRemove={(word) => room.send({ t: "houseWords", remove: word })}
+            onBack={() => setShowHouse(false)}
+          />
+        </div>
+      )}
       {showRules && <RulesSheet onClose={() => setShowRules(false)} />}
       {room.error && room.joined && (
         <ErrorToast message={room.error} onDone={room.clearError} />
       )}
     </>
+  );
+}
+
+/** Relaxed rooms never pause — but the host still needs a way past a player
+ *  who is away AND currently blocking the round. */
+function AwayNudge({
+  state,
+  onDrop,
+}: {
+  state: NonNullable<ReturnType<typeof useOnlineRoom>["state"]>;
+  onDrop: (playerId: string) => void;
+}) {
+  const round = state.round;
+  if (!round) return null;
+  const away = (id: string) => {
+    const p = state.players.find((pl) => pl.id === id);
+    return p ? !p.connected : false;
+  };
+  let blockers: string[] = [];
+  if (state.phase === "drawing") {
+    const drawer = round.schedule[round.turnIndex];
+    if (drawer && away(drawer)) blockers = [drawer];
+  } else if (state.phase === "dealing" && round.dealt) {
+    const need = [...(round.qmId ? [round.qmId] : []), ...round.turnOrder].filter(
+      (id) => !round.droppedIds.includes(id) && !round.seen.includes(id),
+    );
+    blockers = need.filter(away);
+  } else if (state.phase === "dealing" && !round.dealt && round.qmId && away(round.qmId)) {
+    blockers = [round.qmId];
+  } else if (state.phase === "voting") {
+    blockers = round.turnOrder.filter(
+      (id) => !round.droppedIds.includes(id) && !round.votersIn.includes(id) && away(id),
+    );
+  } else if (state.phase === "guessing" && round.fakeId && away(round.fakeId)) {
+    blockers = [round.fakeId];
+  }
+  if (blockers.length === 0) return null;
+  const first = state.players.find((p) => p.id === blockers[0]);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: "calc(64px + env(safe-area-inset-bottom))",
+        left: 20,
+        right: 20,
+        zIndex: 38,
+        background: "var(--ink)",
+        color: "var(--cream)",
+        padding: "12px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+      }}
+    >
+      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+        Waiting on {first?.name ?? "someone"} — their app is closed. The room plays on when they
+        return…
+      </span>
+      <button
+        className="shout"
+        style={{ fontSize: 13, color: "var(--gold)", flex: "none" }}
+        onClick={() => onDrop(blockers[0])}
+      >
+        Carry on without them
+      </button>
+    </div>
+  );
+}
+
+/** Watch-only rendering: the wall, never a card. */
+function WatchBody({
+  code,
+  state,
+  live,
+}: {
+  code: string;
+  state: ReturnType<typeof useOnlineRoom>["state"];
+  live: ReturnType<typeof useOnlineRoom>["live"];
+}) {
+  const round = state?.round ?? null;
+  if (!state) {
+    return <Waiting kicker={`Watching ${code}`} title={<>Tuning in</>} />;
+  }
+  if (state.phase === "lobby") {
+    return (
+      <Waiting
+        kicker={`Watching ${code}`}
+        title={
+          <>
+            {state.players.length} in
+            <br />
+            the room
+          </>
+        }
+        body="You're on the balcony — you'll see the wall, never a card. The round opens when the host is ready."
+      />
+    );
+  }
+  if (state.phase === "closed") {
+    return (
+      <Final
+        players={state.players}
+        archive={state.archive}
+        totalRounds={state.settings.rounds}
+        waiting="You watched the whole thing"
+      />
+    );
+  }
+  if (!round) return <Waiting kicker={`Watching ${code}`} title={<>One moment</>} />;
+
+  if (state.phase === "dealing") {
+    return (
+      <Waiting
+        kicker={`Watching ${code} · round ${round.roundNo}`}
+        title={
+          <>
+            Cards are
+            <br />
+            going out
+          </>
+        }
+        body={`${round.seen.length} of ${round.turnOrder.length + (round.qmId ? 1 : 0)} have seen theirs.`}
+      />
+    );
+  }
+  if (state.phase === "drawing") {
+    const drawer = state.players.find((p) => p.id === round.schedule[round.turnIndex]);
+    return (
+      <Spectate
+        kicker={`Watching ${code} · ${round.turnIndex + 1} of ${round.schedule.length}`}
+        drawerName={drawer?.name ?? "…"}
+        drawerColor={drawer?.colorIndex ?? 0}
+        strokes={round.strokes}
+        live={live}
+        chips={turnChips(round, state.players)}
+        strokeNo={round.turnIndex + 1}
+        strokeTotal={round.schedule.length}
+        liveBadge
+        deadline={round.turnDeadline}
+      />
+    );
+  }
+  if (state.phase === "voting") {
+    const voters = round.turnOrder.filter((id) => !round.droppedIds.includes(id));
+    return (
+      <Waiting
+        kicker={`Watching ${code}`}
+        title={
+          <>
+            Ballots
+            <br />
+            coming in
+          </>
+        }
+        body={`${round.votersIn.length} of ${voters.length} locked in. The names stay sealed until everyone has.`}
+      />
+    );
+  }
+  if (state.phase === "guessing") {
+    const fake = state.players.find((p) => p.id === round.fakeId);
+    return <GuessWait fakeName={fake?.name ?? "The fake"} deadline={round.guessDeadline} />;
+  }
+  // reveal
+  const revealRound = {
+    ...round,
+    word: round.word ?? "?",
+    fakeId: round.fakeId ?? "?",
+    votes: round.votes ?? {},
+    guess: round.guess,
+  };
+  return (
+    <Reveal
+      round={revealRound}
+      players={state.players}
+      totalRounds={state.settings.rounds}
+      isLastRound={false}
+      waiting="The table decides what's next"
+    />
   );
 }
 

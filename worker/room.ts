@@ -4,8 +4,7 @@
 // the DO replays committed strokes as one snapshot (the state broadcast).
 
 import { DurableObject } from "cloudflare:workers";
-import { reduce } from "../shared/engine";
-import { createRoom } from "../shared/engine";
+import { createRoom, isGameOver, normalizeRoom, reduce } from "../shared/engine";
 import { prepareRoundEvent, redrawWordEvent } from "../shared/decks";
 import { guessMatches } from "../shared/fuzzy";
 import { redactState, type ClientMsg, type ServerMsg } from "../shared/protocol";
@@ -18,6 +17,9 @@ interface Attachment {
 
 export class RoomDO extends DurableObject<Env> {
   private cached: RoomState | null | undefined;
+  /** Ephemeral per-turn budget for the live relay (resets with the instance —
+   *  hibernation wiping it just refills the bucket, which is harmless). */
+  private liveBudget: { turnKey: string; coords: number } = { turnKey: "", coords: 0 };
 
   // -------------------------------------------------------------------------
   // RPC (called from the Worker)
@@ -109,6 +111,21 @@ export class RoomDO extends DurableObject<Env> {
         case "settings":
           if (!isHost) return this.sendError(ws, "Host only");
           return await this.dispatch(ws, { type: "SET_SETTINGS", settings: msg.settings });
+        case "houseWords": {
+          if (msg.remove) {
+            return await this.dispatch(ws, {
+              type: "REMOVE_HOUSE_WORD",
+              playerId,
+              word: String(msg.remove).slice(0, 64),
+            });
+          }
+          if (!Array.isArray(msg.add) || msg.add.length === 0) return;
+          return await this.dispatch(ws, {
+            type: "ADD_HOUSE_WORDS",
+            playerId,
+            words: msg.add.slice(0, 20).map((w) => String(w).slice(0, 64)),
+          });
+        }
         case "start": {
           if (!isHost) return this.sendError(ws, "Host only");
           if (state.phase !== "lobby") return this.sendError(ws, "Already underway");
@@ -120,19 +137,33 @@ export class RoomDO extends DurableObject<Env> {
         }
         case "deal":
           if (round?.qmId !== playerId) return this.sendError(ws, "Question master only");
-          return await this.dispatch(ws, { type: "DEAL" });
+          return await this.dispatch(ws, { type: "DEAL", now });
         case "seen":
-          return await this.dispatch(ws, { type: "MARK_SEEN", playerId });
+          return await this.dispatch(ws, { type: "MARK_SEEN", playerId, now });
         case "live": {
           // Ephemeral in-progress stroke — relayed, never stored.
           if (!Array.isArray(msg.points) || msg.points.length > 512) return;
+          if (!msg.points.every((n) => typeof n === "number" && n >= -0.01 && n <= 1.01)) return;
           if (state.phase !== "drawing" || !round) return;
           if (round.schedule[round.turnIndex] !== playerId) return;
           if (Object.keys(state.holds).length > 0) return;
+          // Cumulative cap per turn — a hostile drawer can't firehose the room.
+          const turnKey = `${round.roundNo}:${round.turnIndex}`;
+          if (this.liveBudget.turnKey !== turnKey) {
+            this.liveBudget = { turnKey, coords: 0 };
+          }
+          if (this.liveBudget.coords > 12_000) return;
+          this.liveBudget.coords += msg.points.length;
           const player = state.players.find((p) => p.id === playerId);
           if (!player) return;
           this.broadcastRaw(
-            { t: "live", playerId, colorIndex: player.colorIndex, points: msg.points },
+            {
+              t: "live",
+              playerId,
+              colorIndex: player.colorIndex,
+              points: msg.points,
+              ...(msg.newSegment ? { newSegment: true } : {}),
+            },
             playerId,
           );
           return;
@@ -141,7 +172,13 @@ export class RoomDO extends DurableObject<Env> {
           this.broadcastRaw({ t: "liveClear", playerId }, playerId);
           return;
         case "commit":
-          return await this.dispatch(ws, { type: "COMMIT_STROKE", playerId, points: msg.points });
+          return await this.dispatch(ws, {
+            type: "COMMIT_STROKE",
+            playerId,
+            points: msg.points,
+            breaks: Array.isArray(msg.breaks) ? msg.breaks.slice(0, 32) : undefined,
+            now,
+          });
         case "vote":
           return await this.dispatch(ws, { type: "CAST_VOTE", voterId: playerId, targetId: msg.targetId, now });
         case "guess": {
@@ -154,7 +191,7 @@ export class RoomDO extends DurableObject<Env> {
           if (!isHost) return this.sendError(ws, "Host only");
           if (state.phase !== "reveal") return this.sendError(ws, "Not at a reveal");
           const voided = round?.outcome === "voided";
-          if (!voided && state.roundsPlayed >= state.settings.rounds) {
+          if (!voided && isGameOver(state)) {
             return await this.dispatch(ws, { type: "CLOSE_GAME" });
           }
           return await this.dispatch(ws, prepareRoundEvent(state));
@@ -291,6 +328,20 @@ export class RoomDO extends DurableObject<Env> {
       }
     }
 
+    // Stroke clock: forfeit an idle drawing turn / close an overdue ballot.
+    if (
+      (state.phase === "drawing" || state.phase === "voting") &&
+      state.round?.turnDeadline != null &&
+      state.round.turnDeadline <= now &&
+      Object.keys(state.holds).length === 0
+    ) {
+      const result = reduce(state, { type: "TURN_TIMEOUT", now });
+      if (result.ok) {
+        state = result.state;
+        changed = true;
+      }
+    }
+
     if (changed) await this.persistAndBroadcast(state);
     await this.syncAlarm();
   }
@@ -351,7 +402,9 @@ export class RoomDO extends DurableObject<Env> {
 
   private async getState(): Promise<RoomState | null> {
     if (this.cached === undefined) {
-      this.cached = (await this.ctx.storage.get<RoomState>("state")) ?? null;
+      const stored = (await this.ctx.storage.get<RoomState>("state")) ?? null;
+      // Rooms persisted before a deploy may predate newer fields.
+      this.cached = stored ? normalizeRoom(stored) : null;
     }
     return this.cached;
   }
@@ -422,10 +475,17 @@ export class RoomDO extends DurableObject<Env> {
     if (!state) return;
     const times: number[] = [];
     const paused = Object.keys(state.holds).length > 0;
-    // While a seat is held the guess clock can't fire (the reducer refuses it),
-    // so scheduling it would only hot-loop the alarm — the hold wakes us instead.
+    // While a seat is held the clocks can't fire (the reducer refuses them),
+    // so scheduling them would only hot-loop the alarm — the hold wakes us instead.
     if (!paused && state.phase === "guessing" && state.round?.guessDeadline != null) {
       times.push(state.round.guessDeadline);
+    }
+    if (
+      !paused &&
+      (state.phase === "drawing" || state.phase === "voting") &&
+      state.round?.turnDeadline != null
+    ) {
+      times.push(state.round.turnDeadline);
     }
     times.push(...Object.values(state.holds));
     const emptySince = await this.ctx.storage.get<number>("emptySince");

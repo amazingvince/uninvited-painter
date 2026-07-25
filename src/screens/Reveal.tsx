@@ -1,6 +1,7 @@
 // C4 Reveal — three copy variants: survived / caught+named / caught+wrong
 // (plus voided, the case everyone forgets).
 
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { Outcome, Player, RoundState } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
@@ -96,6 +97,13 @@ export function Reveal({
 }) {
   const outcome = round.outcome ?? "survived";
   const fake = players.find((p) => p.id === round.fakeId);
+  // The picture redraws itself with the fake's strokes spotlit, then floods
+  // back to full colour.
+  const [spotlight, setSpotlight] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setSpotlight(false), 1700);
+    return () => clearTimeout(t);
+  }, []);
   const qm = round.qmId ? players.find((p) => p.id === round.qmId) : null;
   const [kicker, title] = headline(outcome, fake?.name ?? "?");
   const voided = outcome === "voided";
@@ -134,8 +142,12 @@ export function Reveal({
         {!voided && (
           <div style={{ display: "flex", alignItems: "center", gap: 14, borderTop: "3px solid var(--ink)", borderBottom: "3px solid var(--ink)", padding: "14px 0" }}>
             <div style={{ width: 112, height: 112, background: "var(--paper)", border: "2px solid var(--ink)", position: "relative", flex: "none" }}>
-              <svg viewBox="0 0 1000 1000" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-                <StrokePaths strokes={round.strokes} width={23} />
+              <svg className="draw-in" viewBox="0 0 1000 1000" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+                <StrokePaths
+                  strokes={round.strokes}
+                  width={23}
+                  highlight={spotlight ? round.fakeId : null}
+                />
               </svg>
             </div>
             <div className="small" style={{ lineHeight: 1.45, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13 }}>
@@ -150,7 +162,7 @@ export function Reveal({
           </div>
         )}
         {!voided && (
-          <div>
+          <div className="stagger-in">
             {[
               {
                 label: (

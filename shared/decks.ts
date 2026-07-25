@@ -42,11 +42,35 @@ export function drawWord(
   usedWords: string[],
   rng: () => number = Math.random,
 ): { word: string; category: string } {
-  const { words } = deckById(deckId);
+  const { words } = deckById(deckId === "house" ? "everything" : deckId);
   const used = new Set(usedWords);
   let pool = words.filter((w) => !used.has(w.word));
   if (pool.length === 0) pool = words; // deck exhausted mid-session — allow repeats over nothing
   return pool[Math.floor(rng() * pool.length)];
+}
+
+/**
+ * A word for the round, honouring the house deck: words written by the
+ * players themselves, never handing the fake artist a word they authored.
+ * Falls back to the built-in decks if the eligible house pool runs dry.
+ */
+function drawWordFor(
+  state: RoomState,
+  fakeId: string,
+  usedWords: string[],
+  rng: () => number,
+): { word: string; category: string } {
+  if (state.settings.deckId === "house") {
+    const used = new Set(usedWords);
+    const pool = state.customWords.filter(
+      (w) => w.authorId !== fakeId && !used.has(w.word),
+    );
+    if (pool.length > 0) {
+      return { word: pool[Math.floor(rng() * pool.length)].word, category: "House deck" };
+    }
+    // Pool dry for this fake — borrow from the full collection instead.
+  }
+  return drawWord(state.settings.deckId, usedWords, rng);
 }
 
 function shuffle<T>(items: T[], rng: () => number): T[] {
@@ -66,7 +90,8 @@ export function prepareRoundEvent(
   state: RoomState,
   rng: () => number = Math.random,
 ): GameEvent {
-  const { word, category } = drawWord(state.settings.deckId, state.usedWords, rng);
+  // Roles first — the house deck must know who the fake is before it can
+  // exclude words they authored.
   const qmId = pickQm(state);
   // Absent players sit this round out and get dealt in when they return.
   // Drawing order is shuffled fresh every round — going first or last is a
@@ -76,6 +101,7 @@ export function prepareRoundEvent(
     rng,
   );
   const fakeId = pickFake(state, turnOrder, rng);
+  const { word, category } = drawWordFor(state, fakeId, state.usedWords, rng);
   return { type: "START_ROUND", word, category, qmId, fakeId, turnOrder };
 }
 
@@ -86,6 +112,8 @@ export function redrawWordEvent(
 ): GameEvent {
   const current = state.round?.word;
   const used = current ? [...state.usedWords, current] : state.usedWords;
-  const { word, category } = drawWord(state.settings.deckId, used, rng);
+  const { word, category } = state.round
+    ? drawWordFor(state, state.round.fakeId, used, rng)
+    : drawWord(state.settings.deckId, used, rng);
   return { type: "REDRAW_WORD", word, category };
 }

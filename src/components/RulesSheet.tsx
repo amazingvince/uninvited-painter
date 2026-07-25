@@ -1,5 +1,7 @@
 // A5 Rules sheet — reachable from any screen via the header.
 
+import { useState } from "react";
+import { setSoundEnabled, soundEnabled } from "../lib/sound";
 import { Screen, Kicker } from "./ui";
 
 const STEPS = [
@@ -10,6 +12,7 @@ const STEPS = [
 ];
 
 export function RulesSheet({ onClose }: { onClose: () => void }) {
+  const [sound, setSound] = useState(soundEnabled());
   return (
     <div className="overlay">
       <Screen>
@@ -65,6 +68,20 @@ export function RulesSheet({ onClose }: { onClose: () => void }) {
               A tie in the vote counts as survived
             </Kicker>
           </div>
+          <button
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--rule)", paddingTop: 12 }}
+            onClick={() => {
+              setSoundEnabled(!sound);
+              setSound(!sound);
+            }}
+          >
+            <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
+              Sound &amp; haptics
+            </span>
+            <span className="shout" style={{ fontSize: 14, color: sound ? "var(--green)" : "var(--muted)" }}>
+              {sound ? "On" : "Off"}
+            </span>
+          </button>
         </div>
         <div className="footer footer--rule">
           <button className="btn btn--outline" onClick={onClose}>

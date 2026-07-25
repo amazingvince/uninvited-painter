@@ -7,11 +7,12 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/r/*", "/a/*"]
   },
   "durable_objects": {
     "bindings": [{ "name": "ROOM", "class_name": "RoomDO" }]
   },
+  "kv_namespaces": [{ "binding": "ARCHIVES", "id": "efd1a54f0f394b0f9d4295eaf66b9962" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO"] }],
   "routes": [{ "pattern": "painter.amazingvince.com", "custom_domain": true }],
   "observability": { "enabled": true }
