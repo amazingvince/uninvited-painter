@@ -16,12 +16,16 @@ import {
   SCORE_MIN_ROUNDS,
   SCORE_TARGET,
   type GameEvent,
+  type ArchiveEntry,
+  type CriticVerdict,
   type Player,
   type ReduceResult,
+  type RoundAi,
   type RoomState,
   type RoundState,
   type Settings,
 } from "./types";
+import { guessMatches } from "./fuzzy";
 import { SEAT_COLORS } from "./palette";
 import { strokeLength, validSegments } from "./geometry";
 
@@ -29,6 +33,22 @@ import { strokeLength, validSegments } from "./geometry";
 const MAX_STROKE_COORDS = 2400;
 
 export { GRACE_MS, GUESS_MS, HOLD_MS, MIN_PLAYERS, MAX_PLAYERS };
+
+export function aiEnabled(
+  settings: Pick<Settings, "aiCritic" | "aiDetective">,
+): boolean {
+  return settings.aiCritic || settings.aiDetective;
+}
+
+export function emptyRoundAi(): RoundAi {
+  return {
+    jobId: null,
+    criticStatus: "idle",
+    critic: null,
+    renditionStatus: "idle",
+    renditionId: null,
+  };
+}
 
 const DEFAULT_SETTINGS: Settings = {
   deckId: "animals",
@@ -40,6 +60,9 @@ const DEFAULT_SETTINGS: Settings = {
   penMode: "line",
   inkLimit: 0,
   presence: "strict",
+  aiCritic: true,
+  aiDetective: false,
+  aiTone: "witty",
 };
 
 export function createRoom(params: {
@@ -79,9 +102,18 @@ export function normalizeRoom(state: RoomState): RoomState {
     penMode: s.penMode ?? DEFAULT_SETTINGS.penMode,
     inkLimit: s.inkLimit ?? DEFAULT_SETTINGS.inkLimit,
     presence: s.presence ?? DEFAULT_SETTINGS.presence,
+    aiCritic: s.aiCritic ?? DEFAULT_SETTINGS.aiCritic,
+    aiDetective: s.aiDetective ?? DEFAULT_SETTINGS.aiDetective,
+    aiTone: s.aiTone ?? DEFAULT_SETTINGS.aiTone,
   };
   state.customWords ??= [];
-  if (state.round) state.round.turnDeadline ??= null;
+  if (state.round) {
+    state.round.turnDeadline ??= null;
+    state.round.ai ??= emptyRoundAi();
+  }
+  for (const entry of state.archive ?? []) {
+    entry.ai ??= emptyRoundAi();
+  }
   return state;
 }
 
@@ -226,6 +258,115 @@ function fail(error: string): ReduceResult {
   return { ok: false, error };
 }
 
+const AI_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function cleanAiText(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text || text.length > max) return null;
+  return text;
+}
+
+function validateVerdict(
+  settings: Settings,
+  eligible: Set<string>,
+  verdict: CriticVerdict,
+): CriticVerdict | string {
+  if (verdict.rating !== undefined && (!Number.isInteger(verdict.rating) || verdict.rating < 1 || verdict.rating > 10)) {
+    return "Bad critic rating";
+  }
+  if (
+    verdict.confidence !== undefined &&
+    (!Number.isInteger(verdict.confidence) || verdict.confidence < 0 || verdict.confidence > 100)
+  ) {
+    return "Bad critic confidence";
+  }
+
+  const clean: CriticVerdict = {};
+  const textFields = [
+    ["title", 80],
+    ["subjectGuess", 100],
+    ["ratingTag", 60],
+    ["review", 360],
+  ] as const;
+  for (const [field, max] of textFields) {
+    const value = verdict[field];
+    if (value === undefined) continue;
+    const text = cleanAiText(value, max);
+    if (!text) return `Bad critic ${field}`;
+    clean[field] = text;
+  }
+  if (verdict.confidence !== undefined) clean.confidence = verdict.confidence;
+  if (verdict.rating !== undefined) clean.rating = verdict.rating;
+
+  if (verdict.callout !== undefined) {
+    if (!eligible.has(verdict.callout.playerId)) return "Bad critic callout";
+    const text = cleanAiText(verdict.callout.text, 180);
+    if (!text) return "Bad critic callout";
+    clean.callout = { playerId: verdict.callout.playerId, text };
+  }
+  if (verdict.detective !== undefined) {
+    if (!eligible.has(verdict.detective.playerId)) return "Bad critic detective";
+    const reason = cleanAiText(verdict.detective.reason, 180);
+    if (!reason) return "Bad critic detective";
+    clean.detective = { playerId: verdict.detective.playerId, reason };
+  }
+
+  if (settings.aiCritic) {
+    if (
+      !clean.title ||
+      !clean.subjectGuess ||
+      clean.confidence === undefined ||
+      clean.rating === undefined ||
+      !clean.ratingTag ||
+      !clean.review
+    ) {
+      return "Incomplete critic verdict";
+    }
+  }
+  if (settings.aiDetective && !clean.detective) {
+    return "Incomplete detective verdict";
+  }
+  return clean;
+}
+
+function archiveForRound(state: RoomState, roundNo: number): ArchiveEntry | undefined {
+  return state.archive.find((entry) => entry.roundNo === roundNo);
+}
+
+function aiTargets(
+  state: RoomState,
+  roundNo: number,
+): { ai: RoundAi; eligible: Set<string>; archive?: ArchiveEntry }[] {
+  const targets: { ai: RoundAi; eligible: Set<string>; archive?: ArchiveEntry }[] = [];
+  if (state.round?.roundNo === roundNo) {
+    targets.push({
+      ai: state.round.ai,
+      eligible: new Set(activeArtists(state.round)),
+    });
+  }
+  const archive = archiveForRound(state, roundNo);
+  if (archive?.ai) {
+    targets.push({
+      ai: archive.ai,
+      eligible: new Set(archive.strokes.map((stroke) => stroke.playerId).filter(Boolean)),
+      archive,
+    });
+  }
+  return targets;
+}
+
+function updateCriticMatches(entry: ArchiveEntry): void {
+  const verdict = entry.ai?.critic;
+  if (!verdict) return;
+  if (verdict.subjectGuess) {
+    entry.criticSubjectMatched = guessMatches(verdict.subjectGuess, entry.word);
+  }
+  if (verdict.detective && entry.fakeId) {
+    entry.criticDetectiveMatched = verdict.detective.playerId === entry.fakeId;
+  }
+}
+
 function finishRound(state: RoomState, outcome: NonNullable<RoundState["outcome"]>): void {
   const round = state.round!;
   round.outcome = outcome;
@@ -243,7 +384,10 @@ function finishRound(state: RoomState, outcome: NonNullable<RoundState["outcome"
       strokes: round.strokes,
       outcome,
       fakeName: fake?.name ?? "?",
+      fakeId: round.fakeId,
+      ai: round.ai,
     });
+    updateCriticMatches(state.archive[state.archive.length - 1]);
   }
   state.phase = "reveal";
   round.turnDeadline = null;
@@ -377,7 +521,86 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (!["line", "free"].includes(next.penMode)) return fail("Bad pen mode");
       if (![0, 60, 120].includes(next.inkLimit)) return fail("Bad ink limit");
       if (!["strict", "relaxed"].includes(next.presence)) return fail("Bad presence mode");
+      if (!["witty", "savage", "absurd"].includes(next.aiTone)) return fail("Bad AI tone");
       state.settings = next;
+      return { ok: true, state };
+    }
+
+    case "START_ROUND_AI": {
+      if (!round || round.roundNo !== event.roundNo) return fail("Stale AI round");
+      if (!aiEnabled(state.settings)) return fail("AI is disabled");
+      if (!["voting", "guessing", "reveal"].includes(state.phase)) {
+        return fail("AI starts after drawing");
+      }
+      if (round.outcome === "voided") return fail("Round was voided");
+      if (round.ai.jobId !== null) return fail("AI job already started");
+      if (!AI_ID_RE.test(event.jobId)) {
+        return fail("Bad AI job");
+      }
+      round.ai = {
+        jobId: event.jobId,
+        criticStatus: "pending",
+        critic: null,
+        renditionStatus: "pending",
+        renditionId: null,
+      };
+      return { ok: true, state };
+    }
+
+    case "RESOLVE_ROUND_CRITIC": {
+      const targets = aiTargets(state, event.roundNo);
+      if (targets.length === 0) return fail("Stale AI round");
+      if (targets.some(({ ai }) => ai.jobId !== event.jobId || ai.criticStatus !== "pending")) {
+        return fail("Stale AI job");
+      }
+      const eligible = new Set(targets.flatMap((target) => [...target.eligible]));
+      const verdict = validateVerdict(state.settings, eligible, event.verdict);
+      if (typeof verdict === "string") return fail(verdict);
+      for (const target of targets) {
+        target.ai.critic = verdict;
+        target.ai.criticStatus = "ready";
+        if (target.archive) updateCriticMatches(target.archive);
+      }
+      return { ok: true, state };
+    }
+
+    case "FAIL_ROUND_CRITIC": {
+      const targets = aiTargets(state, event.roundNo);
+      if (targets.length === 0) return fail("Stale AI round");
+      if (targets.some(({ ai }) => ai.jobId !== event.jobId || ai.criticStatus !== "pending")) {
+        return fail("Stale AI job");
+      }
+      for (const { ai } of targets) {
+        ai.criticStatus = "unavailable";
+        ai.critic = null;
+      }
+      return { ok: true, state };
+    }
+
+    case "RESOLVE_ROUND_RENDITION": {
+      const targets = aiTargets(state, event.roundNo);
+      if (targets.length === 0) return fail("Stale AI round");
+      if (targets.some(({ ai }) => ai.jobId !== event.jobId || ai.renditionStatus !== "pending")) {
+        return fail("Stale AI job");
+      }
+      if (!AI_ID_RE.test(event.renditionId)) return fail("Bad rendition");
+      for (const { ai } of targets) {
+        ai.renditionStatus = "ready";
+        ai.renditionId = event.renditionId;
+      }
+      return { ok: true, state };
+    }
+
+    case "FAIL_ROUND_RENDITION": {
+      const targets = aiTargets(state, event.roundNo);
+      if (targets.length === 0) return fail("Stale AI round");
+      if (targets.some(({ ai }) => ai.jobId !== event.jobId || ai.renditionStatus !== "pending")) {
+        return fail("Stale AI job");
+      }
+      for (const { ai } of targets) {
+        ai.renditionStatus = "unavailable";
+        ai.renditionId = null;
+      }
       return { ok: true, state };
     }
 
@@ -507,6 +730,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
         scoreDelta: {},
         guessDeadline: null,
         turnDeadline: null,
+        ai: emptyRoundAi(),
       };
       state.usedWords.push(event.word);
       state.fakeCounts[event.fakeId] = (state.fakeCounts[event.fakeId] ?? 0) + 1;

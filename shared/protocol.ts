@@ -89,6 +89,15 @@ export function redactState(state: RoomState, viewerId: string): { state: Public
       (state.phase === "reveal" || state.phase === "closed") && round.outcome !== "voided";
     // Once the vote resolves (guessing or reveal), the accusation is public.
     const votesPublic = revealed || state.phase === "guessing";
+    const publicAi = revealed
+      ? round.ai
+      : {
+          jobId: null,
+          criticStatus: round.ai.criticStatus,
+          critic: null,
+          renditionStatus: round.ai.renditionStatus,
+          renditionId: null,
+        };
     publicRound = {
       ...round,
       word: revealed ? round.word : null,
@@ -96,6 +105,7 @@ export function redactState(state: RoomState, viewerId: string): { state: Public
       votes: votesPublic ? round.votes : null,
       votersIn: Object.keys(round.votes),
       guess: revealed ? round.guess : null,
+      ai: publicAi,
     };
   }
 

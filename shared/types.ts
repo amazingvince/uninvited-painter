@@ -6,6 +6,27 @@ export type DeckId = "animals" | "food" | "movies" | "objects" | "everything" | 
 export type QmMode = "rotate" | "off";
 export type Mode = "local" | "online";
 export type WinMode = "rounds" | "score10";
+export type AiTone = "witty" | "savage" | "absurd";
+export type AiJobStatus = "idle" | "pending" | "ready" | "unavailable";
+
+export interface CriticVerdict {
+  title?: string;
+  subjectGuess?: string;
+  confidence?: number;
+  rating?: number;
+  ratingTag?: string;
+  review?: string;
+  callout?: { playerId: string; text: string };
+  detective?: { playerId: string; reason: string };
+}
+
+export interface RoundAi {
+  jobId: string | null;
+  criticStatus: AiJobStatus;
+  critic: CriticVerdict | null;
+  renditionStatus: AiJobStatus;
+  renditionId: string | null;
+}
 
 export type Phase =
   | "lobby"
@@ -58,6 +79,9 @@ export interface Settings {
   /** "strict": disconnects pause the game and seats auto-drop after 30s.
    *  "relaxed": the room just waits — nobody is forced to keep the app open. */
   presence: Presence;
+  aiCritic: boolean;
+  aiDetective: boolean;
+  aiTone: AiTone;
 }
 
 export interface HouseWord {
@@ -92,6 +116,7 @@ export interface RoundState {
   /** Stroke-clock deadline for the current drawing turn (or the whole ballot
    *  while voting). null when the clock is off. */
   turnDeadline: number | null;
+  ai: RoundAi;
 }
 
 export interface ArchiveEntry {
@@ -100,6 +125,10 @@ export interface ArchiveEntry {
   strokes: Stroke[];
   outcome: Outcome;
   fakeName: string;
+  ai?: RoundAi;
+  fakeId?: string;
+  criticSubjectMatched?: boolean;
+  criticDetectiveMatched?: boolean;
 }
 
 export interface RoomState {
@@ -169,6 +198,21 @@ export type GameEvent =
   | { type: "SUBMIT_GUESS"; playerId: string; text: string; matched: boolean }
   | { type: "GUESS_TIMEOUT"; now: number }
   | { type: "EXTEND_GUESS"; now: number } // restart the guess clock (local hand-off, unpause)
+  | { type: "START_ROUND_AI"; roundNo: number; jobId: string }
+  | {
+      type: "RESOLVE_ROUND_CRITIC";
+      roundNo: number;
+      jobId: string;
+      verdict: CriticVerdict;
+    }
+  | { type: "FAIL_ROUND_CRITIC"; roundNo: number; jobId: string }
+  | {
+      type: "RESOLVE_ROUND_RENDITION";
+      roundNo: number;
+      jobId: string;
+      renditionId: string;
+    }
+  | { type: "FAIL_ROUND_RENDITION"; roundNo: number; jobId: string }
   | { type: "DROP_PLAYER"; playerId: string; now: number } // carry on without them (mid-round)
   | { type: "VOID_ROUND" } // fake artist dropped — round voided, re-dealt
   | { type: "CLOSE_GAME" }
