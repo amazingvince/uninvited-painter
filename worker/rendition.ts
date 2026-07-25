@@ -46,13 +46,28 @@ function cleanWord(value: string): string {
   return word;
 }
 
+/**
+ * Tuned against real finished games rather than imagined ones. Two failure
+ * modes show up when the prompt is looser than this: the model either paints a
+ * competent picture of the word and ignores the drawing entirely, or it simply
+ * photographs the drawing as a drawing. Both kill the joke, which lives in the
+ * gap between what the table meant and what it actually produced. Naming the
+ * subject as *context for reading shapes* — never as the thing to depict —
+ * plus an explicit "fidelity beats beauty" rule is what holds the middle.
+ */
 export function renditionPrompt(word: string): string {
   const subject = cleanWord(word);
   return [
-    `Create a cinematic, believable real-world rendition of “${subject}” using the reference drawing as the composition authority.`,
-    "Preserve every odd relative size, position, direction, silhouette, dominant stroke color, overlap, negative space, and awkward detail.",
-    "Treat apparent mistakes as intentional.",
-    "Do not add text, captions, borders, signatures, or improve the composition into generic tasteful artwork.",
+    "This is a collaborative party-game drawing: several people each added a single blind pen stroke, so it is clumsy and incoherent by construction.",
+    "Photograph the real world that this drawing depicts. Every shape stands for a real thing — read what each one is meant to be and show that actual thing, built from real materials in a real place with real light.",
+    `The players were attempting “${subject}”. That is context for reading the shapes, not a picture to make well: never render a competent version of that subject.`,
+    "Fidelity to the drawing beats beauty everywhere they conflict. Keep every element exactly where it sits, at exactly the size drawn, with exactly the shape drawn — lopsided, mis-proportioned, floating unattached, or overlapping wrongly.",
+    "A stick figure is a real living person who genuinely has those spindly limbs and that stiff pose. A crooked house is a real building that was really built crooked. Scribbled-over areas are real objects that are actually that dense and tangled.",
+    "Mismatched colours came from different people; let the real objects carry those colours.",
+    "Keep the empty space empty. Add nothing that was not drawn, complete nothing that was left unfinished, straighten nothing, connect nothing.",
+    // Bare-torso subjects (Tarzan, mermaid…) drawn as stick figures were
+    // tripping the provider's safety filter and silently losing the rendition.
+    "Everyone depicted is fully clothed. No text, captions, borders, signatures, or watermarks.",
   ].join(" ");
 }
 

@@ -49,12 +49,16 @@ describe("GPT Image 2 rendition request", () => {
     expect(form?.get("moderation")).toBe("auto");
     expect(form?.has("input_fidelity")).toBe(false);
     expect(String(form?.get("prompt"))).toContain("penguin");
+    // The prompt has to hold three lines at once, each tuned against real
+    // games: keep the drawn geometry, don't draw the word competently, and
+    // don't trip the provider's clothing filter on stick-figure torsos.
     expect(String(form?.get("prompt"))).toMatch(
-      /preserve every odd relative size/i,
+      /fidelity to the drawing beats beauty/i,
     );
     expect(String(form?.get("prompt"))).toMatch(
-      /treat apparent mistakes as intentional/i,
+      /never render a competent version/i,
     );
+    expect(String(form?.get("prompt"))).toMatch(/fully clothed/i);
 
     const source = form?.get("image");
     expect(source).toBeInstanceOf(File);
