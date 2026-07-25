@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:worker": "wrangler dev",
+    "prebuild": "npm run types",
     "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit && vite build",
     "test": "vitest run",
     "deploy": "npm run build && wrangler deploy",
