@@ -191,8 +191,9 @@ prefix, enter client state, or be included in a browser request or bundle.
 
 Use the OpenAI Responses API with:
 
-- a vision-capable `gpt-4.1-mini` default;
+- a vision-capable `gpt-5.6-luna` default;
 - an optional server-only `OPENAI_CRITIC_MODEL` override;
+- `reasoning.effort` set to `low` for the latency-sensitive reveal;
 - the 512 by 512 PNG at low image detail;
 - a fixed developer instruction selected by `aiTone`;
 - a data block containing stable player IDs, display names, and colors;
