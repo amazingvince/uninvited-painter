@@ -25,7 +25,7 @@ import {
   type RoundState,
   type Settings,
 } from "./types";
-import { guessMatches } from "./fuzzy";
+import { criticGuessMatches } from "./fuzzy";
 import { SEAT_COLORS } from "./palette";
 import { strokeLength, validSegments } from "./geometry";
 import { parseCriticVerdict } from "./criticVerdict";
@@ -375,7 +375,7 @@ function updateCriticMatches(entry: ArchiveEntry): void {
   const verdict = entry.ai?.critic;
   if (!verdict) return;
   if (verdict.subjectGuess) {
-    entry.criticSubjectMatched = guessMatches(verdict.subjectGuess, entry.word);
+    entry.criticSubjectMatched = criticGuessMatches(verdict.subjectGuess, entry.word);
   }
   if (verdict.detective && entry.fakeId) {
     entry.criticDetectiveMatched = verdict.detective.playerId === entry.fakeId;

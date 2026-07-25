@@ -11,7 +11,12 @@ import type { CriticVerdict } from "./types";
 
 export const VERDICT_LIMITS = {
   title: 80,
-  subjectGuess: 100,
+  // Deliberately tight. At 100 the model answered with a sentence describing
+  // the scene ("A neighborhood map with a house, a person and a winding
+  // route") instead of naming one thing, and a description can never match a
+  // one-word answer — measured 0/9 against real games. The strict schema
+  // carries this ceiling to the model, so the limit is the instruction.
+  subjectGuess: 48,
   ratingTag: 60,
   review: 360,
   callout: 180,

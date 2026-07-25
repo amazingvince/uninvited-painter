@@ -75,6 +75,7 @@ async function runCriticBranch(
         criticEnabled: payload.criticEnabled,
         detectiveEnabled: payload.detectiveEnabled,
         artists: payload.artists,
+        roundNo: payload.roundNo,
       },
       {
         apiKey: env.OPENAI_API_KEY,

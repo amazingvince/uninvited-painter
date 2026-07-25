@@ -6,7 +6,7 @@
 import { parseCriticVerdict } from "../shared/criticVerdict";
 import { AI_ID_RE as JOB_ID_RE } from "../shared/ids";
 import { validSegments } from "../shared/geometry";
-import { guessMatches } from "../shared/fuzzy";
+import { criticGuessMatches } from "../shared/fuzzy";
 import { SEAT_COLORS } from "../shared/palette";
 import type {
   ArchiveEntry,
@@ -336,7 +336,7 @@ export async function publishCompletedAiResult(
     renditionId: null,
   };
   if (critic?.subjectGuess) {
-    entry.criticSubjectMatched = guessMatches(
+    entry.criticSubjectMatched = criticGuessMatches(
       critic.subjectGuess,
       entry.word,
     );

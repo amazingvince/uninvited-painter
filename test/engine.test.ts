@@ -9,7 +9,7 @@ import {
   pickFake,
   reduce,
 } from "../shared/engine";
-import { guessMatches } from "../shared/fuzzy";
+import { criticGuessMatches, guessMatches } from "../shared/fuzzy";
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from "../shared/codes";
 import { prepareRoundEvent } from "../shared/decks";
 import type { GameEvent, RoomState } from "../shared/types";
@@ -1056,5 +1056,39 @@ describe("host room lock", () => {
     expect(state.locked).toBe(true);
     const { locked: _dropped, ...older } = state;
     expect(normalizeRoom(older as typeof state).locked).toBe(false);
+  });
+});
+
+describe("critic guess matching", () => {
+  // Luna answers in her own voice. The human fake artist types an answer and
+  // either has it or does not, so the two comparisons are deliberately not
+  // the same function.
+  it("accepts the word inside a short phrase", () => {
+    for (const guess of ["a barbie doll", "Barbie", "some kind of barbie", "barbies"]) {
+      expect(criticGuessMatches(guess, "Barbie"), guess).toBe(true);
+    }
+  });
+
+  it("matches a multi-word answer as a run of words", () => {
+    expect(criticGuessMatches("a sleeping beauty scene", "Sleeping Beauty")).toBe(true);
+    expect(criticGuessMatches("sleeping", "Sleeping Beauty")).toBe(false);
+    expect(criticGuessMatches("beauty asleep", "Sleeping Beauty")).toBe(false);
+  });
+
+  it("does not match a word buried inside a longer one", () => {
+    expect(criticGuessMatches("a cartoon", "art")).toBe(false);
+    expect(criticGuessMatches("a housecoat", "house")).toBe(false);
+  });
+
+  it("still rejects an honest miss", () => {
+    expect(criticGuessMatches("a horse beside a table", "Sleeping Beauty")).toBe(false);
+    expect(criticGuessMatches("", "Barbie")).toBe(false);
+  });
+
+  it("leaves the human matcher strict", () => {
+    // The fake artist naming the word inside a sentence must not count, or
+    // "is it a house or a barn?" would steal the round.
+    expect(guessMatches("a barbie doll", "Barbie")).toBe(false);
+    expect(guessMatches("Barbie", "Barbie")).toBe(true);
   });
 });
