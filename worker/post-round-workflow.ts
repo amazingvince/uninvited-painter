@@ -9,6 +9,11 @@ import {
 } from "./ai-jobs";
 import { requestCritic } from "./critic";
 import { requestRendition } from "./rendition";
+import {
+  publishCompletedAiResult,
+  type ArchiveEnv,
+  type ArchiveKv,
+} from "./archives";
 
 export interface WorkflowStepConfigLike {
   retries?: {
@@ -34,6 +39,7 @@ interface AiRoomCompletionStub {
 export interface PostRoundWorkflowEnv extends AiJobStoreEnv {
   OPENAI_API_KEY?: string;
   OPENAI_CRITIC_MODEL?: string;
+  ARCHIVES?: ArchiveKv;
   ROOM: {
     getByName(name: string): AiRoomCompletionStub;
   };
@@ -167,6 +173,9 @@ export async function runPostRoundAi(
       if (payload.mode === "online") {
         if (!payload.roomCode) throw new Error("Online AI job has no room");
         await env.ROOM.getByName(payload.roomCode).completeAiJob(result);
+      }
+      if (env.ARCHIVES) {
+        await publishCompletedAiResult(env as ArchiveEnv, result);
       }
       return result;
     },

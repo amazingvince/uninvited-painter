@@ -4,13 +4,44 @@
 // attacker-controlled markup.
 
 import { validSegments } from "../shared/geometry";
+import { guessMatches } from "../shared/fuzzy";
 import { SEAT_COLORS } from "../shared/palette";
-import type { ArchiveEntry } from "../shared/types";
+import type {
+  ArchiveEntry,
+  CriticVerdict,
+  RoundAi,
+} from "../shared/types";
+import {
+  archiveRenditionKey,
+  getJob,
+  promoteRendition,
+  type AiJobStoreEnv,
+  type PostRoundAiResult,
+} from "./ai-jobs";
 
 const META_MAX_BYTES = 512 * 1024;
 const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 const TTL_SECONDS = 60 * 60 * 24 * 365; // archives live for a year
 const ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+const JOB_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export interface ArchiveKv {
+  put(
+    key: string,
+    value: string | ArrayBuffer,
+    options?: { expirationTtl?: number },
+  ): Promise<unknown>;
+  get<T>(
+    key: string,
+    type?: "json" | "arrayBuffer" | "text",
+  ): Promise<T | null>;
+  delete(key: string): Promise<unknown>;
+}
+
+export interface ArchiveEnv extends AiJobStoreEnv {
+  ARCHIVES: ArchiveKv;
+}
 
 export interface StoredArchive {
   title: string;
@@ -31,6 +62,165 @@ function cleanString(value: unknown, maxLen: number): string | null {
   if (typeof value !== "string") return null;
   const s = value.trim().slice(0, maxLen);
   return s.length > 0 ? s : null;
+}
+
+function cleanBoundedString(value: unknown, maxLen: number): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return text.length > 0 && text.length <= maxLen ? text : null;
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function onlyKeys(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+): boolean {
+  const keys = new Set(allowed);
+  return Object.keys(value).every((key) => keys.has(key));
+}
+
+function cleanAttribution(
+  value: unknown,
+  textKey: "text" | "reason",
+): { playerId: string; text: string } | null {
+  const item = record(value);
+  if (!item || !onlyKeys(item, ["playerId", textKey])) return null;
+  const playerId = cleanBoundedString(item.playerId, 100);
+  const text = cleanBoundedString(item[textKey], 180);
+  return playerId && text ? { playerId, text } : null;
+}
+
+function cleanCritic(value: unknown): CriticVerdict | null {
+  const critic = record(value);
+  if (
+    !critic ||
+    !onlyKeys(critic, [
+      "title",
+      "subjectGuess",
+      "confidence",
+      "rating",
+      "ratingTag",
+      "review",
+      "callout",
+      "detective",
+    ])
+  ) {
+    return null;
+  }
+  const clean: CriticVerdict = {};
+  const textFields = [
+    ["title", 80],
+    ["subjectGuess", 100],
+    ["ratingTag", 60],
+    ["review", 360],
+  ] as const;
+  for (const [field, max] of textFields) {
+    if (critic[field] === undefined) continue;
+    const text = cleanBoundedString(critic[field], max);
+    if (!text) return null;
+    clean[field] = text;
+  }
+  if (critic.confidence !== undefined) {
+    if (
+      !Number.isInteger(critic.confidence) ||
+      (critic.confidence as number) < 0 ||
+      (critic.confidence as number) > 100
+    ) {
+      return null;
+    }
+    clean.confidence = critic.confidence as number;
+  }
+  if (critic.rating !== undefined) {
+    if (
+      !Number.isInteger(critic.rating) ||
+      (critic.rating as number) < 1 ||
+      (critic.rating as number) > 10
+    ) {
+      return null;
+    }
+    clean.rating = critic.rating as number;
+  }
+  if (critic.callout !== undefined) {
+    const callout = cleanAttribution(critic.callout, "text");
+    if (!callout) return null;
+    clean.callout = callout;
+  }
+  if (critic.detective !== undefined) {
+    const detective = cleanAttribution(critic.detective, "reason");
+    if (!detective) return null;
+    clean.detective = {
+      playerId: detective.playerId,
+      reason: detective.text,
+    };
+  }
+  return Object.keys(clean).length > 0 ? clean : null;
+}
+
+function cleanRoundAi(value: unknown): RoundAi | null {
+  const ai = record(value);
+  if (
+    !ai ||
+    !onlyKeys(ai, [
+      "jobId",
+      "criticStatus",
+      "critic",
+      "renditionStatus",
+      "renditionId",
+    ])
+  ) {
+    return null;
+  }
+  if (
+    ai.jobId !== null &&
+    (typeof ai.jobId !== "string" || !JOB_ID_RE.test(ai.jobId))
+  ) {
+    return null;
+  }
+  if (
+    !["idle", "pending", "ready", "unavailable"].includes(
+      String(ai.criticStatus),
+    ) ||
+    !["idle", "pending", "ready", "unavailable"].includes(
+      String(ai.renditionStatus),
+    )
+  ) {
+    return null;
+  }
+  const criticStatus = ai.criticStatus as RoundAi["criticStatus"];
+  const renditionStatus = ai.renditionStatus as RoundAi["renditionStatus"];
+  const critic = criticStatus === "ready" ? cleanCritic(ai.critic) : null;
+  if (
+    (criticStatus === "ready" && !critic) ||
+    (criticStatus !== "ready" && ai.critic !== null)
+  ) {
+    return null;
+  }
+  if (
+    renditionStatus === "ready"
+      ? ai.renditionId !== ai.jobId || typeof ai.renditionId !== "string"
+      : ai.renditionId !== null
+  ) {
+    return null;
+  }
+  if (
+    ai.jobId === null &&
+    (criticStatus !== "idle" || renditionStatus !== "idle")
+  ) {
+    return null;
+  }
+  return {
+    jobId: ai.jobId as string | null,
+    criticStatus,
+    critic,
+    renditionStatus,
+    renditionId:
+      renditionStatus === "ready" ? (ai.renditionId as string) : null,
+  };
 }
 
 /** Validate an uploaded archive down to exactly the shape the page renders. */
@@ -111,19 +301,155 @@ export function validateArchive(meta: unknown): StoredArchive | null {
         ...(breaks && breaks.length > 0 ? { breaks } : {}),
       });
     }
+    let ai: RoundAi | undefined;
+    if (e.ai !== undefined) {
+      ai = cleanRoundAi(e.ai) ?? undefined;
+      if (!ai) return null;
+    }
+    let fakeId: string | undefined;
+    if (e.fakeId !== undefined) {
+      if (typeof e.fakeId !== "string" || !JOB_ID_RE.test(e.fakeId)) {
+        return null;
+      }
+      fakeId = e.fakeId;
+    }
+    if (
+      e.criticSubjectMatched !== undefined &&
+      typeof e.criticSubjectMatched !== "boolean"
+    ) {
+      return null;
+    }
+    if (
+      e.criticDetectiveMatched !== undefined &&
+      typeof e.criticDetectiveMatched !== "boolean"
+    ) {
+      return null;
+    }
     entries.push({
       roundNo: e.roundNo as number,
       word,
       strokes,
       outcome: e.outcome as ArchiveEntry["outcome"],
       fakeName,
+      ...(fakeId ? { fakeId } : {}),
+      ...(ai ? { ai } : {}),
+      ...(typeof e.criticSubjectMatched === "boolean"
+        ? { criticSubjectMatched: e.criticSubjectMatched }
+        : {}),
+      ...(typeof e.criticDetectiveMatched === "boolean"
+        ? { criticDetectiveMatched: e.criticDetectiveMatched }
+        : {}),
     });
   }
 
   return { title, players, entries, createdAt: Date.now(), hasImage: false };
 }
 
-export async function handleArchivePost(request: Request, env: Env): Promise<Response> {
+function archiveMappingKey(jobId: string): string {
+  return `ai-publish:${jobId}`;
+}
+
+async function storeArchive(
+  env: ArchiveEnv,
+  id: string,
+  archive: StoredArchive,
+): Promise<void> {
+  await env.ARCHIVES.put(`a:${id}`, JSON.stringify(archive), {
+    expirationTtl: TTL_SECONDS,
+  });
+}
+
+function resultIsSettled(result: PostRoundAiResult): boolean {
+  return (
+    result.criticStatus !== "pending" &&
+    result.renditionStatus !== "pending"
+  );
+}
+
+export async function publishCompletedAiResult(
+  env: ArchiveEnv,
+  result: PostRoundAiResult,
+): Promise<void> {
+  const mapping = await env.ARCHIVES.get<unknown>(
+    archiveMappingKey(result.jobId),
+    "json",
+  );
+  const value = record(mapping);
+  if (
+    !value ||
+    !onlyKeys(value, ["archiveId", "roundNo"]) ||
+    typeof value.archiveId !== "string" ||
+    !/^[a-z2-9]{12}$/.test(value.archiveId) ||
+    !Number.isInteger(value.roundNo) ||
+    (value.roundNo as number) < 1 ||
+    (value.roundNo as number) > 99
+  ) {
+    return;
+  }
+  const archiveId = value.archiveId;
+  const roundNo = value.roundNo as number;
+  const archive = await env.ARCHIVES.get<StoredArchive>(
+    `a:${archiveId}`,
+    "json",
+  );
+  const entry = archive?.entries.find(
+    (candidate) => candidate.roundNo === roundNo,
+  );
+  if (!archive || !entry?.ai || entry.ai.jobId !== result.jobId) return;
+
+  const critic =
+    result.criticStatus === "ready" ? cleanCritic(result.critic) : null;
+  const criticStatus =
+    result.criticStatus === "ready" && critic
+      ? "ready"
+      : result.criticStatus === "pending"
+        ? "pending"
+        : "unavailable";
+
+  let renditionStatus: RoundAi["renditionStatus"] =
+    result.renditionStatus;
+  let renditionId: string | null = null;
+  if (
+    result.renditionStatus === "ready" &&
+    result.renditionId === result.jobId
+  ) {
+    const promoted = await promoteRendition(
+      env,
+      result.jobId,
+      archiveId,
+      roundNo,
+    );
+    if (promoted) renditionId = result.jobId;
+    else renditionStatus = "unavailable";
+  }
+
+  entry.ai = {
+    jobId: result.jobId,
+    criticStatus,
+    critic,
+    renditionStatus,
+    renditionId,
+  };
+  if (critic?.subjectGuess) {
+    entry.criticSubjectMatched = guessMatches(
+      critic.subjectGuess,
+      entry.word,
+    );
+  }
+  if (critic?.detective && entry.fakeId) {
+    entry.criticDetectiveMatched =
+      critic.detective.playerId === entry.fakeId;
+  }
+  await storeArchive(env, archiveId, archive);
+  if (resultIsSettled(result)) {
+    await env.ARCHIVES.delete(archiveMappingKey(result.jobId));
+  }
+}
+
+export async function handleArchivePost(
+  request: Request,
+  env: ArchiveEnv,
+): Promise<Response> {
   // The browser always sends an exact Content-Length for multipart uploads —
   // a missing or bogus one is either abuse or a client we don't serve, and
   // must be rejected BEFORE formData() buffers the body.
@@ -173,19 +499,63 @@ export async function handleArchivePost(request: Request, env: Env): Promise<Res
   }
 
   const id = randomId();
-  await env.ARCHIVES.put(`a:${id}`, JSON.stringify(archive), { expirationTtl: TTL_SECONDS });
+  // Ready live artwork is copied to a derived public key. A missing live
+  // object makes only that rendition unavailable; archive publication itself
+  // still succeeds.
+  for (const entry of archive.entries) {
+    const ai = entry.ai;
+    if (
+      ai?.jobId &&
+      ai.renditionStatus === "ready" &&
+      ai.renditionId === ai.jobId
+    ) {
+      const promoted = await promoteRendition(
+        env,
+        ai.jobId,
+        id,
+        entry.roundNo,
+      );
+      if (!promoted) {
+        ai.renditionStatus = "unavailable";
+        ai.renditionId = null;
+      }
+    }
+  }
+  await storeArchive(env, id, archive);
+
+  // Register pending jobs after the archive exists, then re-check the durable
+  // job record to close the race where Workflow finished just before mapping.
+  for (const entry of archive.entries) {
+    const ai = entry.ai;
+    if (
+      !ai?.jobId ||
+      (ai.criticStatus !== "pending" &&
+        ai.renditionStatus !== "pending")
+    ) {
+      continue;
+    }
+    await env.ARCHIVES.put(
+      archiveMappingKey(ai.jobId),
+      JSON.stringify({ archiveId: id, roundNo: entry.roundNo }),
+      { expirationTtl: TTL_SECONDS },
+    );
+    const completed = await getJob(env, ai.jobId);
+    if (completed && resultIsSettled(completed)) {
+      await publishCompletedAiResult(env, completed);
+    }
+  }
   if (imageBytes) {
     await env.ARCHIVES.put(`a:${id}:og`, imageBytes, { expirationTtl: TTL_SECONDS });
   }
   return Response.json({ id, url: `/a/${id}` }, { status: 201 });
 }
 
-export async function getArchive(env: Env, id: string): Promise<StoredArchive | null> {
+export async function getArchive(env: ArchiveEnv, id: string): Promise<StoredArchive | null> {
   if (!/^[a-z2-9]{12}$/.test(id)) return null;
   return env.ARCHIVES.get<StoredArchive>(`a:${id}`, "json");
 }
 
-export async function handleArchiveGet(env: Env, id: string): Promise<Response> {
+export async function handleArchiveGet(env: ArchiveEnv, id: string): Promise<Response> {
   const archive = await getArchive(env, id);
   if (!archive) return Response.json({ error: "Not found" }, { status: 404 });
   return Response.json(archive, {
@@ -193,14 +563,53 @@ export async function handleArchiveGet(env: Env, id: string): Promise<Response> 
   });
 }
 
-export async function handleArchiveImage(env: Env, id: string): Promise<Response> {
+export async function handleArchiveImage(env: ArchiveEnv, id: string): Promise<Response> {
   if (!/^[a-z2-9]{12}$/.test(id)) return new Response("Not found", { status: 404 });
-  const bytes = await env.ARCHIVES.get(`a:${id}:og`, "arrayBuffer");
+  const bytes = await env.ARCHIVES.get<ArrayBuffer>(
+    `a:${id}:og`,
+    "arrayBuffer",
+  );
   if (!bytes) return new Response("Not found", { status: 404 });
   return new Response(bytes, {
     headers: {
       "content-type": "image/png",
       "cache-control": "public, max-age=86400, immutable",
+    },
+  });
+}
+
+export async function handleArchiveRendition(
+  env: ArchiveEnv,
+  id: string,
+  roundNo: number,
+): Promise<Response> {
+  if (
+    !/^[a-z2-9]{12}$/.test(id) ||
+    !Number.isInteger(roundNo) ||
+    roundNo < 1 ||
+    roundNo > 99
+  ) {
+    return new Response("Not found", { status: 404 });
+  }
+  const objectBody = await env.ARTWORK.get(
+    archiveRenditionKey(id, roundNo),
+  );
+  if (!objectBody) return new Response("Not found", { status: 404 });
+  const jpeg = await objectBody.arrayBuffer();
+  const head = new Uint8Array(jpeg, 0, Math.min(jpeg.byteLength, 3));
+  if (
+    head.length !== 3 ||
+    head[0] !== 0xff ||
+    head[1] !== 0xd8 ||
+    head[2] !== 0xff
+  ) {
+    return new Response("Not found", { status: 404 });
+  }
+  return new Response(jpeg, {
+    headers: {
+      "content-type": "image/jpeg",
+      "cache-control": "public, max-age=31536000, immutable",
+      "x-content-type-options": "nosniff",
     },
   });
 }

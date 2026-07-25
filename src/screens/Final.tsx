@@ -5,7 +5,9 @@
 import { useState } from "react";
 import type { ArchiveEntry, Player } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
+import { criticAccuracy, criticChoice } from "../lib/aiStats";
 import { contactSheetPng, drawingPng, publishArchive, shareOrDownload } from "../lib/share";
+import { renditionImageUrl } from "./RenditionReveal";
 import { Screen, Btn, Kicker } from "../components/ui";
 
 export function Final({
@@ -26,6 +28,8 @@ export function Final({
   const undetected = archive.filter(
     (e) => e.outcome === "survived" && e.fakeName === winner?.name,
   ).length;
+  const choice = criticChoice(archive);
+  const accuracy = criticAccuracy(archive);
   const [publishState, setPublishState] = useState<
     { kind: "idle" } | { kind: "busy" } | { kind: "done"; url: string } | { kind: "error" }
   >({ kind: "idle" });
@@ -72,6 +76,36 @@ export function Final({
       </div>
       <div className="grow scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <Kicker style={{ color: "var(--muted)" }}>The archive · tap any to save or share</Kicker>
+        {(choice || accuracy.subjectTotal > 0 || accuracy.detectiveTotal > 0) && (
+          <div className="ai-gallery-stats">
+            {choice && (
+              <div>
+                <div className="kicker u-red">Luna&apos;s critic&apos;s choice</div>
+                <div className="shout" style={{ fontSize: 20 }}>
+                  Round {choice.roundNo} · {choice.ai?.critic?.title ?? choice.word}
+                </div>
+                <div className="small u-muted">
+                  {choice.ai?.critic?.rating}/10 · {choice.ai?.critic?.ratingTag}
+                </div>
+              </div>
+            )}
+            {(accuracy.subjectTotal > 0 || accuracy.detectiveTotal > 0) && (
+              <div className="small" style={{ lineHeight: 1.5 }}>
+                {accuracy.subjectTotal > 0 && (
+                  <div>
+                    Blind guesses: {accuracy.subjectCorrect}/{accuracy.subjectTotal}
+                  </div>
+                )}
+                {accuracy.detectiveTotal > 0 && (
+                  <div>
+                    Fake picks: {accuracy.detectiveCorrect}/{accuracy.detectiveTotal}{" "}
+                    <span className="u-muted">(still never scoring)</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <div className="archive-grid">
           {archive.map((entry) => (
             <button
@@ -83,11 +117,35 @@ export function Final({
                 )
               }
             >
-              <svg viewBox="0 0 1000 1000">
-                <StrokePaths strokes={entry.strokes} width={27} />
-              </svg>
+              <span
+                className={
+                  entry.ai?.renditionStatus === "ready" &&
+                  entry.ai.renditionId
+                    ? "archive-art archive-art--pair"
+                    : "archive-art"
+                }
+              >
+                <svg viewBox="0 0 1000 1000" aria-label={`Original round ${entry.roundNo} drawing`}>
+                  <StrokePaths strokes={entry.strokes} width={27} />
+                </svg>
+                {entry.ai?.renditionStatus === "ready" &&
+                  entry.ai.renditionId && (
+                    <img
+                      src={renditionImageUrl(entry.ai.renditionId)}
+                      alt={`AI-generated realistic rendition for round ${entry.roundNo}`}
+                    />
+                  )}
+              </span>
               <span className="archive-label">
                 {String(entry.roundNo).padStart(2, "0")} {entry.word}
+                {entry.ai?.critic?.title && (
+                  <small>
+                    {entry.ai.critic.title}
+                    {entry.ai.critic.rating
+                      ? ` · ${entry.ai.critic.rating}/10`
+                      : ""}
+                  </small>
+                )}
               </span>
             </button>
           ))}

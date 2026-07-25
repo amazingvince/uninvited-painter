@@ -14,7 +14,13 @@ import {
   handleLocalAiPost,
   handleOnlineAiPost,
 } from "./ai-routes";
-import { handleArchiveGet, handleArchiveImage, handleArchivePost, getArchive } from "./archives";
+import {
+  handleArchiveGet,
+  handleArchiveImage,
+  handleArchivePost,
+  handleArchiveRendition,
+  getArchive,
+} from "./archives";
 import { archiveTags, roomTags, serveShellWithOg } from "./og";
 import {
   runPostRoundAi,
@@ -84,6 +90,19 @@ export default {
       return archiveApi[2]
         ? handleArchiveImage(env, archiveApi[1])
         : handleArchiveGet(env, archiveApi[1]);
+    }
+    const archiveRenditionApi = url.pathname.match(
+      /^\/api\/archives\/([a-z2-9]{12})\/round\/([1-9][0-9]?)\/rendition\.jpg$/,
+    );
+    if (
+      archiveRenditionApi &&
+      (request.method === "GET" || request.method === "HEAD")
+    ) {
+      return handleArchiveRendition(
+        env,
+        archiveRenditionApi[1],
+        Number(archiveRenditionApi[2]),
+      );
     }
 
     const roomApi = url.pathname.match(
