@@ -2,11 +2,38 @@
 // (game API, room resolution, and og-tag injection for link previews).
 
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from "../shared/codes";
+import {
+  WorkflowEntrypoint,
+  type WorkflowEvent,
+  type WorkflowStep,
+} from "cloudflare:workers";
+import type { PostRoundAiPayload, PostRoundAiResult } from "./ai-jobs";
 import { handleArchiveGet, handleArchiveImage, handleArchivePost, getArchive } from "./archives";
 import { archiveTags, roomTags, serveShellWithOg } from "./og";
+import {
+  runPostRoundAi,
+  type PostRoundWorkflowEnv,
+  type WorkflowStepLike,
+} from "./post-round-workflow";
 import { RoomDO } from "./room";
 
 export { RoomDO };
+
+export class PostRoundAiWorkflow extends WorkflowEntrypoint<
+  Env,
+  PostRoundAiPayload
+> {
+  override run(
+    event: Readonly<WorkflowEvent<PostRoundAiPayload>>,
+    step: WorkflowStep,
+  ): Promise<PostRoundAiResult> {
+    return runPostRoundAi(
+      this.env as unknown as PostRoundWorkflowEnv,
+      event.payload,
+      step as unknown as WorkflowStepLike,
+    );
+  }
+}
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
