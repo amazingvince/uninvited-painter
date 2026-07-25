@@ -3,13 +3,11 @@ import type { ArchiveEntry } from "../shared/types";
 import {
   getArchive,
   handleArchivePost,
-  handleArchiveRendition,
   publishCompletedAiResult,
   validateArchive,
   type ArchiveEnv,
 } from "../worker/archives";
 import {
-  archiveRenditionKey,
   putRendition,
   type AiR2Object,
   type AiR2PutOptions,
@@ -215,14 +213,13 @@ describe("published archive AI validation", () => {
   });
 });
 
-describe("published rendition lifecycle", () => {
-  it("copies a ready live rendition and serves only its derived public key", async () => {
+describe("published archives keep renditions private", () => {
+  it("does not carry a ready rendition onto the public page", async () => {
+    // The rendition is generated from a bitmap a player uploaded, which the
+    // room never verifies against the real strokes. It may reach the table
+    // that made it; it may not reach a permanent public URL on this domain.
     const { env, ARTWORK } = setup();
-    await putRendition(
-      env,
-      JOB_ID,
-      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
-    );
+    await putRendition(env, JOB_ID, new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
     const ready = archiveEntry({
       jobId: JOB_ID,
       criticStatus: "ready",
@@ -233,19 +230,19 @@ describe("published rendition lifecycle", () => {
     const response = await handleArchivePost(await archiveRequest(ready), env);
     expect(response.status).toBe(201);
     const { id } = (await response.json()) as { id: string };
-    expect(ARTWORK.objects.has(archiveRenditionKey(id, 1))).toBe(true);
 
-    const image = await handleArchiveRendition(env, id, 1);
-    expect(image.status).toBe(200);
-    expect(image.headers.get("content-type")).toBe("image/jpeg");
-    expect(image.headers.get("cache-control")).toBe(
-      "public, max-age=31536000, immutable",
-    );
-    expect(image.headers.get("x-content-type-options")).toBe("nosniff");
+    const stored = await getArchive(env, id);
+    expect(stored?.entries[0].ai).toMatchObject({
+      criticStatus: "ready",
+      renditionStatus: "unavailable",
+      renditionId: null,
+    });
+    // Nothing was copied into a publicly derived key either.
+    expect([...ARTWORK.objects.keys()].some((k) => k.includes(id))).toBe(false);
   });
 
-  it("maps a pending job and promotes a result that arrives after publication", async () => {
-    const { env, ARCHIVES, ARTWORK } = setup();
+  it("keeps the written verdict when a result lands after publication", async () => {
+    const { env, ARCHIVES } = setup();
     const pending = archiveEntry({
       jobId: JOB_ID,
       criticStatus: "pending",
@@ -260,11 +257,7 @@ describe("published rendition lifecycle", () => {
     const { id } = (await response.json()) as { id: string };
     expect(ARCHIVES.values.has(`ai-publish:${JOB_ID}`)).toBe(true);
 
-    await putRendition(
-      env,
-      JOB_ID,
-      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
-    );
+    await putRendition(env, JOB_ID, new Uint8Array([0xff, 0xd8, 0xff, 0xe0]));
     const result: PostRoundAiResult = {
       jobId: JOB_ID,
       roundNo: 1,
@@ -277,7 +270,6 @@ describe("published rendition lifecycle", () => {
     await publishCompletedAiResult(env, result);
 
     expect(ARCHIVES.values.has(`ai-publish:${JOB_ID}`)).toBe(false);
-    expect(ARTWORK.objects.has(archiveRenditionKey(id, 1))).toBe(true);
     const stored = await getArchive(env, id);
     expect(stored?.entries[0]).toMatchObject({
       criticSubjectMatched: true,
@@ -285,7 +277,9 @@ describe("published rendition lifecycle", () => {
       ai: {
         criticStatus: "ready",
         critic: { title: "Untitled Emergency" },
-        renditionStatus: "ready",
+        // Luna's words survive; her picture does not.
+        renditionStatus: "unavailable",
+        renditionId: null,
       },
     });
   });

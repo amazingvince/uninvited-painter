@@ -21,6 +21,7 @@ export type ClientMsg =
   | { t: "setColor"; colorIndex: number }
   | { t: "settings"; settings: Partial<Settings> }
   | { t: "houseWords"; add?: string[]; remove?: string }
+  | { t: "lock"; locked: boolean } // host only
   | { t: "start" } // host only
   | { t: "redraw" } // QM only, while dealing
   | { t: "deal" } // QM only

@@ -164,6 +164,9 @@ export interface RoomState {
   holds: Record<string, number>;
   /** The house deck: words written by the players themselves. */
   customWords: HouseWord[];
+  /** Host has closed the room to newcomers. A 4-letter code is short enough
+   *  to say out loud, which also makes it short enough to guess. */
+  locked?: boolean;
 }
 
 export const HOUSE_MIN_WORDS = 12;
@@ -192,6 +195,7 @@ export type GameEvent =
   | { type: "SET_COLOR"; playerId: string; colorIndex: number }
   | { type: "REORDER_PLAYERS"; order: string[] }
   | { type: "SET_SETTINGS"; settings: Partial<Settings> }
+  | { type: "SET_LOCKED"; locked: boolean }
   | { type: "SET_CONNECTED"; playerId: string; connected: boolean; now: number }
   | {
       type: "START_ROUND";

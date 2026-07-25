@@ -26,6 +26,7 @@ export function HostLobby({
   onRules,
   onKick,
   onHouseWords,
+  onLock,
 }: {
   state: PublicRoomState;
   youId: string;
@@ -36,6 +37,8 @@ export function HostLobby({
   onRules: () => void;
   onKick?: (playerId: string) => void;
   onHouseWords: () => void;
+  /** Host only: close the room to newcomers. */
+  onLock?: (locked: boolean) => void;
 }) {
   const s = state.settings;
 
@@ -132,6 +135,30 @@ export function HostLobby({
         >
           Copy spectator link — watch only, no seat
         </button>
+        {isHost && onLock && (
+          <button
+            className="kicker"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              letterSpacing: "0.1em",
+              paddingTop: 10,
+              color: state.locked ? "var(--gold)" : "var(--muted-dark)",
+            }}
+            onClick={() => onLock(!state.locked)}
+            aria-pressed={!!state.locked}
+          >
+            <span>
+              {state.locked
+                ? "Room locked — nobody else can take a seat"
+                : "Lock the room once everyone is in"}
+            </span>
+            <span className="shout" style={{ fontSize: 13 }}>
+              {state.locked ? "LOCKED" : "OPEN"}
+            </span>
+          </button>
+        )}
       </div>
       <div className="grow scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column" }}>
         <div className="kicker" style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)", paddingBottom: 8 }}>

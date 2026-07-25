@@ -143,12 +143,10 @@ export async function publishArchive(params: {
 }): Promise<string> {
   const form = new FormData();
   form.append("meta", JSON.stringify(params));
-  try {
-    const png = await contactSheetPng(params.entries, params.title);
-    form.append("image", new File([png], "archive.png", { type: "image/png" }));
-  } catch {
-    // No preview image is fine — the page itself renders from strokes.
-  }
+  // No image is uploaded: the page renders from the stroke data, and link
+  // previews are deliberately generic so an open publish endpoint cannot be
+  // used to unfurl an arbitrary picture under this domain. The contact sheet
+  // is still available to save locally from the same screen.
   const res = await fetch("/api/archives", { method: "POST", body: form });
   const data = (await res.json()) as { url?: string; error?: string };
   if (!res.ok || !data.url) throw new Error(data.error ?? "Publishing failed");

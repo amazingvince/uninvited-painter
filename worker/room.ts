@@ -383,6 +383,10 @@ export class RoomDO extends DurableObject<Env> {
           }
           return await this.dispatch(ws, prepareRoundEvent(state));
         }
+        case "lock":
+          if (!isHost) return this.sendError(ws, "Host only");
+          if (typeof msg.locked !== "boolean") return this.sendError(ws, "Bad lock");
+          return await this.dispatch(ws, { type: "SET_LOCKED", locked: msg.locked });
         case "again":
           if (!isHost) return this.sendError(ws, "Host only");
           return await this.dispatch(ws, { type: "PLAY_AGAIN" });

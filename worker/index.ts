@@ -14,13 +14,7 @@ import {
   handleLocalAiPost,
   handleOnlineAiPost,
 } from "./ai-routes";
-import {
-  handleArchiveGet,
-  handleArchiveImage,
-  handleArchivePost,
-  handleArchiveRendition,
-  getArchive,
-} from "./archives";
+import { handleArchiveGet, handleArchivePost, getArchive } from "./archives";
 import { archiveTags, roomTags, watchTags } from "../shared/og";
 import { serveShellWithOg } from "./og";
 import {
@@ -50,11 +44,32 @@ export class PostRoundAiWorkflow extends WorkflowEntrypoint<
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
+/** Shared by the room and archive endpoints, which are both unauthenticated
+ *  and both cheap to loop. Keyed on the caller, falling back to one shared
+ *  bucket locally where the header is absent. */
+async function limited(
+  request: Request,
+  limiter: { limit(options: { key: string }): Promise<{ success: boolean }> },
+): Promise<boolean> {
+  const key = request.headers.get("CF-Connecting-IP") ?? "local";
+  return !(await limiter.limit({ key })).success;
+}
+
+function tooMany(): Response {
+  return new Response(JSON.stringify({ error: "Slow down a moment." }), {
+    status: 429,
+    headers: JSON_HEADERS,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/rooms" && request.method === "POST") {
+      // Each room materialises a Durable Object that lives at least 15 minutes,
+      // out of a 234k code space — worth a brake.
+      if (await limited(request, env.ROOM_RATE_LIMITER)) return tooMany();
       for (let attempt = 0; attempt < 8; attempt++) {
         const code = generateRoomCode();
         const stub = env.ROOM.getByName(code);
@@ -69,6 +84,7 @@ export default {
     }
 
     if (url.pathname === "/api/archives" && request.method === "POST") {
+      if (await limited(request, env.ARCHIVE_RATE_LIMITER)) return tooMany();
       return handleArchivePost(request, env);
     }
     if (url.pathname === "/api/ai/jobs" && request.method === "POST") {
@@ -86,24 +102,9 @@ export default {
     if (aiRenditionApi && request.method === "GET") {
       return handleAiRendition(env, aiRenditionApi[1]);
     }
-    const archiveApi = url.pathname.match(/^\/api\/archives\/([A-Za-z0-9]{1,32})(\/og\.png)?$/);
+    const archiveApi = url.pathname.match(/^\/api\/archives\/([a-z2-9]{12})$/);
     if (archiveApi && (request.method === "GET" || request.method === "HEAD")) {
-      return archiveApi[2]
-        ? handleArchiveImage(env, archiveApi[1])
-        : handleArchiveGet(env, archiveApi[1]);
-    }
-    const archiveRenditionApi = url.pathname.match(
-      /^\/api\/archives\/([a-z2-9]{12})\/round\/([1-9][0-9]?)\/rendition\.jpg$/,
-    );
-    if (
-      archiveRenditionApi &&
-      (request.method === "GET" || request.method === "HEAD")
-    ) {
-      return handleArchiveRendition(
-        env,
-        archiveRenditionApi[1],
-        Number(archiveRenditionApi[2]),
-      );
+      return handleArchiveGet(env, archiveApi[1]);
     }
 
     const roomApi = url.pathname.match(
@@ -129,6 +130,8 @@ export default {
               headers: JSON_HEADERS,
             });
       }
+      // The existence oracle is the enumeration surface: throttle it.
+      if (await limited(request, env.ROOM_RATE_LIMITER)) return tooMany();
       const summary = await stub.summary();
       if (!summary) {
         return new Response(JSON.stringify({ exists: false }), {
@@ -161,7 +164,7 @@ export default {
         return serveShellWithOg(
           request,
           env,
-          archiveTags(url.origin, archivePage[1], archive.title, archive.entries.length, archive.hasImage),
+          archiveTags(url.origin, archivePage[1], archive.entries.length),
         );
       }
     }

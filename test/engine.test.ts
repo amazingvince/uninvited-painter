@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   accusedFromVotes,
+  normalizeRoom,
   activeArtists,
   createRoom,
   currentDrawerId,
@@ -1024,5 +1025,36 @@ describe("house deck fairness", () => {
       expect(pot).not.toContain(event.word.toLowerCase());
     }
     expect(fellBack).toBeGreaterThan(0);
+  });
+});
+
+describe("host room lock", () => {
+  it("refuses newcomers while locked and lets them in again after", () => {
+    let state = lobbyWith(5);
+    state = apply(state, { type: "SET_LOCKED", locked: true });
+    expect(state.locked).toBe(true);
+    expect(
+      expectFail(state, {
+        type: "ADD_PLAYER",
+        player: { id: "x", name: "Stranger", colorIndex: 7 },
+      }),
+    ).toMatch(/locked/i);
+
+    state = apply(state, { type: "SET_LOCKED", locked: false });
+    state = apply(state, {
+      type: "ADD_PLAYER",
+      player: { id: "x", name: "Stranger", colorIndex: 7 },
+    });
+    expect(state.players).toHaveLength(6);
+  });
+
+  it("can be thrown mid-game, and survives a reload", () => {
+    // The point is to shut a room that is already playing, so it must not be
+    // a lobby-only control.
+    let state = drawAll(dealtRound());
+    state = apply(state, { type: "SET_LOCKED", locked: true });
+    expect(state.locked).toBe(true);
+    const { locked: _dropped, ...older } = state;
+    expect(normalizeRoom(older as typeof state).locked).toBe(false);
   });
 });

@@ -14,15 +14,13 @@ import type {
   RoundAi,
 } from "../shared/types";
 import {
-  archiveRenditionKey,
   getJob,
-  promoteRendition,
   type AiJobStoreEnv,
   type PostRoundAiResult,
 } from "./ai-jobs";
 
 const META_MAX_BYTES = 512 * 1024;
-const IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+const IMAGE_MAX_BYTES = 2 * 1024 * 1024; // still bounds the declared body
 const TTL_SECONDS = 60 * 60 * 24 * 365; // archives live for a year
 const ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 
@@ -48,7 +46,6 @@ export interface StoredArchive {
   players: { name: string; colorIndex: number; score: number }[];
   entries: ArchiveEntry[];
   createdAt: number;
-  hasImage: boolean;
 }
 
 function randomId(): string {
@@ -266,7 +263,7 @@ export function validateArchive(meta: unknown): StoredArchive | null {
     });
   }
 
-  return { title, players, entries, createdAt: Date.now(), hasImage: false };
+  return { title, players, entries, createdAt: Date.now(), };
 }
 
 function archiveMappingKey(jobId: string): string {
@@ -330,29 +327,13 @@ export async function publishCompletedAiResult(
         ? "pending"
         : "unavailable";
 
-  let renditionStatus: RoundAi["renditionStatus"] =
-    result.renditionStatus;
-  let renditionId: string | null = null;
-  if (
-    result.renditionStatus === "ready" &&
-    result.renditionId === result.jobId
-  ) {
-    const promoted = await promoteRendition(
-      env,
-      result.jobId,
-      archiveId,
-      roundNo,
-    );
-    if (promoted) renditionId = result.jobId;
-    else renditionStatus = "unavailable";
-  }
-
   entry.ai = {
     jobId: result.jobId,
     criticStatus,
     critic,
-    renditionStatus,
-    renditionId,
+    // Published archives never carry a rendition; see handleArchivePost.
+    renditionStatus: "unavailable",
+    renditionId: null,
   };
   if (critic?.subjectGuess) {
     entry.criticSubjectMatched = guessMatches(
@@ -408,42 +389,18 @@ export async function handleArchivePost(
     return Response.json({ error: "That does not look like a game archive" }, { status: 400 });
   }
 
-  let imageBytes: ArrayBuffer | null = null;
-  const image = form.get("image");
-  if (image instanceof File) {
-    if (image.size > IMAGE_MAX_BYTES) return Response.json({ error: "Image too large" }, { status: 413 });
-    const bytes = await image.arrayBuffer();
-    // PNG magic — we only ever serve back what claims to be (and parses as) PNG.
-    const head = new Uint8Array(bytes.slice(0, 8));
-    const magic = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-    if (bytes.byteLength >= 8 && magic.every((b, i) => head[i] === b)) {
-      imageBytes = bytes;
-      archive.hasImage = true;
-    }
-  }
-
+  // No uploaded image is kept. It only ever fed the link preview, and an
+  // unauthenticated endpoint that mints a permanent public URL serving an
+  // attacker's 2MB bitmap under this domain is not worth a nicer unfurl.
   const id = randomId();
-  // Ready live artwork is copied to a derived public key. A missing live
-  // object makes only that rendition unavailable; archive publication itself
-  // still succeeds.
+  // Renditions stay off published pages. The image they are generated from is
+  // a bitmap a player uploaded, which the room never verifies against the real
+  // strokes — fine for the table that made it, not for a permanent public URL.
+  // Luna's written verdict still travels: that is validated text.
   for (const entry of archive.entries) {
-    const ai = entry.ai;
-    if (
-      ai?.jobId &&
-      ai.renditionStatus === "ready" &&
-      ai.renditionId === ai.jobId
-    ) {
-      const promoted = await promoteRendition(
-        env,
-        ai.jobId,
-        id,
-        entry.roundNo,
-      );
-      if (!promoted) {
-        ai.renditionStatus = "unavailable";
-        ai.renditionId = null;
-      }
-    }
+    if (!entry.ai) continue;
+    entry.ai.renditionStatus = "unavailable";
+    entry.ai.renditionId = null;
   }
   await storeArchive(env, id, archive);
 
@@ -468,9 +425,6 @@ export async function handleArchivePost(
       await publishCompletedAiResult(env, completed);
     }
   }
-  if (imageBytes) {
-    await env.ARCHIVES.put(`a:${id}:og`, imageBytes, { expirationTtl: TTL_SECONDS });
-  }
   return Response.json({ id, url: `/a/${id}` }, { status: 201 });
 }
 
@@ -487,53 +441,4 @@ export async function handleArchiveGet(env: ArchiveEnv, id: string): Promise<Res
   });
 }
 
-export async function handleArchiveImage(env: ArchiveEnv, id: string): Promise<Response> {
-  if (!/^[a-z2-9]{12}$/.test(id)) return new Response("Not found", { status: 404 });
-  const bytes = await env.ARCHIVES.get<ArrayBuffer>(
-    `a:${id}:og`,
-    "arrayBuffer",
-  );
-  if (!bytes) return new Response("Not found", { status: 404 });
-  return new Response(bytes, {
-    headers: {
-      "content-type": "image/png",
-      "cache-control": "public, max-age=86400, immutable",
-    },
-  });
-}
 
-export async function handleArchiveRendition(
-  env: ArchiveEnv,
-  id: string,
-  roundNo: number,
-): Promise<Response> {
-  if (
-    !/^[a-z2-9]{12}$/.test(id) ||
-    !Number.isInteger(roundNo) ||
-    roundNo < 1 ||
-    roundNo > 99
-  ) {
-    return new Response("Not found", { status: 404 });
-  }
-  const objectBody = await env.ARTWORK.get(
-    archiveRenditionKey(id, roundNo),
-  );
-  if (!objectBody) return new Response("Not found", { status: 404 });
-  const jpeg = await objectBody.arrayBuffer();
-  const head = new Uint8Array(jpeg, 0, Math.min(jpeg.byteLength, 3));
-  if (
-    head.length !== 3 ||
-    head[0] !== 0xff ||
-    head[1] !== 0xd8 ||
-    head[2] !== 0xff
-  ) {
-    return new Response("Not found", { status: 404 });
-  }
-  return new Response(jpeg, {
-    headers: {
-      "content-type": "image/jpeg",
-      "cache-control": "public, max-age=31536000, immutable",
-      "x-content-type-options": "nosniff",
-    },
-  });
-}

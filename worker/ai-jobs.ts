@@ -1,5 +1,5 @@
 import { parseCriticVerdict } from "../shared/criticVerdict";
-import { AI_ID_RE as JOB_ID_RE, ARCHIVE_ID_RE } from "../shared/ids";
+import { AI_ID_RE as JOB_ID_RE } from "../shared/ids";
 import type { AiTone, CriticVerdict } from "../shared/types";
 
 
@@ -64,15 +64,7 @@ function assertJobId(jobId: string): void {
   if (!JOB_ID_RE.test(jobId)) throw new Error("Invalid AI job ID");
 }
 
-function assertArchiveId(archiveId: string): void {
-  if (!ARCHIVE_ID_RE.test(archiveId)) throw new Error("Invalid archive ID");
-}
 
-function assertRoundNo(roundNo: number): void {
-  if (!Number.isInteger(roundNo) || roundNo < 1 || roundNo > 99) {
-    throw new Error("Invalid round number");
-  }
-}
 
 export function jobSourceKey(jobId: string): string {
   assertJobId(jobId);
@@ -121,21 +113,26 @@ export async function isJobPrivate(
  *  local route and the room's Durable Object spend against one ceiling —
  *  keeping a private copy in ai-routes.ts left online play, the path real
  *  games take, with no cap at all. */
-export const DAILY_AI_JOB_LIMIT = 300;
+export const DAILY_AI_JOB_LIMIT = 50;
+
+/** And per caller, so one host cannot drain the whole day's allowance in the
+ *  half hour the per-minute limiter permits. The local route is anonymous by
+ *  necessity (pass-one-phone has no room to authenticate against), which makes
+ *  this the only thing standing between a script and the bill. */
+export const DAILY_AI_IP_LIMIT = 12;
 
 /**
- * A hard daily ceiling on paid image/critic jobs. The per-IP rate limiter
- * shapes bursts; this bounds the bill when someone brings many IPs. Counting
- * is best-effort (R2 read-modify-write can race under heavy concurrency) —
- * that is fine for a spend guard.
+ * Bump a daily counter, refusing once it is spent.
+ *
+ * Best-effort: R2 read-modify-write races under concurrency, and a storage
+ * error returns true rather than breaking a real game. It is a spend guard,
+ * not an accountant.
  */
-export async function withinDailyAiBudget(
+async function withinCounter(
   env: AiJobStoreEnv,
+  key: string,
   limit: number,
-  now = Date.now(),
 ): Promise<boolean> {
-  const day = new Date(now).toISOString().slice(0, 10);
-  const key = `budget/${day}`;
   let used = 0;
   try {
     const existing = await env.ARTWORK.get(key);
@@ -154,14 +151,39 @@ export async function withinDailyAiBudget(
   return true;
 }
 
-export function archiveRenditionKey(
-  archiveId: string,
-  roundNo: number,
-): string {
-  assertArchiveId(archiveId);
-  assertRoundNo(roundNo);
-  return `archives/${archiveId}/round-${roundNo}-rendition.jpg`;
+function utcDay(now: number): string {
+  return new Date(now).toISOString().slice(0, 10);
 }
+
+/** A hard daily ceiling on paid image/critic jobs across everyone. */
+export async function withinDailyAiBudget(
+  env: AiJobStoreEnv,
+  limit: number,
+  now = Date.now(),
+): Promise<boolean> {
+  return withinCounter(env, `budget/${utcDay(now)}`, limit);
+}
+
+/**
+ * The same ceiling, per caller. The address is hashed rather than stored:
+ * this is a spend guard, and it has no business keeping a log of who played.
+ */
+export async function withinDailyIpBudget(
+  env: AiJobStoreEnv,
+  ip: string,
+  limit: number,
+  now = Date.now(),
+): Promise<boolean> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${utcDay(now)}:${ip}`),
+  );
+  const hash = [...new Uint8Array(digest).slice(0, 10)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return withinCounter(env, `budget/${utcDay(now)}/caller-${hash}`, limit);
+}
+
 
 function object(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -257,13 +279,6 @@ const PRIVATE_JSON = {
   },
 } satisfies AiR2PutOptions;
 
-const PUBLIC_JPEG = {
-  httpMetadata: {
-    contentType: "image/jpeg",
-    cacheControl: "public, max-age=31536000, immutable",
-  },
-} satisfies AiR2PutOptions;
-
 export async function putPendingJob(
   env: AiJobStoreEnv,
   payload: PostRoundAiPayload,
@@ -354,15 +369,3 @@ export async function getRendition(
   return rendition ? rendition.arrayBuffer() : null;
 }
 
-export async function promoteRendition(
-  env: AiJobStoreEnv,
-  jobId: string,
-  archiveId: string,
-  roundNo: number,
-): Promise<boolean> {
-  const source = await env.ARTWORK.get(jobRenditionKey(jobId));
-  const destination = archiveRenditionKey(archiveId, roundNo);
-  if (!source) return false;
-  await env.ARTWORK.put(destination, await source.arrayBuffer(), PUBLIC_JPEG);
-  return true;
-}

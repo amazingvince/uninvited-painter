@@ -52,17 +52,24 @@ export function watchTags(origin: string, code: string): Record<string, string> 
   };
 }
 
+/**
+ * Published archives preview generically, on purpose.
+ *
+ * Anyone can publish — there is no account to tie a page to — so letting the
+ * publisher choose the title and image meant any link could be made to unfurl
+ * in a chat app as a polished card of their choosing, on this domain. The
+ * page still shows their game; only the preview is fixed. The round count is
+ * a validated integer and carries no attacker text.
+ */
 export function archiveTags(
   origin: string,
   id: string,
-  title: string,
   rounds: number,
-  hasImage: boolean,
 ): Record<string, string> {
   return {
-    "og:title": `${title} — The Uninvited Painter`,
+    "og:title": "A finished game — The Uninvited Painter",
     "og:description": `${rounds} round${rounds === 1 ? "" : "s"} of collective forgery, preserved for the record.`,
-    "og:image": hasImage ? `${origin}/api/archives/${id}/og.png` : `${origin}/og-room.png`,
+    "og:image": `${origin}/og-room.png`,
     "og:url": `${origin}/a/${id}`,
     "og:type": "website",
     "twitter:card": "summary_large_image",

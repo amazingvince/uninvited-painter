@@ -284,6 +284,7 @@ export function OnlineFlow({
         onRules={() => setShowRules(true)}
         onKick={(playerId) => room.send({ t: "dropPlayer", playerId })}
         onHouseWords={() => setShowHouse(true)}
+        onLock={(locked) => room.send({ t: "lock", locked })}
       />
     );
   } else if (state.phase === "closed") {
@@ -350,6 +351,10 @@ export function OnlineFlow({
         body = (
           <HoldToReveal
             label="Hold to read your card"
+            // Re-arm on every reconnect. If the socket was down when the card
+            // was read, the room never heard the "seen" and this gate is the
+            // only way to send it — latched shut, it strands the whole table.
+            resetKey={room.connected}
             gate={
               <Screen>
                 <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--ink)" }}>
@@ -416,7 +421,7 @@ export function OnlineFlow({
             penMode={state.settings.penMode}
             inkLimit={state.settings.inkLimit}
             onLive={(batch, newSegment) => room.sendLive(batch, newSegment)}
-            onLiveClear={() => room.send({ t: "liveClear" })}
+            onLiveClear={room.sendLiveClear}
             onCommit={(points, breaks) => room.send({ t: "commit", points, breaks })}
           />
         );

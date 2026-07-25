@@ -26,8 +26,8 @@ describe("og tags", () => {
     home: homeTags(ORIGIN),
     room: roomTags(ORIGIN, "MOLT"),
     watch: watchTags(ORIGIN, "MOLT"),
-    archive: archiveTags(ORIGIN, "abcdefgh2345", "The Bird Incident", 5, true),
-    "archive without image": archiveTags(ORIGIN, "abcdefgh2345", "Untitled", 1, false),
+    archive: archiveTags(ORIGIN, "abcdefgh2345", 5),
+    "archive of one round": archiveTags(ORIGIN, "abcdefgh2345", 1),
   };
 
   for (const [name, tags] of Object.entries(sets)) {
@@ -52,31 +52,42 @@ describe("og tags", () => {
   });
 
   it("pluralises the archive round count", () => {
-    expect(archiveTags(ORIGIN, "abcdefgh2345", "x", 1, false)["og:description"]).toContain(
+    expect(archiveTags(ORIGIN, "abcdefgh2345", 1)["og:description"]).toContain(
       "1 round of",
     );
-    expect(archiveTags(ORIGIN, "abcdefgh2345", "x", 3, false)["og:description"]).toContain(
+    expect(archiveTags(ORIGIN, "abcdefgh2345", 3)["og:description"]).toContain(
       "3 rounds of",
     );
   });
 });
 
 describe("meta tag rendering", () => {
-  it("escapes an attacker-supplied archive title", () => {
-    // Archive titles are published by anyone with the endpoint; they must not
-    // be able to close the attribute and open a tag of their own.
-    const title = '"><script>alert(1)</script><meta x="';
-    const html = metaTags(archiveTags(ORIGIN, "abcdefgh2345", title, 1, false));
+  it("escapes anything that reaches an attribute value", () => {
+    const html = metaTags({ "og:title": '"><script>alert(1)</script><meta x="' });
     expect(html).not.toContain("<script");
     expect(html).toContain("&lt;script");
-    // Every attribute value must be free of the two characters that could end
-    // it or start a tag; `>` inside a quoted value is inert.
+    // An attribute value must be free of the two characters that could end it
+    // or start a tag; `>` inside a quoted value is inert.
     const values = [...html.matchAll(/content="([^"]*)"/g)].map((m) => m[1]);
-    expect(values).toHaveLength(6);
-    for (const value of values) {
-      expect(value).not.toMatch(/[<"]/);
-    }
+    expect(values).toHaveLength(1);
+    expect(values[0]).not.toMatch(/[<"]/);
     expect(values[0]).toContain("&quot;");
+  });
+
+  it("keeps publisher-supplied text out of archive previews entirely", () => {
+    // Publishing is open to anyone, so a preview must never be something the
+    // publisher chose — escaping is not enough when the content itself is the
+    // payload. Only the id and a validated round count may vary.
+    const tags = archiveTags(ORIGIN, "abcdefgh2345", 4);
+    expect(tags["og:title"]).toBe("A finished game — The Uninvited Painter");
+    expect(tags["og:image"]).toBe(`${ORIGIN}/og-room.png`);
+    // Two archives may differ only in their id (which has to be in the url)
+    // and their round count. Nothing else varies with what was published.
+    const other = archiveTags(ORIGIN, "zzzzzzzz9876", 4);
+    for (const key of REQUIRED) {
+      if (key === "og:url") continue;
+      expect(tags[key], key).toBe(other[key]);
+    }
   });
 
   it("escapes ampersands so the attribute stays well formed", () => {

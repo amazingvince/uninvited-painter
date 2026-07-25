@@ -11,6 +11,7 @@ import {
   validateReferencePng,
 } from "./ai-input";
 import {
+  DAILY_AI_IP_LIMIT,
   DAILY_AI_JOB_LIMIT,
   getJob,
   getRendition,
@@ -19,6 +20,7 @@ import {
   putPendingJob,
   putSource,
   withinDailyAiBudget,
+  withinDailyIpBudget,
   type AiJobStoreEnv,
   type PostRoundAiPayload,
   type PostRoundAiResult,
@@ -268,7 +270,12 @@ export async function handleLocalAiPost(
   if (existing) return json(existing);
 
   // This endpoint is unauthenticated by design (pass-one-phone has no room),
-  // so a spend ceiling backs up the per-IP limiter.
+  // so spend ceilings back up the per-minute limiter: one for the day across
+  // everyone, and one per caller so a single script cannot take the lot.
+  const caller = request.headers.get("CF-Connecting-IP") ?? "local";
+  if (!(await withinDailyIpBudget(env, caller, DAILY_AI_IP_LIMIT))) {
+    return json({ error: "Luna has sat for you enough today." }, 429);
+  }
   if (!(await withinDailyAiBudget(env, DAILY_AI_JOB_LIMIT))) {
     return json({ error: "Luna has hit her daily gallery budget." }, 429);
   }

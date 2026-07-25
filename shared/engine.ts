@@ -99,6 +99,7 @@ export function createRoom(params: {
     roundsPlayed: 0,
     holds: {},
     customWords: [],
+    locked: false,
   };
 }
 
@@ -120,6 +121,7 @@ export function normalizeRoom(state: RoomState): RoomState {
     aiTone: s.aiTone ?? DEFAULT_SETTINGS.aiTone,
   };
   state.customWords ??= [];
+  state.locked ??= false;
   if (state.round) {
     state.round.turnDeadline ??= null;
     state.round.ai ??= emptyRoundAi();
@@ -460,6 +462,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
     case "ADD_PLAYER": {
       // Late arrivals are allowed — they sit out the current round and join the next.
       if (state.phase === "closed") return fail("The exhibition has closed");
+      if (state.locked) return fail("The room is locked");
       if (state.players.length >= MAX_PLAYERS) return fail("Room is full (12 max)");
       const { id, name, colorIndex } = event.player;
       if (!Number.isInteger(colorIndex) || colorIndex < 0 || colorIndex >= SEAT_COLORS.length) {
@@ -558,6 +561,12 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (!["strict", "relaxed"].includes(next.presence)) return fail("Bad presence mode");
       if (!["witty", "savage", "absurd"].includes(next.aiTone)) return fail("Bad AI tone");
       state.settings = next;
+      return { ok: true, state };
+    }
+
+    case "SET_LOCKED": {
+      if (state.phase === "closed") return fail("The exhibition has closed");
+      state.locked = event.locked;
       return { ok: true, state };
     }
 

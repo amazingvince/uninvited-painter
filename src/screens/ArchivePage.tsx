@@ -153,13 +153,10 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
         )}
         {archive.entries.map((entry) => (
           <div key={entry.roundNo} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div
-              className={
-                entry.ai?.renditionStatus === "ready"
-                  ? "published-art published-art--pair"
-                  : "published-art"
-              }
-            >
+            {/* Only the drawing travels. Renditions are generated from a
+                bitmap a player uploaded, which the room never checks against
+                the real strokes, so they stay off public pages. */}
+            <div className="published-art">
               <figure>
                 <div className="rendition-frame">
                   <svg viewBox="0 0 1000 1000">
@@ -168,15 +165,6 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
                 </div>
                 <figcaption className="kicker">What it was</figcaption>
               </figure>
-              {entry.ai?.renditionStatus === "ready" && (
-                <figure>
-                  <img
-                    src={`/api/archives/${id}/round/${entry.roundNo}/rendition.jpg`}
-                    alt={`Archived AI-generated realistic rendition for round ${entry.roundNo}`}
-                  />
-                  <figcaption className="kicker">What it became</figcaption>
-                </figure>
-              )}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
               <span>
@@ -196,11 +184,6 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
                 {entry.fakeName}: {OUTCOME_COPY[entry.outcome] ?? entry.outcome}
               </span>
             </div>
-            {entry.ai?.renditionStatus === "pending" && (
-              <div className="note" aria-live="polite">
-                Reality is still negotiating with the line work.
-              </div>
-            )}
           </div>
         ))}
         <div style={{ borderTop: "3px solid var(--ink)", paddingTop: 12 }}>
