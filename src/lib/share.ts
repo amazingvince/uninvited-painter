@@ -68,6 +68,18 @@ export async function drawingPng(strokes: Stroke[], caption: string): Promise<Bl
   return toBlob(canvas);
 }
 
+export async function drawingReferencePng(strokes: Stroke[]): Promise<Blob> {
+  const size = 1024;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#fffbf0";
+  ctx.fillRect(0, 0, size, size);
+  drawStrokes(ctx, strokes, 0, 0, size);
+  return toBlob(canvas);
+}
+
 export async function contactSheetPng(archive: ArchiveEntry[], title: string): Promise<Blob> {
   const cell = 540;
   const gap = 24;
