@@ -138,8 +138,23 @@ const TONE_DIRECTIONS: Record<AiTone, string> = {
   savage:
     "savage: sharper and audacious, but roast only the artwork and never demean a person",
   absurd:
-    "absurd: surreal, overconfident, and delightfully nonsensical while staying legible",
+    "absurd: surreal, overconfident, and gleefully nonsensical while staying legible",
 };
+
+/**
+ * What the numbers are supposed to mean.
+ *
+ * Left unanchored, the rating was a restatement of the tone and nothing else:
+ * savage returned exactly 5/10 on six of six drawings, from a cleanly drawn
+ * house to an unreadable tangle. Since tone is fixed for a whole game, every
+ * round scored the same, and "Luna's pick of the exhibition" — which sorts on
+ * this number and tie-breaks on round order — was always round one.
+ */
+const SCALES = [
+  "The rating measures the drawing, never your mood: 1-3 when nothing in it reads as an object, 4-6 when one thing is recognisable and the rest interferes, 7-8 when the picture holds together as a scene, 9-10 when it is unmistakable and genuinely well arranged.",
+  "Two critics in different moods looking at the same drawing give it the same number. Tone changes your wording, never your score, and no score is off limits — use the low and high ends when the drawing earns them.",
+  "Confidence is how sure you are that the subject guess is right: below 25 when the shapes could be almost anything, 40-70 when a couple of details agree, above 85 only when one object dominates the picture unmistakably.",
+].join(" ");
 
 /**
  * Crutches the model reached for unprompted, each measured over real games.
@@ -210,6 +225,7 @@ function developerInstruction(input: CriticInput): string {
           // and "magnificently tangled" have in common, and it is the tell
           // that the model is decorating rather than judging.
           "ratingTag must be a noun phrase of two to four words and must not begin with an adverb.",
+          SCALES,
           `The callout praises ${target} — never the clearest or most competent mark. Say where it is. Do not frame it as a finale, a signature, an entrance or an exit, and do not reach for theatre or stagecraft metaphors.`,
         ].join(" ")
       : "Critic is disabled: return null for title, subjectGuess, confidence, rating, ratingTag, review, and callout.",
@@ -241,7 +257,11 @@ function requestBody(input: CriticInput, model: string): Record<string, unknown>
   return {
     model,
     reasoning: { effort: "low" },
-    max_output_tokens: 700,
+    // Reasoning tokens are billed against this ceiling too, so it has to clear
+    // the verdict *plus* whatever thinking precedes it. At 700 a full verdict
+    // was being cut off mid-JSON roughly one call in three, which surfaced as
+    // an unparseable response and a wasted paid call.
+    max_output_tokens: 1400,
     input: [
       {
         role: "developer",
@@ -332,6 +352,18 @@ export async function requestCritic(
       body = await response.json();
     } catch {
       throw invalid("Luna returned an unreadable response.");
+    }
+    // Truncation is not malformation. Saying so makes the cause diagnosable
+    // instead of looking like the model emitted nonsense, and lets the branch
+    // retry rather than settle a paid call as unavailable.
+    const status = object(body)?.status;
+    if (status === "incomplete") {
+      const reason = object(object(body)?.incomplete_details)?.reason;
+      throw new AiProviderError(
+        `Luna ran out of room before finishing (${String(reason ?? "unknown")}).`,
+        "incomplete_response",
+        true,
+      );
     }
     const text = outputText(body);
     if (!text) throw invalid("Luna returned no structured verdict.");

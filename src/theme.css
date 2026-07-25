@@ -878,23 +878,7 @@ input {
   100% { opacity: 1; transform: scale(1) rotate(-1.5deg); }
 }
 
-.confidence-meter {
-  height: 6px;
-  background: color-mix(in srgb, currentColor 22%, transparent);
-  overflow: hidden;
-}
 
-.confidence-meter > div {
-  height: 100%;
-  background: var(--gold);
-  transform-origin: left;
-  animation: meterGrow 0.8s ease-out 0.5s both;
-}
-
-@keyframes meterGrow {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
 
 /* The unveiling: the original steps aside, reality flashes in. */
 .rendition-pair--unveil figure:first-child {
@@ -989,7 +973,6 @@ input {
   }
   .verdict-stagger > *,
   .rating-stamp,
-  .confidence-meter > div,
   .rendition-pair--unveil figure:first-child,
   .rendition-pair--unveil .rendition-reveal__result {
     animation: none;

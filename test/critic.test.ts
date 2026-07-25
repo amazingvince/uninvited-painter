@@ -39,6 +39,21 @@ function verdict(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** A response the API cut short at the token ceiling: valid envelope, but the
+ *  structured text is truncated mid-JSON. */
+function truncatedResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      status: "incomplete",
+      incomplete_details: { reason: "max_output_tokens" },
+      output: [
+        { content: [{ type: "output_text", text: '{"title":"Untitled Emerg' }] },
+      ],
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+}
+
 function responseWith(payload: unknown): Response {
   return new Response(
     JSON.stringify({
@@ -93,7 +108,7 @@ describe("Luna request contract", () => {
       };
       expect(body.model).toBe("gpt-5.6-luna");
       expect(body.reasoning).toEqual({ effort: "low" });
-      expect(body.max_output_tokens).toBe(700);
+      expect(body.max_output_tokens).toBe(1400);
       expect(body.text.format.type).toBe("json_schema");
       expect(body.text.format.strict).toBe(true);
       expect(body.text.format.schema.required).toEqual([
@@ -293,5 +308,19 @@ describe("Luna provider errors", () => {
       code: "timeout",
       retryable: true,
     });
+  });
+});
+
+describe("a verdict cut short at the token ceiling", () => {
+  it("is reported as truncation and is retryable, not malformed", async () => {
+    // Reasoning tokens count against max_output_tokens, so a long verdict can
+    // be severed mid-JSON. Calling that "malformed" hid the cause and settled
+    // a paid call as unavailable instead of trying again.
+    await expect(
+      requestCritic(fullInput, {
+        apiKey: "server-secret",
+        fetchImpl: async () => truncatedResponse(),
+      }),
+    ).rejects.toMatchObject({ code: "incomplete_response", retryable: true });
   });
 });

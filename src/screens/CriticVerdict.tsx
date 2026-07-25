@@ -64,6 +64,19 @@ const DELIBERATIONS = [
   "Luna is comparing this, unfavourably, to something she saw in Basel.",
 ];
 
+/**
+ * A percentage promised a precision the model does not have: the same drawing
+ * came back at 4% and at 78% across runs, and a 4%-wide meter under a review
+ * written with total assurance read as a bug rather than a joke. A word is
+ * honest about how much signal there is.
+ */
+function confidenceLabel(confidence: number): string {
+  if (confidence < 25) return "A wild guess, frankly";
+  if (confidence < 60) return "A working theory";
+  if (confidence < 85) return "Fairly sure";
+  return "Certain, obviously";
+}
+
 export function CriticVerdict({
   ai,
   players,
@@ -145,14 +158,9 @@ export function CriticVerdict({
                   {verdict.subjectGuess}
                 </div>
                 {verdict.confidence !== undefined && (
-                  <>
-                    <div className="confidence-meter">
-                      <div style={{ width: `${verdict.confidence}%` }} />
-                    </div>
-                    <div className="small" style={{ color: "var(--muted-dark)" }}>
-                      {verdict.confidence}% confidence, somehow
-                    </div>
-                  </>
+                  <div className="small" style={{ color: "var(--muted-dark)" }}>
+                    {confidenceLabel(verdict.confidence)}
+                  </div>
                 )}
               </div>
             )}
