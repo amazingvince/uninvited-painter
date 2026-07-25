@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Black&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #d9d6cf; }
+  a { color: #d92b1f; text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: #8f1a11; }
+</style>
+</helmet>
+
+<section style="display: flex; flex-direction: column; gap: 64px; padding: 56px 64px 120px; font-family: 'Instrument Sans', system-ui, sans-serif;">
+
+  <div style="display: flex; flex-direction: column; gap: 10px; max-width: 780px;">
+    <div style="font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #6b665c;">Turn 2 — build spec · direction 1C Catalogue Raisonné</div>
+    <div style="font-family: 'Archivo Black', sans-serif; font-size: 46px; line-height: 0.92; letter-spacing: -0.04em; text-transform: uppercase; color: #121212;">The Uninvited Painter — full flows</div>
+    <div style="font-size: 14px; line-height: 1.55; color: #4a463d; text-wrap: pretty;">Every screen for both modes, in order, plus a handoff panel at the bottom (state machine, socket events, Cloudflare topology, decks). Screens are 390 × 800. Type: Archivo Black for anything shouted, Archivo 500/600 for body. Palette: cream #F2EDE1, ink #121212, red #D92B1F, rule #C9C2B0, paper #FFFBF0, muted #6B665C.</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 18px;">
+    <div style="display: flex; align-items: baseline; gap: 14px; border-bottom: 3px solid #121212; padding-bottom: 10px;">
+      <div style="font-family: 'Archivo Black', sans-serif; font-size: 24px; text-transform: uppercase; letter-spacing: -0.03em; color: #121212;">A · Setup</div>
+      <div style="font-size: 13px; color: #6b665c;">Shared by both modes. Host does all of this once per session.</div>
+    </div>
+    <div style="display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap;">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 3px solid #121212; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>Lot 001</span><span style="color: #d92b1f;">5–12 players</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 30px 20px 40px;">
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 66px; line-height: 0.85; letter-spacing: -0.045em; text-transform: uppercase;">The<br>Uninvited<br><span style="color: #d92b1f;">Painter</span></div>
+              <div style="height: 3px; background: #121212;"></div>
+              <div style="font-size: 15px; line-height: 1.45; font-weight: 500; max-width: 300px;">Everyone gets one stroke. Two passes. One player was never told what the picture is.</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #d92b1f; color: #f2ede1; padding: 20px; font-family: 'Archivo Black', sans-serif; font-size: 17px; letter-spacing: -0.01em; text-transform: uppercase; display: flex; justify-content: space-between;"><span>Pass one phone</span><span>→</span></div>
+              <div style="border: 3px solid #121212; padding: 18px 20px; font-family: 'Archivo Black', sans-serif; font-size: 17px; letter-spacing: -0.01em; text-transform: uppercase; display: flex; justify-content: space-between;"><span>Play online</span><span>→</span></div>
+              <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 6px;"><span style="color: #6b665c;">First time</span><span style="border-bottom: 2px solid #d92b1f;">How it works</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">A1 Entrance — mode fork. Remembers last roster in localStorage.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 14px 20px; border-bottom: 3px solid #121212; display: flex; justify-content: space-between; align-items: center;">
+            <div><div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">← Back</div><div style="font-family: 'Archivo Black', sans-serif; font-size: 28px; letter-spacing: -0.03em; text-transform: uppercase;">The roster</div></div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 22px; color: #d92b1f;">7/12</div>
+          </div>
+          <div style="flex: 1; overflow: hidden; padding: 0 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #1b4a8a;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Devon</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #d92b1f;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Marisol</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #3f7a2c;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Priya</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #c98a12;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Tomas</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #5c3a86;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Ines</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #0f7a70;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Ade</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #b4472e;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Jun</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 15px 0; border-bottom: 2px dashed #c9c2b0;"><span style="width: 14px; height: 14px; border: 2px dashed #6b665c;"></span><span style="flex: 1; font-size: 16px; font-weight: 600; color: #6b665c;">Add a player</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #d92b1f;">+</span></div>
+            <div style="font-size: 12px; font-weight: 600; color: #6b665c; padding-top: 14px; line-height: 1.5;">Each name takes a stroke colour. Order of play is the order listed — drag to rearrange.</div>
+          </div>
+          <div style="padding: 14px 20px 38px; display: flex; flex-direction: column; gap: 10px; border-top: 3px solid #121212;">
+            <div style="background: #121212; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Choose a deck</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">A2 Roster — 5 min, 12 max. Colour auto-assigned, reorderable.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 14px 20px; border-bottom: 3px solid #121212;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">← Roster</div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 28px; letter-spacing: -0.03em; text-transform: uppercase;">The collection</div>
+          </div>
+          <div style="flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+            <div style="background: #d92b1f; color: #f7f2e6; padding: 16px 18px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Animals</div><div style="font-size: 12px; font-weight: 600;">142 words · easiest to draw</div></div><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px;">✓</span></div>
+            <div style="border: 2px solid #121212; padding: 16px 18px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Food</div><div style="font-size: 12px; font-weight: 600; color: #6b665c;">118 words</div></div>
+            <div style="border: 2px solid #121212; padding: 16px 18px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Movies</div><div style="font-size: 12px; font-weight: 600; color: #6b665c;">96 words · hardest</div></div>
+            <div style="border: 2px solid #121212; padding: 16px 18px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Objects</div><div style="font-size: 12px; font-weight: 600; color: #6b665c;">150 words</div></div>
+            <div style="border: 2px dashed #6b665c; padding: 16px 18px; color: #6b665c;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Everything</div><div style="font-size: 12px; font-weight: 600;">Shuffle all four</div></div>
+            <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #c9c2b0; padding-top: 14px;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Rounds</span><div style="display: flex; gap: 6px; font-family: 'Archivo Black', sans-serif; font-size: 15px;"><span style="border: 2px solid #121212; padding: 6px 12px;">3</span><span style="background: #121212; color: #f2ede1; padding: 6px 12px;">5</span><span style="border: 2px solid #121212; padding: 6px 12px;">7</span></div></div>
+            <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Question master</span><div style="display: flex; gap: 6px; font-family: 'Archivo Black', sans-serif; font-size: 13px;"><span style="background: #121212; color: #f2ede1; padding: 6px 12px;">Rotate</span><span style="border: 2px solid #121212; padding: 6px 12px;">Off</span></div></div>
+          </div>
+          <div style="padding: 14px 20px 38px; border-top: 3px solid #121212;">
+            <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Open the round</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">A3 Deck + rules — one deck or shuffled. QM rotates each round or can be switched off.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #121212; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #f2ede1;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600; color: #8d8779;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 14px 20px; border-bottom: 3px solid #f2ede1; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>Round 1 / 5</span><span style="color: #d92b1f;">Question master</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 20px; padding: 0 22px;">
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 40px; line-height: 0.88; letter-spacing: -0.04em; text-transform: uppercase;">Devon,<br>you set<br>the word</div>
+            <div style="border-top: 3px solid #f2ede1; border-bottom: 3px solid #f2ede1; padding: 18px 0;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8d8779;">Drawn from Animals</div>
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 52px; letter-spacing: -0.04em; text-transform: uppercase; color: #f0d070;">Penguin</div>
+              <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8d8779; padding-top: 8px;">↺ Draw another word</div>
+            </div>
+            <div style="font-size: 15px; font-weight: 500; line-height: 1.45;">Say the category out loud, not the word. You don't draw. You score with the fake artist if they get away with it — so keep your face still.</div>
+          </div>
+          <div style="padding: 14px 20px 38px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Deal the cards</div>
+            <div style="font-size: 12px; font-weight: 600; color: #8d8779; text-align: center;">Six artists, one of them fake. Nobody knows who.</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">A4 Question master — the only ink-flood screen in setup. Dark = private.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 14px 20px; border-bottom: 3px solid #121212;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">✕ Close</div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 30px; letter-spacing: -0.035em; text-transform: uppercase;">How it works</div>
+          </div>
+          <div style="flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+            <div style="display: flex; gap: 14px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; color: #d92b1f; line-height: 1;">01</div><div style="font-size: 14px; font-weight: 500; line-height: 1.45;">Everyone sees the category. Every artist but one also sees the word.</div></div>
+            <div style="display: flex; gap: 14px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; color: #d92b1f; line-height: 1;">02</div><div style="font-size: 14px; font-weight: 500; line-height: 1.45;">In turn, each artist draws <strong>one unbroken line</strong> in their own colour. Lift your finger and the turn is over.</div></div>
+            <div style="display: flex; gap: 14px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; color: #d92b1f; line-height: 1;">03</div><div style="font-size: 14px; font-weight: 500; line-height: 1.45;">Two passes around the table. Draw well enough to prove you know the word — badly enough that the fake can't guess it.</div></div>
+            <div style="display: flex; gap: 14px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; color: #d92b1f; line-height: 1;">04</div><div style="font-size: 14px; font-weight: 500; line-height: 1.45;">Everyone votes. Ties acquit. If the fake artist is caught, they get one guess at the word.</div></div>
+            <div style="border-top: 3px solid #121212; padding-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 18px; text-transform: uppercase; letter-spacing: -0.02em;">Scoring</div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; border-bottom: 1px solid #c9c2b0; padding-bottom: 7px;"><span>Fake artist survives the vote</span><span style="font-family: 'Archivo Black', sans-serif;">+2 fake &amp; QM</span></div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; border-bottom: 1px solid #c9c2b0; padding-bottom: 7px;"><span>Caught but names the word</span><span style="font-family: 'Archivo Black', sans-serif;">+2 fake &amp; QM</span></div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600;"><span>Caught and guesses wrong</span><span style="font-family: 'Archivo Black', sans-serif;">+1 each artist</span></div>
+            </div>
+          </div>
+          <div style="padding: 14px 20px 38px; border-top: 3px solid #121212;"><div style="border: 3px solid #121212; padding: 18px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Got it</div></div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">A5 Rules sheet — reachable from any screen via the header.</div>
+      </div>
+
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 18px;">
+    <div style="display: flex; align-items: baseline; gap: 14px; border-bottom: 3px solid #121212; padding-bottom: 10px;">
+      <div style="font-family: 'Archivo Black', sans-serif; font-size: 24px; text-transform: uppercase; letter-spacing: -0.03em; color: #121212;">B · The round</div>
+      <div style="font-size: 13px; color: #6b665c;">Cards, then fourteen strokes. B1–B3 are pass-phone only; online deals cards to each device at once.</div>
+    </div>
+    <div style="display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap;">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="display: flex; justify-content: space-between; padding: 18px 20px; border-bottom: 3px solid #121212; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>Dealing cards</span><span>3 of 7</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 0 24px;">
+            <div style="width: 108px; height: 108px; background: #121212; color: #f2ede1; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 46px;">M</div>
+            <div style="text-align: center; display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 44px; line-height: 0.88; letter-spacing: -0.04em; text-transform: uppercase;">Hand to<br>Marisol</div>
+              <div style="font-size: 15px; font-weight: 500; line-height: 1.45;">Everyone else looks away. Nothing shows until her thumb is on the glass.</div>
+            </div>
+            <div style="width: 100%; border: 3px solid #121212; padding: 22px; text-align: center; display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 16px; text-transform: uppercase; letter-spacing: -0.01em;">Press and hold</div>
+              <div style="font-size: 13px; font-weight: 600; color: #6b665c;">Let go and it's gone</div>
+            </div>
+          </div>
+          <div style="padding: 0 20px 40px; display: flex; gap: 4px;">
+            <div style="flex: 1; height: 8px; background: #d92b1f;"></div><div style="flex: 1; height: 8px; background: #d92b1f;"></div><div style="flex: 1; height: 8px; background: #d92b1f;"></div><div style="flex: 1; height: 8px; background: #dcd5c4;"></div><div style="flex: 1; height: 8px; background: #dcd5c4;"></div><div style="flex: 1; height: 8px; background: #dcd5c4;"></div><div style="flex: 1; height: 8px; background: #dcd5c4;"></div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">B1 Hand-off — screen is inert until press-and-hold. No card content in the DOM before touch.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #121212; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #f2ede1;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600; color: #8d8779;"><span>9:41</span><span>100%</span></div>
+          <div style="display: flex; justify-content: space-between; padding: 18px 20px; border-bottom: 3px solid #f2ede1; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>Marisol only</span><span>Animals</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 0 22px;">
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 40px; line-height: 0.88; letter-spacing: -0.04em; text-transform: uppercase;">You're a<br>real artist</div>
+            <div style="border-top: 3px solid #f2ede1; border-bottom: 3px solid #f2ede1; padding: 20px 0;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8d8779;">The word</div>
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 60px; line-height: 0.9; letter-spacing: -0.045em; text-transform: uppercase; color: #f0d070;">Penguin</div>
+            </div>
+            <div style="font-size: 16px; font-weight: 500; line-height: 1.45;">Prove you know it — but not so clearly that the fake artist can read the picture and steal the word.</div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8d8779;"><span style="width: 14px; height: 14px; background: #d92b1f;"></span>Your colour</div>
+          </div>
+          <div style="border-top: 3px solid #f2ede1; padding: 18px 20px 38px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #8d8779;">Release to hide</div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">B2 Artist card — ink flood. Identical layout to B3 so a glance from across the table tells nothing.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #d92b1f; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #f7f2e6;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600; color: #f7d4cf;"><span>9:41</span><span>100%</span></div>
+          <div style="display: flex; justify-content: space-between; padding: 18px 20px; border-bottom: 3px solid #f7f2e6; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>Marisol only</span><span>Animals</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 0 22px;">
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 40px; line-height: 0.88; letter-spacing: -0.04em; text-transform: uppercase;">You're the<br>fake artist</div>
+            <div style="border-top: 3px solid #f7f2e6; border-bottom: 3px solid #f7f2e6; padding: 20px 0;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #f7d4cf;">The word</div>
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 60px; line-height: 0.9; letter-spacing: -0.05em; color: #8f1a11;">???</div>
+            </div>
+            <div style="font-size: 16px; font-weight: 500; line-height: 1.45;">No word. Draw like you know exactly what this is. Caught? You get one guess to steal the round.</div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #f7d4cf;"><span style="width: 14px; height: 14px; background: #f7f2e6;"></span>Your colour</div>
+          </div>
+          <div style="border-top: 3px solid #f7f2e6; padding: 18px 20px 38px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Release to hide</div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">B3 Fake artist card — red flood. Same skeleton as B2, word slot reads ???.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 14px 20px; border-bottom: 3px solid #121212; display: flex; justify-content: space-between; align-items: center;">
+            <div><div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">Pass 1 · stroke 4 of 14</div><div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; letter-spacing: -0.03em; text-transform: uppercase;">Priya is drawing</div></div>
+            <div style="width: 18px; height: 18px; background: #3f7a2c;"></div>
+          </div>
+          <div style="margin: 16px 20px 0; background: #fffbf0; border: 3px solid #121212; aspect-ratio: 1; position: relative;">
+            <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M150 88c-37 9-45 60-39 100 5 34 24 59 45 59s43-24 46-57c4-40-9-94-52-102z" stroke="#1b4a8a" stroke-width="5"></path>
+              <path d="M141 112l-24 9 23 11" stroke="#c98a12" stroke-width="5"></path>
+              <path d="M58 288h188" stroke="#0f7a70" stroke-width="5"></path>
+              <path d="M122 132c-13 16-15 40-8 56" stroke="#3f7a2c" stroke-width="5" stroke-dasharray="180" stroke-dashoffset="60"></path>
+            </svg>
+            <div style="position: absolute; left: 128px; top: 190px; width: 12px; height: 12px; border-radius: 50%; background: #3f7a2c; box-shadow: 0 0 0 5px rgba(63,122,44,0.25);"></div>
+            <div style="position: absolute; top: 8px; right: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6b665c;">Live</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 16px 20px 38px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 7px;">
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #121212; color: #f2ede1; padding: 6px 9px;">Devon ✓</span>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #121212; color: #f2ede1; padding: 6px 9px;">Tomas ✓</span>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #121212; color: #f2ede1; padding: 6px 9px;">Ade ✓</span>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #3f7a2c; color: #f2ede1; padding: 6px 9px;">Priya — now</span>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 2px solid #c9c2b0; color: #6b665c; padding: 4px 9px;">Ines</span>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 2px solid #c9c2b0; color: #6b665c; padding: 4px 9px;">Marisol</span>
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 2px solid #c9c2b0; color: #6b665c; padding: 4px 9px;">Jun</span>
+            </div>
+            <div style="border-top: 3px solid #121212; padding-top: 14px; font-size: 14px; font-weight: 600; line-height: 1.45; color: #6b665c;">Watch the line arrive as it's drawn. Hesitation is evidence.</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">B4 Spectate — live stroke with a moving nib. Online: this is what everyone not drawing sees.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 3px solid #121212;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">Your stroke</div>
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; letter-spacing: -0.03em; text-transform: uppercase;">Penguin</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;"><span style="width: 14px; height: 14px; background: #d92b1f; display: block;"></span>You</div>
+          </div>
+          <div style="margin: 16px 20px 0; background: #fffbf0; border: 3px solid #121212; aspect-ratio: 1; position: relative;">
+            <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M150 88c-37 9-45 60-39 100 5 34 24 59 45 59s43-24 46-57c4-40-9-94-52-102z" stroke="#1b4a8a" stroke-width="5"></path>
+              <path d="M122 132c-13 22-15 58-3 76" stroke="#3f7a2c" stroke-width="5"></path>
+              <path d="M141 112l-24 9 23 11" stroke="#c98a12" stroke-width="5"></path>
+              <path d="M133 246l-17 25 31 2" stroke="#5c3a86" stroke-width="5"></path>
+              <path d="M58 288h188" stroke="#0f7a70" stroke-width="5"></path>
+              <path d="M186 168c-9 18-6 44 6 58" stroke="#d92b1f" stroke-width="5" stroke-dasharray="5 8"></path>
+            </svg>
+            <div style="position: absolute; top: 8px; right: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6b665c;">06 / 14</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; padding: 18px 20px 38px;">
+            <div style="display: flex; align-items: center; gap: 12px; border: 3px solid #121212; padding: 13px 15px;">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: -0.01em;">Keeping in 4</div>
+                <div style="height: 6px; background: #dcd5c4;"><div style="width: 62%; height: 6px; background: #d92b1f;"></div></div>
+              </div>
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase; color: #d92b1f;">Undo</div>
+            </div>
+            <div style="background: #121212; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; letter-spacing: -0.01em;">Commit stroke</div>
+            <div style="font-size: 13px; font-weight: 600; color: #6b665c; text-align: center;">One unbroken line. Lifting ends the line, not the turn — you get 4s to undo.</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">B5 Your turn — dashed = uncommitted. Undo restores a blank canvas turn, timer restarts.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="display: flex; justify-content: space-between; padding: 18px 20px; border-bottom: 3px solid #121212; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>Stroke committed</span><span style="color: #d92b1f;">Pass 1 · 7 of 14</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 0 24px;">
+            <div style="width: 108px; height: 108px; border: 3px solid #121212; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 46px;">I</div>
+            <div style="text-align: center; display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 44px; line-height: 0.88; letter-spacing: -0.04em; text-transform: uppercase;">Pass to<br>Ines</div>
+              <div style="font-size: 15px; font-weight: 500; line-height: 1.45;">Face down while it travels. Her word is already on the card — no re-deal.</div>
+            </div>
+            <div style="width: 100%; background: #121212; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Ines has it</div>
+          </div>
+          <div style="border-top: 3px solid #121212; padding: 16px 20px 38px; display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6b665c;"><span>Hold to peek at the wall</span><span>Rules</span></div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">B6 Pass-along — local only; online skips straight from B5 to B4 on the next device.</div>
+      </div>
+
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 18px;">
+    <div style="display: flex; align-items: baseline; gap: 14px; border-bottom: 3px solid #121212; padding-bottom: 10px;">
+      <div style="font-family: 'Archivo Black', sans-serif; font-size: 24px; text-transform: uppercase; letter-spacing: -0.03em; color: #121212;">C · Endgame</div>
+      <div style="font-size: 13px; color: #6b665c;">Vote → (if caught) one guess → reveal → standings. Same in both modes; local shows one device at a time.</div>
+    </div>
+    <div style="display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap;">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 16px 20px; border-bottom: 3px solid #121212;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #d92b1f;">Both passes complete</div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 38px; line-height: 0.9; letter-spacing: -0.04em; text-transform: uppercase;">Name the fraud</div>
+          </div>
+          <div style="margin: 14px 20px; background: #fffbf0; border: 2px solid #121212; height: 138px; position: relative;">
+            <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" preserveAspectRatio="xMidYMid meet" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M150 88c-37 9-45 60-39 100 5 34 24 59 45 59s43-24 46-57c4-40-9-94-52-102z" stroke="#1b4a8a" stroke-width="6"></path>
+              <path d="M122 132c-13 22-15 58-3 76" stroke="#3f7a2c" stroke-width="6"></path>
+              <path d="M141 112l-24 9 23 11" stroke="#c98a12" stroke-width="6"></path>
+              <path d="M133 246l-17 25 31 2" stroke="#5c3a86" stroke-width="6"></path>
+              <path d="M58 288h188" stroke="#0f7a70" stroke-width="6"></path>
+              <path d="M186 168c-9 18-6 44 6 58" stroke="#d92b1f" stroke-width="6"></path>
+            </svg>
+            <div style="position: absolute; bottom: 6px; right: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6b665c;">Tap to enlarge</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; padding: 0 20px; overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #1b4a8a;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; letter-spacing: -0.02em;">Devon</span><span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #6b665c;">QM</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 12px; margin: 0 -12px; background: #d92b1f; color: #f7f2e6;"><span style="width: 14px; height: 14px; background: #f7f2e6;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; letter-spacing: -0.02em;">Marisol</span><span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em;">Your vote</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #3f7a2c;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; letter-spacing: -0.02em;">Priya</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #c98a12;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; letter-spacing: -0.02em;">Tomas</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #5c3a86;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; letter-spacing: -0.02em;">Ines</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #0f7a70;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; letter-spacing: -0.02em;">Ade</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #c9c2b0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #b4472e;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase; letter-spacing: -0.02em;">Jun</span></div>
+          </div>
+          <div style="padding: 14px 20px 38px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="background: #121212; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Lock in Marisol</div>
+            <div style="font-size: 13px; font-weight: 600; color: #6b665c; text-align: center;">Votes stay hidden until everyone has locked in</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">C1 Vote — you can't vote for yourself; the QM doesn't vote.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 16px 20px; border-bottom: 3px solid #121212;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">Ballots in</div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 38px; line-height: 0.9; letter-spacing: -0.04em; text-transform: uppercase;">The count</div>
+          </div>
+          <div style="flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Marisol</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px; color: #d92b1f;">4</span></div>
+              <div style="height: 18px; background: #dcd5c4;"><div style="width: 67%; height: 18px; background: #d92b1f;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em; color: #6b665c;">Devon</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px; color: #6b665c;">2</span></div>
+              <div style="height: 18px; background: #dcd5c4;"><div style="width: 33%; height: 18px; background: #121212;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em; color: #6b665c;">Priya</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px; color: #6b665c;">0</span></div>
+              <div style="height: 18px; background: #dcd5c4;"></div>
+            </div>
+            <div style="margin-top: auto; border: 3px solid #121212; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 24px; text-transform: uppercase; letter-spacing: -0.03em;">Marisol is accused</div>
+              <div style="font-size: 14px; font-weight: 500; line-height: 1.45;">A tie would have acquitted the room and handed the round to the fake artist. Not today.</div>
+            </div>
+          </div>
+          <div style="padding: 14px 20px 38px; border-top: 3px solid #121212;">
+            <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Hand her the phone</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">C2 Tally — bars animate up from zero. Online: appears on all devices at once.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #121212; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #f2ede1;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600; color: #8d8779;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 16px 20px; border-bottom: 3px solid #f2ede1; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>Marisol only</span><span style="color: #d92b1f;">One guess</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding: 22px 20px;">
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 36px; line-height: 0.9; letter-spacing: -0.04em; text-transform: uppercase;">Caught. Now<br>name the<br>picture</div>
+            <div style="background: #f2ede1; height: 140px; position: relative; border: 3px solid #f2ede1;">
+              <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" preserveAspectRatio="xMidYMid meet" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M150 88c-37 9-45 60-39 100 5 34 24 59 45 59s43-24 46-57c4-40-9-94-52-102z" stroke="#1b4a8a" stroke-width="6"></path>
+                <path d="M122 132c-13 22-15 58-3 76" stroke="#3f7a2c" stroke-width="6"></path>
+                <path d="M141 112l-24 9 23 11" stroke="#c98a12" stroke-width="6"></path>
+                <path d="M133 246l-17 25 31 2" stroke="#5c3a86" stroke-width="6"></path>
+                <path d="M58 288h188" stroke="#0f7a70" stroke-width="6"></path>
+                <path d="M186 168c-9 18-6 44 6 58" stroke="#d92b1f" stroke-width="6"></path>
+              </svg>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8d8779;">Category · Animals</div>
+              <div style="border-bottom: 3px solid #f0d070; padding-bottom: 10px; font-family: 'Archivo Black', sans-serif; font-size: 34px; letter-spacing: -0.03em; text-transform: uppercase; color: #f0d070;">PENGU<span style="opacity: 0.4;">|</span></div>
+              <div style="font-size: 13px; font-weight: 600; color: #8d8779;">Free text. Fuzzy-matched against the word — plurals and a letter's slip are forgiven.</div>
+            </div>
+            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Say it out loud, then submit</div>
+              <div style="font-size: 12px; font-weight: 600; color: #8d8779; text-align: center;">30s · guessing right steals the round</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">C3 Fake artist's guess — only when caught. Skipped if the vote tied or hit the wrong person.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; padding: 18px 20px 38px; gap: 18px;">
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #d92b1f;">Attribution · Round 1</div>
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 46px; line-height: 0.88; letter-spacing: -0.045em; text-transform: uppercase;">Caught —<br>then she<br>named it</div>
+              <div style="font-size: 15px; font-weight: 500; line-height: 1.45;">Voted out 4–2. Guessed <span style="background: #d92b1f; color: #f7f2e6; padding: 1px 6px; font-weight: 700;">PENGUIN</span> and takes the round anyway.</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; border-top: 3px solid #121212; border-bottom: 3px solid #121212; padding: 14px 0;">
+              <div style="width: 112px; height: 112px; background: #fffbf0; border: 2px solid #121212; position: relative; flex: none;">
+                <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M150 88c-37 9-45 60-39 100 5 34 24 59 45 59s43-24 46-57c4-40-9-94-52-102z" stroke="#1b4a8a" stroke-width="7"></path>
+                  <path d="M122 132c-13 22-15 58-3 76" stroke="#3f7a2c" stroke-width="7"></path>
+                  <path d="M141 112l-24 9 23 11" stroke="#c98a12" stroke-width="7"></path>
+                  <path d="M133 246l-17 25 31 2" stroke="#5c3a86" stroke-width="7"></path>
+                  <path d="M58 288h188" stroke="#0f7a70" stroke-width="7"></path>
+                  <path d="M186 168c-9 18-6 44 6 58" stroke="#d92b1f" stroke-width="7"></path>
+                </svg>
+              </div>
+              <div style="font-size: 13px; font-weight: 600; line-height: 1.45; text-transform: uppercase; letter-spacing: 0.04em;">Untitled (Penguin), 2026<br><span style="color: #6b665c;">Seven hands, ink on glass<br>Est. value: bragging rights</span></div>
+            </div>
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 15px; text-transform: uppercase; letter-spacing: -0.02em;">Marisol <span style="color: #d92b1f; font-size: 11px;">FAKE</span></span><span style="font-family: 'Archivo Black', sans-serif; font-size: 22px; color: #d92b1f;">+2</span></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 15px; text-transform: uppercase; letter-spacing: -0.02em;">Devon <span style="color: #6b665c; font-size: 11px;">Q.MASTER</span></span><span style="font-family: 'Archivo Black', sans-serif; font-size: 22px; color: #d92b1f;">+2</span></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 15px; text-transform: uppercase; letter-spacing: -0.02em; color: #6b665c;">Everyone else</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 22px; color: #6b665c;">+0</span></div>
+            </div>
+            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Round 2 of 5</div>
+              <div style="border: 3px solid #121212; padding: 18px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Save to archive</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">C4 Reveal — three copy variants: survived / caught+named / caught+wrong.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 16px 20px; border-bottom: 3px solid #121212; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 30px; letter-spacing: -0.035em; text-transform: uppercase;">Standings</div>
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #6b665c;">After 3 of 5</div>
+          </div>
+          <div style="flex: 1; padding: 0 20px; display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #d92b1f; width: 26px;">1</span><span style="width: 14px; height: 14px; background: #d92b1f;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 19px; text-transform: uppercase; letter-spacing: -0.02em;">Marisol</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 26px;">6</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #6b665c; width: 26px;">2</span><span style="width: 14px; height: 14px; background: #1b4a8a;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 19px; text-transform: uppercase; letter-spacing: -0.02em;">Devon</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 26px;">5</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #6b665c; width: 26px;">3</span><span style="width: 14px; height: 14px; background: #3f7a2c;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 19px; text-transform: uppercase; letter-spacing: -0.02em;">Priya</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 26px;">3</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #6b665c; width: 26px;">4</span><span style="width: 14px; height: 14px; background: #c98a12;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 19px; text-transform: uppercase; letter-spacing: -0.02em;">Tomas</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 26px;">3</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #6b665c; width: 26px;">5</span><span style="width: 14px; height: 14px; background: #5c3a86;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 19px; text-transform: uppercase; letter-spacing: -0.02em;">Ines</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 26px;">2</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #6b665c; width: 26px;">6</span><span style="width: 14px; height: 14px; background: #0f7a70;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 19px; text-transform: uppercase; letter-spacing: -0.02em;">Ade</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 26px;">1</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #6b665c; width: 26px;">7</span><span style="width: 14px; height: 14px; background: #b4472e;"></span><span style="flex: 1; font-family: 'Archivo Black', sans-serif; font-size: 19px; text-transform: uppercase; letter-spacing: -0.02em;">Jun</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 26px;">1</span></div>
+            <div style="font-size: 12px; font-weight: 600; color: #6b665c; padding-top: 14px; line-height: 1.5;">Fake artist duty rotates so nobody plays it twice before everyone has.</div>
+          </div>
+          <div style="padding: 14px 20px 38px; border-top: 3px solid #121212;"><div style="background: #121212; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Round 4</div></div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">C5 Standings — between rounds. Local: shown on the passed phone; online: on every device.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="background: #d92b1f; color: #f7f2e6; padding: 22px 20px;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;">Exhibition closed · 5 rounds</div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 44px; line-height: 0.88; letter-spacing: -0.045em; text-transform: uppercase;">Marisol takes<br>the gallery</div>
+            <div style="font-size: 15px; font-weight: 600; padding-top: 8px;">11 points. Two rounds undetected.</div>
+          </div>
+          <div style="flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow: hidden;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">The archive · tap any to enlarge or share</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div style="background: #fffbf0; border: 2px solid #121212; aspect-ratio: 1; position: relative;">
+                <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round"><path d="M150 88c-37 9-45 60-39 100 5 34 24 59 45 59s43-24 46-57c4-40-9-94-52-102z" stroke="#1b4a8a" stroke-width="8"></path><path d="M141 112l-24 9 23 11" stroke="#c98a12" stroke-width="8"></path><path d="M58 288h188" stroke="#0f7a70" stroke-width="8"></path><path d="M186 168c-9 18-6 44 6 58" stroke="#d92b1f" stroke-width="8"></path></svg>
+                <div style="position: absolute; bottom: 0; left: 0; right: 0; background: #121212; color: #f2ede1; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 6px;">01 Penguin</div>
+              </div>
+              <div style="background: #fffbf0; border: 2px solid #121212; aspect-ratio: 1; position: relative;">
+                <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round"><path d="M70 200c40-70 130-70 165 0" stroke="#5c3a86" stroke-width="8"></path><path d="M96 200v56h132v-56" stroke="#1b4a8a" stroke-width="8"></path><path d="M150 150v50" stroke="#c98a12" stroke-width="8"></path><path d="M120 256l-20 26" stroke="#0f7a70" stroke-width="8"></path></svg>
+                <div style="position: absolute; bottom: 0; left: 0; right: 0; background: #121212; color: #f2ede1; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 6px;">02 Umbrella</div>
+              </div>
+              <div style="background: #fffbf0; border: 2px solid #121212; aspect-ratio: 1; position: relative;">
+                <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round"><path d="M60 240c30-120 150-120 180 0z" stroke="#3f7a2c" stroke-width="8"></path><path d="M110 160c20-30 60-30 80 0" stroke="#d92b1f" stroke-width="8"></path><path d="M40 244h220" stroke="#121212" stroke-width="8"></path></svg>
+                <div style="position: absolute; bottom: 0; left: 0; right: 0; background: #121212; color: #f2ede1; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 6px;">03 Volcano</div>
+              </div>
+              <div style="background: #fffbf0; border: 2px solid #121212; aspect-ratio: 1; position: relative;">
+                <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round"><path d="M80 120h140v110H80z" stroke="#1b4a8a" stroke-width="8"></path><path d="M80 120l70-60 70 60" stroke="#c98a12" stroke-width="8"></path><path d="M130 230v-60h40v60" stroke="#d92b1f" stroke-width="8"></path></svg>
+                <div style="position: absolute; bottom: 0; left: 0; right: 0; background: #121212; color: #f2ede1; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 6px;">04 Farmhouse</div>
+              </div>
+            </div>
+          </div>
+          <div style="padding: 14px 20px 38px; border-top: 3px solid #121212; display: flex; flex-direction: column; gap: 10px;">
+            <div style="background: #121212; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Same crowd, again</div>
+            <div style="border: 3px solid #121212; padding: 18px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Share the archive</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">C6 Close of exhibition — winner plus every drawing made. Share = one PNG contact sheet.</div>
+      </div>
+
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 18px;">
+    <div style="display: flex; align-items: baseline; gap: 14px; border-bottom: 3px solid #121212; padding-bottom: 10px;">
+      <div style="font-family: 'Archivo Black', sans-serif; font-size: 24px; text-transform: uppercase; letter-spacing: -0.03em; color: #121212;">D · Online</div>
+      <div style="font-size: 13px; color: #6b665c;">Room code + link. Every phone draws on the same canvas. Target: link tap → drawing in under 10 seconds.</div>
+    </div>
+    <div style="display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap;">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 14px 20px; border-bottom: 3px solid #121212;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">← Entrance</div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 30px; letter-spacing: -0.035em; text-transform: uppercase;">Play online</div>
+          </div>
+          <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="background: #d92b1f; color: #f7f2e6; padding: 22px 20px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; text-transform: uppercase; letter-spacing: -0.03em;">Open a room</div>
+              <div style="font-size: 14px; font-weight: 600;">You get a code and a link to send. 5–12 painters.</div>
+            </div>
+            <div style="border: 3px solid #121212; padding: 22px 20px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; text-transform: uppercase; letter-spacing: -0.03em;">Join a room</div>
+              <div style="font-size: 14px; font-weight: 600; color: #6b665c;">Four letters from whoever invited you.</div>
+            </div>
+            <div style="margin-top: auto; border-top: 1px solid #c9c2b0; padding-top: 14px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">Last room</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; border: 2px dashed #c9c2b0; padding: 14px 16px;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 22px; letter-spacing: 0.06em;">MOLT</span><span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #d92b1f;">Rejoin</span></div>
+              <div style="font-size: 12px; font-weight: 600; color: #6b665c; line-height: 1.5;">Rooms stay warm for 15 minutes after the last player leaves.</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">D1 Online entry — rejoin shortcut restores name, colour and seat.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="background: #121212; color: #f2ede1; padding: 20px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #8d8779;">Room code</div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 78px; line-height: 0.86; letter-spacing: 0.06em;">MOLT</div>
+            <div style="display: flex; gap: 8px; padding-top: 10px;">
+              <div style="flex: 1; background: #d92b1f; color: #f2ede1; padding: 14px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase;">Copy link</div>
+              <div style="flex: 1; border: 2px solid #f2ede1; padding: 12px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase;">Share sheet</div>
+            </div>
+            <div style="font-size: 12px; font-weight: 600; color: #8d8779; padding-top: 8px;">paintr.app/r/MOLT</div>
+          </div>
+          <div style="flex: 1; padding: 16px 20px; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c; padding-bottom: 8px;"><span>In the room</span><span style="color: #d92b1f;">5 of 12</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #1b4a8a;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Devon <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6b665c;">host · you</span></span><span style="font-size: 11px; font-weight: 700; color: #3f7a2c;">●</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #d92b1f;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Marisol</span><span style="font-size: 11px; font-weight: 700; color: #3f7a2c;">●</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #3f7a2c;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Priya</span><span style="font-size: 11px; font-weight: 700; color: #3f7a2c;">●</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #c98a12;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Tomas</span><span style="font-size: 11px; font-weight: 700; color: #3f7a2c;">●</span></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #c9c2b0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #5c3a86;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Ines</span><span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b665c;">joining…</span></div>
+            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #c9c2b0; padding-top: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Deck</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase;">Animals ▾</span></div>
+              <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Rounds</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 14px;">5 ▾</span></div>
+            </div>
+          </div>
+          <div style="padding: 14px 20px 38px; border-top: 3px solid #121212; display: flex; flex-direction: column; gap: 8px;">
+            <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Open the round</div>
+            <div style="font-size: 12px; font-weight: 600; color: #6b665c; text-align: center;">Needs 5 · late arrivals join the next round</div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">D2 Host lobby — code is the hero. Only the host sees deck/round controls.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 14px 20px; border-bottom: 3px solid #121212;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">← Back</div>
+            <div style="font-family: 'Archivo Black', sans-serif; font-size: 30px; letter-spacing: -0.035em; text-transform: uppercase;">Four letters</div>
+          </div>
+          <div style="padding: 24px 20px 12px; display: flex; gap: 10px;">
+            <div style="flex: 1; aspect-ratio: 3/4; border: 3px solid #121212; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 44px;">M</div>
+            <div style="flex: 1; aspect-ratio: 3/4; border: 3px solid #121212; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 44px;">O</div>
+            <div style="flex: 1; aspect-ratio: 3/4; border: 3px solid #d92b1f; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 44px; color: #d92b1f;">|</div>
+            <div style="flex: 1; aspect-ratio: 3/4; border: 3px solid #c9c2b0;"></div>
+          </div>
+          <div style="padding: 0 20px 10px; font-size: 13px; font-weight: 600; color: #6b665c;">Or open the link they sent — it skips this screen entirely.</div>
+          <div style="flex: 1; min-width: 0; width: 100%; box-sizing: border-box; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 48px; gap: 5px; padding: 12px 14px 0; align-content: start;">
+            <div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">Q</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">W</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">E</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">R</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">T</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">Y</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">U</div>
+            <div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">I</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">O</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">P</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">A</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">S</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">D</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">F</div>
+            <div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">G</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">H</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">J</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">K</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">L</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">Z</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">X</div>
+            <div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">C</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">V</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">B</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">N</div><div style="height: 100%; min-width: 0; background: #fffbf0; border: 1px solid #121212; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 17px;">M</div><div style="height: 100%; min-width: 0; grid-column: span 2; background: #121212; color: #f2ede1; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'Archivo Black', sans-serif; font-size: 15px;">DEL</div>
+          </div>
+          <div style="padding: 14px 20px 38px;"><div style="background: #c9c2b0; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Enter room</div></div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">D3 Join by code — letters only, uppercase, no ambiguous glyphs in generated codes.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="display: flex; justify-content: space-between; padding: 16px 20px; border-bottom: 3px solid #121212; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>Room MOLT</span><span style="color: #3f7a2c;">Connected</span></div>
+          <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 18px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">Sign the register</div>
+              <div style="border-bottom: 3px solid #121212; padding-bottom: 8px; font-family: 'Archivo Black', sans-serif; font-size: 34px; letter-spacing: -0.03em; text-transform: uppercase;">Marisol<span style="color: #d92b1f;">|</span></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c; padding-bottom: 8px;">Your stroke colour</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <span style="width: 46px; height: 46px; background: #d92b1f; outline: 3px solid #121212; outline-offset: 3px; display: block;"></span>
+                <span style="width: 46px; height: 46px; background: #1b4a8a; opacity: 0.25; display: block;"></span>
+                <span style="width: 46px; height: 46px; background: #3f7a2c; opacity: 0.25; display: block;"></span>
+                <span style="width: 46px; height: 46px; background: #c98a12; display: block;"></span>
+                <span style="width: 46px; height: 46px; background: #5c3a86; display: block;"></span>
+                <span style="width: 46px; height: 46px; background: #0f7a70; display: block;"></span>
+              </div>
+              <div style="font-size: 12px; font-weight: 600; color: #6b665c; padding-top: 8px;">Faded colours are taken. Colour is how the room reads your lines — pick one you'll recognise.</div>
+            </div>
+            <div style="margin-top: auto; border: 3px solid #121212; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">Waiting on the host</div>
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 22px; text-transform: uppercase; letter-spacing: -0.02em;">5 in the room · Animals · 5 rounds</div>
+              <div style="font-size: 13px; font-weight: 600; line-height: 1.45;">Devon opens the round. Keep this tab open — nothing to install.</div>
+            </div>
+          </div>
+          <div style="padding: 14px 20px 38px; border-top: 3px solid #121212;"><div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">I'm ready</div></div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">D4 Joiner setup — name + colour on one screen. Two taps from link to ready.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="padding: 14px 20px; border-bottom: 3px solid #121212; display: flex; justify-content: space-between; align-items: center;">
+            <div><div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">MOLT · pass 2 · 11 of 14</div><div style="font-family: 'Archivo Black', sans-serif; font-size: 26px; letter-spacing: -0.03em; text-transform: uppercase;">Ade is drawing</div></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #3f7a2c;"><span style="width: 9px; height: 9px; border-radius: 50%; background: #3f7a2c;"></span>Live</div>
+          </div>
+          <div style="margin: 16px 20px 0; background: #fffbf0; border: 3px solid #121212; aspect-ratio: 1; position: relative;">
+            <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M150 88c-37 9-45 60-39 100 5 34 24 59 45 59s43-24 46-57c4-40-9-94-52-102z" stroke="#1b4a8a" stroke-width="5"></path>
+              <path d="M122 132c-13 22-15 58-3 76" stroke="#3f7a2c" stroke-width="5"></path>
+              <path d="M141 112l-24 9 23 11" stroke="#c98a12" stroke-width="5"></path>
+              <path d="M133 246l-17 25 31 2" stroke="#5c3a86" stroke-width="5"></path>
+              <path d="M186 168c-9 18-6 44 6 58" stroke="#d92b1f" stroke-width="5"></path>
+              <path d="M58 288h132" stroke="#0f7a70" stroke-width="5"></path>
+            </svg>
+            <div style="position: absolute; left: 190px; top: 288px; width: 12px; height: 12px; border-radius: 50%; background: #0f7a70; box-shadow: 0 0 0 5px rgba(15,122,112,0.25);"></div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 16px 20px 38px;">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;"><span>Room</span><span>7 present</span></div>
+              <div style="display: flex; flex-wrap: wrap; gap: 7px;">
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #121212; color: #f2ede1; padding: 6px 9px;">Devon ✓</span>
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #121212; color: #f2ede1; padding: 6px 9px;">Marisol ✓</span>
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #121212; color: #f2ede1; padding: 6px 9px;">Priya ✓</span>
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #121212; color: #f2ede1; padding: 6px 9px;">Tomas ✓</span>
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #121212; color: #f2ede1; padding: 6px 9px;">Ines ✓</span>
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: #0f7a70; color: #f2ede1; padding: 6px 9px;">Ade — now</span>
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 2px solid #c9c2b0; color: #6b665c; padding: 4px 9px;">Jun · you next</span>
+              </div>
+            </div>
+            <div style="border: 3px solid #121212; padding: 16px 18px; display: flex; align-items: center; gap: 14px;">
+              <div style="width: 14px; height: 14px; background: #b4472e; flex: none;"></div>
+              <div style="flex: 1; font-size: 14px; font-weight: 600; line-height: 1.4;">You're up after Ade. Your word is on the card — <span style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">hold to re-read</span>.</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">D5 Online spectate — every device sees the nib move; "you next" warns before the handover.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
+        <div style="width: 390px; height: 800px; background: #f2ede1; overflow: hidden; display: flex; flex-direction: column; font-family: 'Archivo', sans-serif; color: #121212; border: 1px solid #121212;">
+          <div style="display: flex; justify-content: space-between; padding: 14px 20px 0; font-size: 12px; font-weight: 600;"><span>9:41</span><span>100%</span></div>
+          <div style="background: #121212; color: #f2ede1; padding: 16px 20px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;"><span>MOLT · paused</span><span style="color: #f0d070;">Reconnecting</span></div>
+          <div style="flex: 1; padding: 22px 20px; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 40px; line-height: 0.9; letter-spacing: -0.04em; text-transform: uppercase;">Priya left<br>the room</div>
+              <div style="font-size: 15px; font-weight: 500; line-height: 1.45;">Her seat is held for 30 seconds. If she doesn't come back, the round continues without her stroke — and her vote is dropped from the count.</div>
+            </div>
+            <div style="border: 3px solid #121212; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Holding her seat</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 20px; color: #d92b1f;">0:18</span></div>
+              <div style="height: 8px; background: #dcd5c4;"><div style="width: 60%; height: 8px; background: #d92b1f;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">Presence</div>
+              <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600;"><span>Devon</span><span style="color: #3f7a2c;">● live</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600;"><span>Marisol</span><span style="color: #3f7a2c;">● live</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600; color: #6b665c;"><span>Priya</span><span style="color: #d92b1f;">✕ dropped</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600;"><span>Tomas</span><span style="color: #f0a012;">◐ weak signal</span></div>
+            </div>
+            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Carry on without her</div>
+              <div style="font-size: 12px; font-weight: 600; color: #6b665c; text-align: center; line-height: 1.5;">Host only. If the fake artist drops, the round is voided and re-dealt.</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #6b665c;">D6 Disconnect — the case everyone forgets. Voiding on fake-artist drop keeps it fair.</div>
+      </div>
+
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 18px;">
+    <div style="display: flex; align-items: baseline; gap: 14px; border-bottom: 3px solid #121212; padding-bottom: 10px;">
+      <div style="font-family: 'Archivo Black', sans-serif; font-size: 24px; text-transform: uppercase; letter-spacing: -0.03em; color: #121212;">E · Handoff</div>
+      <div style="font-size: 13px; color: #6b665c;">What a developer needs that the screens don't say.</div>
+    </div>
+    <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; font-family: 'Archivo', sans-serif; color: #121212;">
+
+      <div style="width: 520px; background: #f2ede1; border: 1px solid #121212; padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'Archivo Black', sans-serif; font-size: 22px; text-transform: uppercase; letter-spacing: -0.03em;">Round state machine</div>
+        <div style="font-size: 14px; font-weight: 500; line-height: 1.5;">One authoritative state object per room; both modes run the same reducer. Local mode keeps it in memory and mirrors to localStorage; online mode keeps it in the Durable Object.</div>
+        <div style="display: flex; flex-direction: column; gap: 0; font-size: 13px; font-weight: 600;">
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; color: #d92b1f; width: 92px;">lobby</span><span style="flex: 1;">roster/deck/rounds editable · needs ≥5 players</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; color: #d92b1f; width: 92px;">dealing</span><span style="flex: 1;">word drawn, roles assigned, QM set (A4, B1–B3)</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; color: #d92b1f; width: 92px;">drawing</span><span style="flex: 1;">turn index 0…2n−1 · one stroke each, two passes (B4–B6)</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; color: #d92b1f; width: 92px;">voting</span><span style="flex: 1;">ballots sealed until all in · QM abstains (C1–C2)</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; color: #d92b1f; width: 92px;">guessing</span><span style="flex: 1;">only if accused === fakeArtistId · 30s (C3)</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; color: #d92b1f; width: 92px;">reveal</span><span style="flex: 1;">score delta applied, drawing archived (C4–C5)</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0;"><span style="font-family: 'Archivo Black', sans-serif; color: #d92b1f; width: 92px;">closed</span><span style="flex: 1;">after N rounds → C6</span></div>
+        </div>
+        <div style="border-top: 3px solid #121212; padding-top: 14px; font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Scoring resolution.</strong> survived → fake +2, QM +2. caught &amp; guessed right → fake +2, QM +2. caught &amp; wrong → every real artist +1. Tie in the vote counts as survived. Fake-artist duty rotates through the roster before repeating.</div>
+      </div>
+
+      <div style="width: 520px; background: #f2ede1; border: 1px solid #121212; padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'Archivo Black', sans-serif; font-size: 22px; text-transform: uppercase; letter-spacing: -0.03em;">Cloudflare topology</div>
+        <div style="font-size: 14px; font-weight: 500; line-height: 1.5;">Static app on Cloudflare Pages. One <strong>Durable Object per room</strong>, keyed by the 4-letter code, holds the authoritative state and the WebSocket set. A Worker route resolves <code style="background: #dcd5c4; padding: 1px 4px;">/r/:code</code> to that DO and upgrades the socket. No database needed for play; D1 or KV only if you want persistent archives.</div>
+        <div style="display: flex; flex-direction: column; gap: 0; font-size: 13px; font-weight: 600;">
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; width: 120px; color: #d92b1f;">join</span><span style="flex: 1;">→ {name, colour} · DO replies with full state + your private card</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; width: 120px; color: #d92b1f;">stroke:point</span><span style="flex: 1;">→ batched {x,y}[] at ~30ms, broadcast to others (live nib)</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; width: 120px; color: #d92b1f;">stroke:commit</span><span style="flex: 1;">→ full point list; DO validates it's your turn, advances index</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; width: 120px; color: #d92b1f;">stroke:undo</span><span style="flex: 1;">→ only inside the 4s grace window, only your own stroke</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; width: 120px; color: #d92b1f;">vote</span><span style="flex: 1;">→ {targetId}; tallies stay server-side until complete</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #c9c2b0;"><span style="font-family: 'Archivo Black', sans-serif; width: 120px; color: #d92b1f;">guess</span><span style="flex: 1;">→ {text}; fuzzy match server-side (never ship the word to the fake)</span></div>
+          <div style="display: flex; gap: 12px; padding: 10px 0;"><span style="font-family: 'Archivo Black', sans-serif; width: 120px; color: #d92b1f;">state</span><span style="flex: 1;">← whole-state broadcast on every phase change; clients are dumb</span></div>
+        </div>
+        <div style="border-top: 3px solid #121212; padding-top: 14px; font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Anti-cheat.</strong> The word only ever goes to real artists' sockets. Turn order, undo eligibility and vote sealing are all enforced in the DO — the client never decides. On reconnect the DO replays committed strokes as one snapshot.</div>
+      </div>
+
+      <div style="width: 520px; background: #f2ede1; border: 1px solid #121212; padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'Archivo Black', sans-serif; font-size: 22px; text-transform: uppercase; letter-spacing: -0.03em;">Canvas &amp; decks</div>
+        <div style="font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Canvas.</strong> Square, normalised 0–1 coordinates so every screen size agrees. Strokes are pointer paths with a 6px round cap, stored as arrays and re-rendered on resize — never as bitmaps. One stroke per turn: pointerdown starts it, pointerup ends the line and opens the 4s grace window (undo restores the turn, not the previous stroke). A stroke of fewer than 3 points is rejected as a mis-tap.</div>
+        <div style="font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Decks.</strong> Four JSON files — animals, food, movies, objects — plus a shuffled "everything". Words must be nouns drawable in ~14 short lines; no proper nouns outside Movies. Never repeat a word inside one session.</div>
+        <div style="border-top: 3px solid #121212; padding-top: 14px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'Archivo Black', sans-serif; font-size: 16px; text-transform: uppercase; letter-spacing: -0.02em;">Stroke palette — 12 seats</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <span style="width: 40px; height: 40px; background: #1b4a8a;"></span><span style="width: 40px; height: 40px; background: #d92b1f;"></span><span style="width: 40px; height: 40px; background: #3f7a2c;"></span><span style="width: 40px; height: 40px; background: #c98a12;"></span><span style="width: 40px; height: 40px; background: #5c3a86;"></span><span style="width: 40px; height: 40px; background: #0f7a70;"></span><span style="width: 40px; height: 40px; background: #b4472e;"></span><span style="width: 40px; height: 40px; background: #2f6f9c;"></span><span style="width: 40px; height: 40px; background: #7a8a1e;"></span><span style="width: 40px; height: 40px; background: #96246b;"></span><span style="width: 40px; height: 40px; background: #4a4a4a;"></span><span style="width: 40px; height: 40px; background: #0d5c8a;"></span>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: #6b665c; line-height: 1.5;">All twelve read distinctly on #FFFBF0 paper and stay distinguishable for common colour-blindness — no red/green pair sits adjacent in seat order.</div>
+        </div>
+        <div style="border-top: 3px solid #121212; padding-top: 14px; font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Not yet designed.</strong> Sound/haptics, a spectator link for non-players, and the shared archive page a "Share the archive" tap produces. Say the word and I'll draw those.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000}}"></script>
+</body>
+</html>
+
