@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { guessMatches } from "../../shared/fuzzy";
 import type { Outcome, Player, RoundState } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
 import { drawingPng, shareOrDownload } from "../lib/share";
@@ -109,6 +110,23 @@ export function Reveal({
   const voided = outcome === "voided";
   const year = new Date().getFullYear();
   const artistCount = round.turnOrder.length - round.droppedIds.length;
+  const critic = round.ai.criticStatus === "ready" ? round.ai.critic : null;
+  const aiComparisons = [
+    ...(critic?.subjectGuess
+      ? [
+          guessMatches(critic.subjectGuess, round.word)
+            ? "Luna guessed it"
+            : "Luna invented something else",
+        ]
+      : []),
+    ...(critic?.detective
+      ? [
+          critic.detective.playerId === round.fakeId
+            ? "Luna found the fake"
+            : "Luna accused an innocent",
+        ]
+      : []),
+  ];
 
   const defaultNext = voided
     ? "Re-deal the round"
@@ -151,7 +169,7 @@ export function Reveal({
               </svg>
             </div>
             <div className="small" style={{ lineHeight: 1.45, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13 }}>
-              Untitled ({round.word}), {year}
+              {critic?.title ?? "Untitled"} ({round.word}), {year}
               <br />
               <span className="u-muted">
                 {numberWord(artistCount)} hands, ink on glass
@@ -159,6 +177,26 @@ export function Reveal({
                 Est. value: bragging rights
               </span>
             </div>
+          </div>
+        )}
+        {!voided && aiComparisons.length > 0 && (
+          <div
+            style={{
+              background: "var(--cream)",
+              border: "1px solid var(--rule)",
+              padding: "11px 13px",
+              display: "grid",
+              gap: 4,
+            }}
+          >
+            <div className="kicker u-muted" style={{ fontSize: 10 }}>
+              AI opinion · decorative, not evidence
+            </div>
+            {aiComparisons.map((line) => (
+              <div key={line} className="small" style={{ fontWeight: 700 }}>
+                {line}
+              </div>
+            ))}
           </div>
         )}
         {!voided && (

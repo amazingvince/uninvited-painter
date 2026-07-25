@@ -28,10 +28,14 @@ import { DrawTurn } from "../screens/DrawTurn";
 import { Vote } from "../screens/Vote";
 import { Tally } from "../screens/Tally";
 import { Guess, GuessWait } from "../screens/Guess";
+import { CriticVerdict } from "../screens/CriticVerdict";
 import { Reveal } from "../screens/Reveal";
+import { RenditionReveal } from "../screens/RenditionReveal";
 import { Standings } from "../screens/Standings";
 import { Final } from "../screens/Final";
 import { DisconnectOverlay, ReconnectingBanner } from "../screens/Disconnect";
+
+type RevealStep = "critic" | "attribution" | "rendition" | "standings";
 
 function Waiting({
   kicker,
@@ -78,7 +82,8 @@ export function OnlineFlow({
   const [showHouse, setShowHouse] = useState(false);
   const [peekCard, setPeekCard] = useState(false);
   const [tallySeen, setTallySeen] = useState<number>(0); // roundNo whose tally was dismissed
-  const [revealStep, setRevealStep] = useState<"reveal" | "standings">("reveal");
+  const [revealStep, setRevealStep] =
+    useState<RevealStep>("attribution");
   const [aiRetryTick, setAiRetryTick] = useState(0);
   const aiUploadAttempts = useRef(new Map<number, number>());
   const aiUploadComplete = useRef(new Set<number>());
@@ -106,8 +111,19 @@ export function OnlineFlow({
   });
 
   useEffect(() => {
-    setRevealStep("reveal");
-  }, [round?.roundNo, round?.outcome]);
+    setRevealStep(
+      round?.outcome !== "voided" &&
+        !!state &&
+        (state.settings.aiCritic || state.settings.aiDetective)
+        ? "critic"
+        : "attribution",
+    );
+  }, [
+    round?.outcome,
+    round?.roundNo,
+    state?.settings.aiCritic,
+    state?.settings.aiDetective,
+  ]);
 
   // A re-dealt (voided) round keeps its round number — the tally gate must
   // re-arm whenever fresh cards go out.
@@ -514,9 +530,26 @@ export function OnlineFlow({
       }
     } else if (state.phase === "reveal") {
       const voided = r.outcome === "voided";
+      const aiExhibition =
+        !voided && (state.settings.aiCritic || state.settings.aiDetective);
       // isGameOver, not a rounds comparison — score-to-10 games end on points.
       const isLastRound = isGameOver(state);
-      if (!voided && r.outcome === "survived" && tallySeen !== r.roundNo && r.votes && Object.keys(r.votes).length > 0) {
+      if (revealStep === "critic") {
+        body = (
+          <CriticVerdict
+            ai={r.ai}
+            players={state.players}
+            onNext={() => setRevealStep("attribution")}
+          />
+        );
+      } else if (
+        revealStep === "attribution" &&
+        !voided &&
+        r.outcome === "survived" &&
+        tallySeen !== r.roundNo &&
+        r.votes &&
+        Object.keys(r.votes).length > 0
+      ) {
         body = (
           <Tally
             votes={r.votes}
@@ -527,7 +560,7 @@ export function OnlineFlow({
             onContinue={() => setTallySeen(r.roundNo)}
           />
         );
-      } else if (revealStep === "reveal") {
+      } else if (revealStep === "attribution") {
         const revealRound = {
           ...r,
           word: r.word ?? "?",
@@ -541,15 +574,35 @@ export function OnlineFlow({
             players={state.players}
             totalRounds={state.settings.rounds}
             isLastRound={isLastRound}
-            nextLabel={voided ? (isHost ? "Re-deal the round" : undefined) : "Standings"}
+            nextLabel={
+              voided
+                ? isHost
+                  ? "Re-deal the round"
+                  : undefined
+                : aiExhibition
+                  ? "What it became"
+                  : "Standings"
+            }
             onNext={
               voided
                 ? isHost
                   ? () => room.send({ t: "next" })
                   : undefined
-                : () => setRevealStep("standings")
+                : () =>
+                    setRevealStep(
+                      aiExhibition ? "rendition" : "standings",
+                    )
             }
             waiting="Waiting for the host to re-deal…"
+          />
+        );
+      } else if (revealStep === "rendition") {
+        body = (
+          <RenditionReveal
+            ai={r.ai}
+            strokes={r.strokes}
+            title={r.ai.critic?.title}
+            onNext={() => setRevealStep("standings")}
           />
         );
       } else {
@@ -748,6 +801,22 @@ function WatchBody({
   live: ReturnType<typeof useOnlineRoom>["live"];
 }) {
   const round = state?.round ?? null;
+  const [watchRevealStep, setWatchRevealStep] =
+    useState<RevealStep>("attribution");
+  useEffect(() => {
+    setWatchRevealStep(
+      round?.outcome !== "voided" &&
+        !!state &&
+        (state.settings.aiCritic || state.settings.aiDetective)
+        ? "critic"
+        : "attribution",
+    );
+  }, [
+    round?.outcome,
+    round?.roundNo,
+    state?.settings.aiCritic,
+    state?.settings.aiDetective,
+  ]);
   if (!state) {
     return <Waiting kicker={`Watching ${code}`} title={<>Tuning in</>} />;
   }
@@ -831,6 +900,18 @@ function WatchBody({
     return <GuessWait fakeName={fake?.name ?? "The fake"} deadline={round.guessDeadline} />;
   }
   // reveal
+  const aiExhibition =
+    round.outcome !== "voided" &&
+    (state.settings.aiCritic || state.settings.aiDetective);
+  if (watchRevealStep === "critic") {
+    return (
+      <CriticVerdict
+        ai={round.ai}
+        players={state.players}
+        onNext={() => setWatchRevealStep("attribution")}
+      />
+    );
+  }
   const revealRound = {
     ...round,
     word: round.word ?? "?",
@@ -838,13 +919,36 @@ function WatchBody({
     votes: round.votes ?? {},
     guess: round.guess,
   };
+  if (watchRevealStep === "rendition") {
+    return (
+      <RenditionReveal
+        ai={round.ai}
+        strokes={round.strokes}
+        title={round.ai.critic?.title}
+        onNext={() => setWatchRevealStep("standings")}
+      />
+    );
+  }
+  if (watchRevealStep === "standings") {
+    return (
+      <Standings
+        players={state.players}
+        roundsPlayed={state.roundsPlayed}
+        totalRounds={state.settings.rounds}
+        waiting="The table decides what's next"
+      />
+    );
+  }
   return (
     <Reveal
       round={revealRound}
       players={state.players}
       totalRounds={state.settings.rounds}
       isLastRound={false}
-      waiting="The table decides what's next"
+      nextLabel={aiExhibition ? "What it became" : "Standings"}
+      onNext={() =>
+        setWatchRevealStep(aiExhibition ? "rendition" : "standings")
+      }
     />
   );
 }

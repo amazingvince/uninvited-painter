@@ -8,6 +8,8 @@ import {
   shouldPollLocalAi,
   shouldStartLocalAi,
 } from "../src/lib/postRoundAi";
+import { criticViewModel } from "../src/screens/CriticVerdict";
+import { renditionImageUrl } from "../src/screens/RenditionReveal";
 
 const JOB_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -137,6 +139,83 @@ describe("post-round AI state", () => {
     expect(serialized).not.toContain("Player");
     expect(serialized).not.toContain("aiTone");
     expect(serialized).not.toContain("fakeId");
+  });
+
+  it("builds named, explicitly non-scoring Luna view models", () => {
+    const revealed = revealedRoomWithPendingAi();
+    const ready = apply(revealed, {
+      type: "RESOLVE_ROUND_CRITIC",
+      roundNo: 1,
+      jobId: JOB_ID,
+      verdict: sampleVerdict({
+        subjectGuess: "penguin",
+        callout: { playerId: "p2", text: "Blue understood the assignment." },
+        detective: { playerId: "p0", reason: "Red drew around the truth." },
+      }),
+    });
+    const view = criticViewModel(ready.round!, ready.players);
+    expect(view).toMatchObject({
+      status: "ready",
+      calloutName: "Player 2",
+      detectiveName: "Player 0",
+      subjectMatched: true,
+      detectiveMatched: true,
+      detectiveCounts: false,
+    });
+
+    const wrong = criticViewModel(
+      {
+        ...ready.round!,
+        ai: {
+          ...ready.round!.ai,
+          critic: sampleVerdict({
+            subjectGuess: "municipal toaster",
+            detective: { playerId: "p3", reason: "Green seemed evasive." },
+          }),
+        },
+      },
+      ready.players.filter((player) => player.id !== "p3"),
+    );
+    expect(wrong.subjectMatched).toBe(false);
+    expect(wrong.detectiveMatched).toBe(false);
+    expect(wrong.detectiveName).toBe("A departed artist");
+  });
+
+  it("models pending, unavailable, disabled, and rendition URLs", () => {
+    const pending = revealedRoomWithPendingAi();
+    expect(criticViewModel(pending.round!, pending.players).status).toBe(
+      "pending",
+    );
+    expect(
+      criticViewModel(
+        {
+          ...pending.round!,
+          ai: {
+            ...pending.round!.ai,
+            criticStatus: "unavailable",
+          },
+        },
+        pending.players,
+      ).status,
+    ).toBe("unavailable");
+    expect(
+      criticViewModel(
+        {
+          ...pending.round!,
+          ai: {
+            jobId: null,
+            criticStatus: "idle",
+            critic: null,
+            renditionStatus: "idle",
+            renditionId: null,
+          },
+        },
+        pending.players,
+      ).status,
+    ).toBe("idle");
+    expect(renditionImageUrl(JOB_ID)).toBe(
+      `/api/ai/renditions/${JOB_ID}`,
+    );
   });
 
   it("defaults and normalizes AI settings", () => {

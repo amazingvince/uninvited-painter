@@ -38,9 +38,13 @@ import { DrawTurn } from "../screens/DrawTurn";
 import { Vote } from "../screens/Vote";
 import { Tally } from "../screens/Tally";
 import { Guess } from "../screens/Guess";
+import { CriticVerdict } from "../screens/CriticVerdict";
 import { Reveal } from "../screens/Reveal";
+import { RenditionReveal } from "../screens/RenditionReveal";
 import { Standings } from "../screens/Standings";
 import { Final } from "../screens/Final";
+
+type RevealStep = "critic" | "attribution" | "rendition" | "standings";
 
 export function LocalFlow({
   initial,
@@ -52,7 +56,12 @@ export function LocalFlow({
   const [state, setState] = useState<RoomState>(initial);
   const [setupStep, setSetupStep] = useState<"roster" | "decks">("roster");
   const [acks, setAcks] = useState<Record<string, boolean>>({});
-  const [revealStep, setRevealStep] = useState<"reveal" | "standings">("reveal");
+  const [revealStep, setRevealStep] = useState<RevealStep>(() =>
+    initial.round?.outcome !== "voided" &&
+    (initial.settings.aiCritic || initial.settings.aiDetective)
+      ? "critic"
+      : "attribution",
+  );
   const [showRules, setShowRules] = useState(false);
   const [showHouse, setShowHouse] = useState(false);
   const [peekWall, setPeekWall] = useState(false);
@@ -207,8 +216,18 @@ export function LocalFlow({
 
   // Reset per-round sub-steps when a new round starts.
   useEffect(() => {
-    setRevealStep("reveal");
-  }, [round?.roundNo, round?.outcome]);
+    setRevealStep(
+      round?.outcome !== "voided" &&
+        (state.settings.aiCritic || state.settings.aiDetective)
+        ? "critic"
+        : "attribution",
+    );
+  }, [
+    round?.outcome,
+    round?.roundNo,
+    state.settings.aiCritic,
+    state.settings.aiDetective,
+  ]);
 
   // Phase cues — a pulse when cards go out, a stamp at the reveal.
   const prevPhase = useRef(state.phase);
@@ -513,10 +532,26 @@ export function LocalFlow({
     );
   } else if (state.phase === "reveal") {
     const voided = round.outcome === "voided";
+    const aiExhibition =
+      !voided && (state.settings.aiCritic || state.settings.aiDetective);
     // isGameOver, not a rounds comparison — score-to-10 games end on points.
     const isLastRound = isGameOver(state);
     const tallyKey = `tally-${round.roundNo}`;
-    if (!voided && round.outcome === "survived" && !acks[tallyKey] && Object.keys(round.votes).length > 0) {
+    if (revealStep === "critic") {
+      body = (
+        <CriticVerdict
+          ai={round.ai}
+          players={state.players}
+          onNext={() => setRevealStep("attribution")}
+        />
+      );
+    } else if (
+      revealStep === "attribution" &&
+      !voided &&
+      round.outcome === "survived" &&
+      !acks[tallyKey] &&
+      Object.keys(round.votes).length > 0
+    ) {
       body = (
         <Tally
           votes={round.votes}
@@ -527,21 +562,36 @@ export function LocalFlow({
           onContinue={() => ack(tallyKey)}
         />
       );
-    } else if (revealStep === "reveal") {
+    } else if (revealStep === "attribution") {
       body = (
         <Reveal
           round={round}
           players={state.players}
           totalRounds={state.settings.rounds}
           isLastRound={isLastRound}
-          nextLabel={voided ? "Re-deal the round" : "Standings"}
+          nextLabel={
+            voided
+              ? "Re-deal the round"
+              : aiExhibition
+                ? "What it became"
+                : "Standings"
+          }
           onNext={() => {
             if (voided) {
               if (dispatch(prepareRoundEvent(state))) setAcks({});
             } else {
-              setRevealStep("standings");
+              setRevealStep(aiExhibition ? "rendition" : "standings");
             }
           }}
+        />
+      );
+    } else if (revealStep === "rendition") {
+      body = (
+        <RenditionReveal
+          ai={round.ai}
+          strokes={round.strokes}
+          title={round.ai.critic?.title}
+          onNext={() => setRevealStep("standings")}
         />
       );
     } else {
