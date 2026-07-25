@@ -1,23 +1,30 @@
-# AI Critic and Detective
+# AI Critic, Detective, and Real-World Rendition
 
 Date: 2026-07-25
 
 ## Summary
 
-Add an optional OpenAI-powered gallery critic to The Uninvited Painter. After
-the human ballots close, the model examines the finished drawing without being
-told the real word, fake artist, votes, or outcome. It can:
+Add an optional OpenAI-powered post-round exhibition to The Uninvited
+Painter. As soon as drawing closes and voting begins, two hidden jobs start in
+parallel:
 
-- invent a title for the piece;
-- guess what the group drew;
-- rate and briefly review the artwork;
-- make one artwork-focused comment about a named player's visible stroke; and
-- optionally make a separate, non-scoring fake-artist pick.
+- Luna 5.6 examines the wordless finished drawing and prepares a blind title,
+  subject guess, rating, review, player-stroke callout, and optional fake-artist
+  pick.
+- GPT Image 2 receives the same drawing plus the authoritative secret word and
+  turns it into a realistic rendition that deliberately preserves the group's
+  strange geometry, colors, scale, composition, and overlaps.
+
+Neither result is shown during voting or the fake artist's guess. Once the
+official outcome is settled, the game presents Luna's blind verdict, the human
+result and attribution, then the original-versus-rendition reveal. The pair is
+reused in the final gallery and published archive.
 
 The official game remains entirely human-decided. AI never casts a counted
-ballot, changes scores, supplies the fake artist's guess, or blocks a round.
-The same feature is available in online rooms and pass-one-phone games when
-the device has a network connection. Core local play remains fully offline.
+ballot, changes scores, supplies the fake artist's guess, or blocks progression.
+The same feature works in online rooms and pass-one-phone games when a network
+connection and server-side OpenAI key are available. Core local play remains
+fully playable without AI.
 
 ## Product Decisions
 
@@ -25,11 +32,12 @@ the device has a network connection. Core local play remains fully offline.
 
 Add three settings:
 
-- `aiCritic: boolean`: show the title, subject guess, rating, review, and
+- `aiCritic: boolean`: show Luna's title, subject guess, rating, review, and
   optional player-stroke callout.
-- `aiDetective: boolean`: show a non-scoring suspect pick and reason.
-- `aiTone: "witty" | "savage" | "absurd"`: control the voice whenever either
-  AI feature is enabled.
+- `aiDetective: boolean`: show Luna's separate, non-scoring fake-artist pick and
+  reason.
+- `aiTone: "witty" | "savage" | "absurd"`: control Luna's voice whenever
+  either AI feature is enabled.
 
 Defaults for a new or normalized game:
 
@@ -38,7 +46,12 @@ Defaults for a new or normalized game:
 - Tone: witty
 
 The critic and detective are independent. A group may enable either or both.
-The tone control is shown when at least one feature is on.
+The tone control appears when at least one is on.
+
+GPT Image 2 is not a fourth setting. A realistic rendition is an automatic part
+of every AI-enabled round, where AI-enabled means `aiCritic || aiDetective`.
+This keeps the promised post-round flow consistent rather than adding a second
+opt-in that can silently remove its finale.
 
 Tone definitions:
 
@@ -50,82 +63,95 @@ Tone definitions:
 All tones prohibit insults about identity, appearance, intelligence,
 disability, personal worth, or other off-canvas traits. The player-specific
 line is limited to one light jab per round and must discuss that player's
-visible color or stroke. The model may omit it when there is not enough visual
+visible color or stroke. Luna may omit it when there is not enough visual
 evidence.
 
 ### Round sequence
 
-Human voting and scoring keep their existing rules and sequence:
+Human voting and scoring keep their existing rules. AI work begins earlier but
+remains hidden:
 
-1. Human artists submit sealed ballots.
-2. The last ballot closes voting and starts one blind AI analysis in the
-   background when either AI feature is enabled.
-3. The human tally appears.
-4. If the fake artist was accused, their normal timed word guess happens.
-5. Once the outcome is settled, the new **Critic's Verdict** screen appears.
-6. The existing official attribution reveal follows.
-7. Standings follow the reveal.
+1. The last drawing turn ends and the shared game enters `voting`.
+2. The active client renders one clean 1024 by 1024 wordless PNG and uploads it
+   to an authenticated server route.
+3. The server creates one idempotent post-round job. Luna's blind analysis and
+   the GPT Image 2 rendition start concurrently in the background.
+4. Human artists submit their sealed ballots exactly as they do today.
+5. The human tally appears. If accused, the fake artist gets the existing timed
+   word guess.
+6. Once the outcome is settled, **Critic's Verdict** presents Luna's title,
+   blind guess, rating, review, callout, and optional non-binding suspect.
+7. The official reveal names the real word, fake artist, votes, winner, and
+   whether Luna's blind subject and detective guesses happened to be right.
+8. **What It Was / What It Became** reveals the original drawing beside the GPT
+   Image 2 rendition.
+9. Standings and the normal next-round action remain available.
 
-The model result is never visible before step 5. This prevents the AI's subject
-guess from hinting at the word during the fake artist's own guess.
+No AI output is exposed before step 6. In particular, the rendition receives
+the real word server-side but remains inaccessible to players until the outcome
+is public. Luna never receives the real word, fake identity, votes, scores, or
+outcome.
 
-The Critic's Verdict screen contains only the enabled sections:
+The Critic's Verdict contains only enabled sections:
 
 - invented artwork title;
 - blind subject guess;
 - integer rating from 1 through 10 and a short rating tag;
-- a review of no more than two short sentences;
-- an optional named-player stroke callout;
-- an optional non-scoring suspect and one-sentence reason.
+- review of no more than two short sentences;
+- optional player-stroke callout;
+- optional non-scoring suspect and one-sentence reason.
 
 The official reveal derives two compact comparison payoffs without another
 model call:
 
-- whether the critic's subject guess matches the real word using the game's
-  existing fuzzy matcher; and
-- whether the detective selected the actual fake artist.
+- whether Luna's subject guess matches the real word using the game's existing
+  fuzzy matcher; and
+- whether Luna selected the actual fake artist.
 
-Confidently wrong answers are treated as part of the entertainment.
+Confidently wrong answers are part of the entertainment.
 
-### Waiting and failure behavior
+### Slow and failed jobs
 
-The analysis begins behind the tally and fake-guess flow, which will often hide
-its latency. If it is still pending when the critic screen is reached, the host
-may wait or choose **Proceed without dignity**. Skipping an online verdict is
-host-only and is broadcast to the room; the active pass-one-phone device owns
-the equivalent local action.
+AI never holds the ballot, fake-artist guess, official result, next round, game
+close, save, or archive controls.
 
-Skipping is final for that round. A response that arrives after a skip, after a
-new round begins, or for a stale request identifier is discarded.
+If a result is not ready when its card is reached:
 
-AI failure never prevents scoring, attribution, standings, starting the next
-round, closing the game, saving an image, or publishing an archive. Failure
-states use short in-world copy, for example:
+- show a compact in-world pending card;
+- keep the next-round control enabled;
+- continue listening for the existing job instead of creating a replacement;
+- attach a late result to its archived round even if play has moved on; and
+- update the final gallery or published archive when the result becomes
+  available.
 
+Examples of pending or failure copy:
+
+- Pending rendition: "Reality is still negotiating with the line work."
 - Offline: "No connection, no opinion. Refreshing."
 - Provider or validation failure: "The critic has declined to defend its
   opinion."
+- Moderation block: "This masterpiece could not clear the velvet rope."
 
-Online non-host players wait for the shared result or the host's shared skip.
-When both AI features are off, the critic step is omitted entirely.
+Critique and rendition succeed or fail independently. A failed critic does not
+hide a successful rendition, and a failed rendition does not remove the
+critique.
 
-## Data Model
+## Shared Data Model
 
-Add these shared types:
+Add bounded shared types along these lines:
 
 ```ts
 type AiTone = "witty" | "savage" | "absurd";
-type CriticStatus =
+type AiJobStatus =
   | "idle"
   | "pending"
   | "ready"
-  | "skipped"
   | "unavailable";
 
 interface CriticVerdict {
-  requestId: string;
   title?: string;
   subjectGuess?: string;
+  confidence?: number;
   rating?: number;
   ratingTag?: string;
   review?: string;
@@ -139,229 +165,401 @@ interface CriticVerdict {
   };
 }
 
-interface RoundCritic {
-  status: CriticStatus;
-  requestId: string | null;
-  verdict: CriticVerdict | null;
+interface RoundAi {
+  jobId: string | null;
+  criticStatus: AiJobStatus;
+  critic: CriticVerdict | null;
+  renditionStatus: AiJobStatus;
+  renditionId: string | null;
 }
 ```
 
-`RoundState` gets a `critic` field initialized to `idle`. The reducer receives
-explicit events for requesting, resolving, skipping, and making the critic
-unavailable. The nondeterministic response is carried inside an event so the
-shared reducer itself stays deterministic.
+`RoundState` gets one `ai` field initialized to idle. The reducer receives
+explicit events for starting a job and applying sanitized critic/rendition
+results or failures. Nondeterministic provider responses are carried inside
+events so the shared reducer stays deterministic.
 
-Only enabled sections are stored. `rating` must be an integer from 1 through
-10. All output strings have server-enforced length limits. Returned player IDs
-must refer to an eligible, non-dropped artist in the current round. The
-detective can never select the question master.
+`ArchiveEntry` accepts optional sanitized critic fields and an opaque
+`renditionId`. Old saved rooms and published archives remain valid;
+`normalizeRoom` supplies new setting and state defaults for legacy data.
 
-`ArchiveEntry` accepts an optional sanitized verdict so old archives and old
-saved local games remain valid. `normalizeRoom` supplies the new setting and
-round defaults for persisted states created before this feature.
+Only enabled critic sections are stored. `rating` is an integer from 1 through
+10, confidence is bounded, and all strings have server-enforced length limits.
+Returned player IDs must refer to eligible, non-dropped artists in the current
+round. The detective can never select the question master.
 
-## Image Input
+The state stores status and opaque identifiers, never generated image bytes,
+base64 payloads, prompts, or API credentials.
 
-Reuse the existing client-side vector drawing renderer. Extract a critic export
-that produces a 512 by 512 PNG with the same paper, colors, rounded lines, and
-stroke order players see. Unlike the current save/share image, the critic image
-contains no caption or real word.
+## Reference Image
 
-The browser uploads only:
+Reuse the existing client-side vector renderer and extract a dedicated AI
+reference export:
 
-- the PNG;
-- the room and round identifiers needed to reject stale work; and
-- authentication needed by an online room.
+- 1024 by 1024 PNG;
+- the same paper, colors, rounded lines, stroke order, and composition players
+  saw;
+- no caption, title, word, player name, vote, score, border, or other hint; and
+- a strict upload limit with PNG signature and decoded-dimension checks.
 
-For online rooms, the Durable Object obtains the authoritative player list,
-eligible artists, color legend, settings, and round state. It does not trust
-client-supplied candidates or tone. For local mode, the generic endpoint
-strictly validates the small player/color legend and setting enums supplied by
-the local client. The response cannot affect official gameplay.
+The browser uploads the PNG once when the game first enters voting. In an
+online room it also supplies the room code, round number, and private player
+token. The Durable Object obtains the authoritative word, settings, candidate
+IDs, color mapping, and state; it does not trust client-supplied prompts,
+candidates, or tone.
 
-The image is held only for the provider request. It is not logged, archived, or
-stored by the game service.
+In local mode, the endpoint validates the bounded word, player/color legend,
+settings, and round identifiers supplied by the single-device game. The result
+cannot affect official play.
 
-## OpenAI Integration
+The uploaded source is temporarily stored in private object storage so a
+durable background workflow does not depend on the initiating browser request
+remaining open.
 
-`OPENAI_API_KEY` is read only in the Cloudflare Worker environment. The
+## OpenAI Integrations
+
+`OPENAI_API_KEY` is read only in the Cloudflare server environment. The
 existing ignored `.env` supplies it to local Wrangler development. Production
 uses a Wrangler secret with the same name. The key must not use a `VITE_`
 prefix, enter client state, or be included in a browser request or bundle.
 
+### Luna 5.6 critic
+
 Use the OpenAI Responses API with:
 
-- a vision-capable `gpt-5.6-luna` default;
+- `gpt-5.6-luna` as the fixed default;
 - an optional server-only `OPENAI_CRITIC_MODEL` override;
-- `reasoning.effort` set to `low` for the latency-sensitive reveal;
-- the 512 by 512 PNG at low image detail;
+- `reasoning.effort: "low"`;
+- the wordless PNG as vision input;
 - a fixed developer instruction selected by `aiTone`;
-- a data block containing stable player IDs, display names, and colors;
-- strict structured output for the verdict shape; and
+- an anonymous stable-player-ID and color legend;
+- strict structured output for the verdict; and
 - a small output-token limit appropriate for the bounded copy.
 
-The prompt explicitly says the model is blind to the intended word and must
-describe only what is visible. Player names and colors are delimited as data,
-not instructions. House-deck words, the real word, fake identity, votes,
-scores, and outcome are never included.
+The prompt explicitly says Luna is blind to the intended word and must discuss
+only visible artwork. Player names are not sent. Stable IDs and colors are
+delimited as data, not instructions. The browser resolves a returned player ID
+to a display name after validation.
 
-If `aiCritic` is on, title, subject guess, rating, rating tag, and review are
-required; the player callout remains optional. If `aiCritic` is off, all critic
-fields are omitted. If `aiDetective` is on, a valid eligible-player pick and
-reason are required; if it is off, both detective fields are omitted. When only
-detective mode is enabled, the card shows only its pick and reason.
+If `aiCritic` is on, title, subject guess, confidence, rating, rating tag, and
+review are required; the player callout remains optional. If `aiCritic` is off,
+all critic fields are omitted. If `aiDetective` is on, a valid eligible-player
+pick and reason are required; if it is off, both detective fields are omitted.
 
-The server validates and normalizes the parsed response again even though the
-provider uses strict structured output. Invalid optional fields are dropped.
-An invalid required section, HTTP error, timeout, or unparseable response marks
-the request unavailable.
+The server validates and normalizes parsed output again even though Structured
+Outputs is used. Invalid optional fields are dropped. An invalid required
+section, HTTP error, timeout, or unparseable response marks only the critic
+portion unavailable.
 
-## Online Data Flow
+### GPT Image 2 rendition
 
-Add an authenticated critic request route for a room. A joined browser supplies
-its private room token and the rendered PNG after voting has closed. The room
-Durable Object verifies:
+Use the Image API's edit endpoint for a single reference-image transformation:
+
+- model: `gpt-image-2`;
+- input: the wordless 1024px drawing;
+- prompt: the authoritative word plus fixed faithfulness instructions;
+- size: `1024x1024`;
+- quality: `medium`;
+- output format: `jpeg`;
+- output compression: approximately 85; and
+- moderation: default `auto`.
+
+Do not set `input_fidelity`; GPT Image 2 processes image inputs at high
+fidelity automatically.
+
+The fixed rendition prompt says, in substance:
+
+> Create a cinematic, believable real-world rendition of the intended subject
+> using this drawing as the composition authority. Preserve every odd relative
+> size, position, direction, silhouette, dominant stroke color, overlap,
+> negative space, and awkward detail. Treat apparent mistakes as intentional.
+> Do not add text, captions, borders, signatures, or improve the composition
+> into generic tasteful artwork.
+
+The real word is necessary to interpret the collaborative drawing, but the
+request contains no player names, roles, votes, scores, house words, or critic
+result. Luna's title labels the pair later; the image request does not wait for
+the title.
+
+## Background Workflow
+
+Add one Cloudflare Workflow for post-round AI work. A Worker/room route starts
+it only after validating and storing the source image. Its stable instance ID
+is derived from game identity plus round number, making duplicate starts
+idempotent.
+
+The workflow:
+
+1. loads the private reference image;
+2. starts the independent Luna and GPT Image 2 calls concurrently;
+3. sanitizes the structured critic output;
+4. stores the generated JPEG in private object storage;
+5. records ready or unavailable status for each independent branch; and
+6. publishes a server-owned completion back to the room or local job record.
+
+Provider calls are isolated workflow steps, but the image step must not blindly
+retry an ambiguous failure: the first generation may have succeeded and an
+automatic replay could create a duplicate charge. Known pre-generation
+rate-limit or server failures may expose a deliberate retry action later; user
+errors and moderation blocks are non-retryable.
+
+The source image and job status allow the workflow to outlive a refresh,
+reconnect, closed initiating request, or device moving to the next round.
+
+## Online Data Flow and Redaction
+
+When the online game first enters voting, one eligible active client uploads
+the reference. The Durable Object verifies:
 
 - the token still maps to a seated player;
 - the room and round are current;
-- human voting has closed;
+- the phase is voting or later;
 - at least one AI feature is enabled;
-- the critic status is `idle`; and
-- the PNG meets the declared size and format limits.
+- the round is not voided;
+- the uploaded file is a valid bounded 1024px PNG; and
+- no job already exists for the round.
 
-The first valid request atomically changes the round to `pending` and assigns a
-request ID before starting external work. Later requests for that round observe
-the existing status and cannot create another provider call. The Durable
-Object runs the provider request as background work, then re-reads the room and
-accepts the result only if the round number, request ID, and `pending` status
-still match. It persists and broadcasts the final state.
+The first valid request atomically assigns the job ID and persists pending
+status before starting the workflow. Later requests observe the same job and
+cannot create another OpenAI call.
 
-Protocol redaction may expose `pending`, `skipped`, or `unavailable`, but it
-must omit a ready verdict until the round outcome is non-null. Spectators and
-players receive the same verdict after that boundary.
+The room accepts completion only from the server-owned workflow and only when
+the game identity, round number, and job ID still match. It persists the result
+and broadcasts newly visible state.
+
+Protocol redaction may expose pending/unavailable status during voting, but it
+must omit:
+
+- the ready critic verdict;
+- the rendition ID or image route;
+- the real word and fake identity; and
+- any provider metadata
+
+until the outcome is public. Spectators and players receive the same AI
+exhibition after that boundary.
 
 ## Local Data Flow
 
-Pass-one-phone mode watches for the transition out of voting, renders the same
-wordless PNG, and calls a generic Worker critic endpoint. It dispatches
-request, result, skip, or unavailable events into the shared reducer and saves
-the updated local state.
+Pass-one-phone mode watches for the first transition into voting, renders the
+same wordless PNG, and starts a local post-round job through the Worker. It
+stores the opaque job ID and polls with bounded backoff or receives the final
+response when ready.
 
-The request uses the current round number and request ID. A response is applied
-only when both still match. A missing connection fails quickly into
-`unavailable`; the PWA does not retry in a loop or require connectivity to
-continue.
+A response applies only when the job and round IDs still match. Moving to a new
+round does not cancel or replace the old job; a late result updates the matching
+archive entry and final gallery.
 
-Because the public local endpoint has no room membership boundary, it receives
-additional cost controls described below.
+A missing connection or server configuration fails quickly into unavailable.
+The PWA never loops provider requests and never requires connectivity to
+continue playing.
+
+Because the local endpoint lacks room membership, it receives the additional
+rate and input controls below.
+
+## Storage and Retention
+
+Keep archive JSON metadata in the existing `ARCHIVES` KV namespace. Add one
+private R2 binding for binary AI artwork:
+
+- temporary source key: `jobs/{jobId}/source.png`;
+- temporary rendition key: `jobs/{jobId}/rendition.jpg`;
+- published rendition key:
+  `archives/{archiveId}/round-{roundNo}-rendition.jpg`.
+
+Room/reducer state and KV metadata store only opaque IDs. Worker routes map
+those IDs to R2 keys and serve images with a fixed content type, cache policy,
+and no directory listing. The bucket itself is not public.
+
+Lifecycle rules expire un-published job sources and results after a short
+window. Publishing an archive copies successful renditions to the archive
+prefix, matching the existing one-year archive lifetime. The original drawing
+remains reproducible from sanitized strokes, while the generated rendition is
+the paired binary.
+
+If an already-published job finishes late, the server adds the rendition to the
+archive metadata and archive prefix without requiring another model call.
 
 ## Cost, Abuse, and Privacy Controls
 
-- The game client initiates no more than one request per local round and never
-  retries automatically. The online Durable Object additionally enforces one
-  provider call per round under concurrent requests.
-- A Cloudflare rate-limiter binding on critic request routes, keyed by client
-  IP, capped at 10 accepted requests per 60 seconds.
+- Exactly one stable workflow and at most one intended image generation per
+  game round.
+- No automatic client retries; refreshes and reconnects reuse the job ID.
+- A Cloudflare rate-limiter binding on local and upload routes, keyed by client
+  IP and reinforced by per-room/per-round idempotency.
 - Exact `Content-Length` enforcement before buffering.
-- Maximum PNG size of 512 KiB and PNG magic-byte validation.
-- No arbitrary remote image URLs and no user-authored prompts.
-- Fixed enums and strict limits for player count, names, color values, and
+- A 2 MiB source upload ceiling plus PNG signature and dimension validation.
+- No arbitrary remote image URLs, model names, or user-authored prompts.
+- Fixed enums and strict limits for words, player count, color values, and
   output fields.
-- A provider timeout; late or stale results are ignored.
-- No image persistence, prompt logging, or response logging beyond concise
-  operational error metadata.
+- Provider timeouts and stable job-status transitions.
+- Moderation details and request IDs may be logged for operations; image bytes,
+  secret words, prompts, player names, and model responses are not logged.
+- Source and result objects are private and addressed by unguessable IDs.
 - The API key remains server-side.
 
-Rate limiting controls accidental and casual abuse; it is not presented as
-authentication. The online Durable Object's per-round idempotency is the
-stronger call-count boundary for room play.
+Rate limiting controls accidental and casual abuse. Online room membership and
+per-round idempotency are the stronger cost boundary.
+
+At the current published rate, a medium 1024 by 1024 GPT Image 2 output is about
+$0.053 plus input tokens. A seven-round game is therefore roughly $0.37 in
+image-output cost before the smaller Luna and image-input costs. Product copy
+should say the option uses OpenAI credits without hard-coding a price that can
+drift.
 
 ## User Interface
 
-Add the controls to both local deck settings and the online host settings. Copy
-will make the gameplay boundary explicit:
+Add the settings to both local deck setup and the online host lobby:
 
 - **AI critic:** "Titles, guesses and reviews the finished piece."
 - **AI detective:** "Names a suspect after your ballots. Never counts."
 - **Tone:** Witty / Savage / Absurd.
 
-Add a focused `CriticVerdict` screen in the established exhibition/editorial
-style rather than embedding a chat transcript into `Reveal`. It will show
-the finished drawing, use the invented title as the headline, keep the review
-compact, and label the detective section **Non-binding opinion**.
+Add focused screens in the existing exhibition/editorial style rather than a
+chat transcript:
 
-The existing reveal's museum label uses the AI title when present instead of
-`Untitled`, while still displaying the real word. The reveal shows the
-subject/detective comparison lines only for fields that exist.
+1. `CriticVerdict` shows the original drawing, invented title, blind guess,
+   rating, compact review, callout, and a **Non-binding opinion** detective
+   section when enabled.
+2. The official `Reveal` keeps the real human result visually dominant and adds
+   only the deterministic subject/detective comparison payoffs.
+3. `RenditionReveal` presents a dramatic original-to-real transition, then a
+   responsive side-by-side pair labeled **What It Was** and **What It Became**.
+
+Pending and failed branches use compact cards in the same slot so layout and
+progression do not jump. The next-round control remains available. When a late
+result lands after navigation, a small gallery-ready cue is enough; the game
+must not pull players back to an older screen.
+
+The existing museum label uses Luna's title when present instead of `Untitled`,
+while still displaying the real word.
 
 ## Reuse Without More Model Calls
 
-Persisted verdicts create three additional game moments:
+Persisted results create additional game moments:
 
-1. The permanent archive page will show each piece's AI title, rating, and
-   short review when present.
-2. The final exhibition will show **Critic's Choice**, the highest-rated
-   non-voided round with a ready rating.
-3. The final exhibition will report the critic's subject-recognition and
-   detective accuracy across eligible rounds.
+1. Every final-gallery tile can expand into the original/rendition pair with
+   Luna's title, rating, and review.
+2. The permanent archive page shows the same pair and metadata when present.
+3. The final exhibition shows **Critic's Choice**, the highest-rated non-voided
+   round with a ready rating.
+4. The final exhibition reports Luna's subject-recognition and detective
+   accuracy across eligible rounds.
 
 Ties for Critic's Choice go to the earliest round. Accuracy uses the existing
-fuzzy word matcher and exact player-ID comparison. These are deterministic
-views over existing verdicts; there is no second end-of-game AI call.
+fuzzy word matcher and exact player-ID comparison. All are deterministic views
+over stored results; there is no end-of-game model call.
 
-Published archive validation treats all critic fields as optional and
-sanitizes them, preserving compatibility with previously published archives.
+Published archive validation treats every AI field as optional and sanitizes
+it, preserving compatibility with old archives and partially successful jobs.
+
+## Error Handling
+
+- Missing `OPENAI_API_KEY`: both branches become unavailable with no external
+  call.
+- Luna HTTP, timeout, parse, or schema failure: critic unavailable; rendition
+  continues.
+- Image user error or moderation block: rendition unavailable; do not retry the
+  same request.
+- Known transient provider failure: record operational metadata and expose a
+  deliberate future retry path rather than silently generating again.
+- R2 write failure after successful generation: report unavailable and retain
+  the provider request ID for diagnosis; never put base64 in room state.
+- Stale completion: update the matching archive/job record when safe, but never
+  overwrite a newer round's visible state.
+- Deleted/expired source: fail the unfinished branch cleanly.
+- Archive promotion failure: the live result remains usable; publishing reports
+  a recoverable partial-archive error.
+
+No failure path changes votes, outcome, score, progression, or the ability to
+save the original vector artwork.
 
 ## Testing and Verification
 
-### Reducer and state tests
+### Shared engine and protocol
 
-- New-game and legacy-state setting defaults.
-- AI critic and detective independence.
-- Tone and setting validation.
-- Request, ready, unavailable, and skip transitions.
-- Stale request IDs and stale round results are rejected.
-- Late results after skip or next round are rejected.
-- Detective picks are limited to eligible non-dropped artists.
-- Voided rounds never require a verdict.
+- New-game and legacy-state AI defaults.
+- Critic/detective independence and automatic rendition enablement.
+- One matching job per round; duplicate and stale events rejected.
+- Critic and rendition independent status transitions.
+- Eligible callout/detective IDs and bounded structured fields.
+- No ready result or image ID before `outcome` is public.
+- Late completion updates the matching archive rather than the active round.
+- Old room/archive normalization remains valid.
 
-### Protocol and Worker tests
+### Provider modules
 
-- A ready verdict is redacted during `guessing`.
-- The verdict becomes visible only after `outcome` is set.
-- Concurrent online requests produce one provider invocation.
-- Room token, phase, round, content-length, PNG signature, and payload limits
-  are enforced.
-- Structured output is sanitized and invalid picks are removed or rejected.
-- Provider error, timeout, malformed output, and missing-key behavior become
-  non-blocking unavailable states.
-- Local endpoint rate limiting is applied.
+- Luna request uses `gpt-5.6-luna`, low reasoning, image input, fixed tone
+  instructions, anonymous player IDs, and strict structured output.
+- Luna request never contains the word, fake identity, vote, score, outcome,
+  house words, or player display names.
+- Image edit uses `gpt-image-2`, the source PNG, authoritative word, 1024 square,
+  medium quality, JPEG output, and fixed preserve-the-weirdness prompt.
+- Image request never contains player identity or game-result data.
+- Schema sanitizer rejects malformed, oversized, or ineligible values.
+- Moderation/user errors are non-retryable; ambiguous image failures do not
+  trigger a duplicate call.
 
-### UI tests
+### Workflow, routes, and storage
 
-- Controls appear in both game modes and tone is conditional.
-- Critic-only, detective-only, combined, and disabled cards render correctly.
-- Tally and fake guess always precede the verdict.
-- Pending, skip, offline, and unavailable flows allow immediate continuation.
-- Reveal comparison copy is correct for right and wrong guesses.
-- Old archives render without critic data and new archives render with it.
-- Final Critic's Choice and accuracy summaries are deterministic.
+- Online membership, phase, round, file, and AI-setting checks.
+- Concurrent duplicate uploads create only one workflow instance.
+- Local rate limit, multipart, PNG signature, decoded dimensions, and byte cap.
+- Workflow branches can complete or fail independently.
+- R2 keys, content types, private serving, and archive promotion.
+- Source/result lifecycle and partial archive behavior.
+- Server-owned completion cannot be forged by a browser.
 
-### Completion gates
+### UI and integration
 
-- Existing and new Vitest suites pass.
-- Application and Worker TypeScript checks pass.
-- Production build succeeds.
-- Real-browser smoke tests cover one local round and one multi-client online
-  round, including a provider failure or offline case.
-- Inspect the built client bundle to confirm `OPENAI_API_KEY` and its value are
-  absent.
+- Both settings surfaces and all three tones.
+- Background job starts on the first voting transition in local and online
+  modes.
+- Human voting and fake-guess screens reveal no AI hints.
+- Critic, official attribution, and rendition appear in the approved order.
+- Pending/failure cards never disable next round.
+- A late result appears in the correct gallery tile without navigation theft.
+- Final and published archives render old, partial, and full AI entries.
+- Small-phone layouts, keyboard focus, reduced motion, and screen-reader labels.
 
-## Out of Scope
+### Verification ladder
 
-- An AI ballot that affects accusation, scoring, ties, or fake-artist rules.
-- Showing AI output before the round outcome is settled.
-- AI-generated words, live drawing commentary, or coaching.
-- A second informed critique after the real word is revealed.
-- An end-of-game model call.
-- Storing uploaded critic images.
+1. Focused Vitest suites for reducer, protocol, providers, workflow, storage,
+   route validation, and archives.
+2. Type checking and production build.
+3. Full repository test suite.
+4. Local pass-one-phone browser run with mocked OpenAI responses.
+5. Online multi-client browser run with mocked workflow completion and
+   pre-outcome redaction checks.
+6. One deliberate live Luna plus GPT Image 2 smoke round using the configured
+   server-side key, confirming the original/rendition pair and no credential in
+   browser traffic or bundle.
+7. `git diff --check` and a final secret scan before completion.
+
+## Documentation
+
+Update README setup and gameplay notes:
+
+- AI is optional and core local play remains usable without it.
+- Luna 5.6 provides the blind critic/detective; GPT Image 2 provides the
+  automatic realistic rendition.
+- The feature sends the finished drawing to OpenAI only when AI is enabled.
+- Local development reads the existing ignored `.env`.
+- Production requires `wrangler secret put OPENAI_API_KEY`.
+- Production also requires the Workflow, rate-limiter, and private R2 bindings
+  and an R2 lifecycle policy for temporary job objects.
+- The AI vote is ceremonial and image/critic failures never change scoring.
+
+## Source Notes
+
+- OpenAI recommends the Image API for a single image edit from one prompt and
+  documents `gpt-image-2` as the latest GPT Image model:
+  <https://developers.openai.com/api/docs/guides/image-generation>
+- GPT Image 2 automatically processes reference inputs at high fidelity, and
+  complex requests can take up to two minutes:
+  <https://developers.openai.com/api/docs/guides/image-generation#image-input-fidelity>
+- Cloudflare Workflows provide durable background steps and stable instance
+  IDs:
+  <https://developers.cloudflare.com/workflows/build/workers-api/>
+- R2 is private object storage with strongly consistent Worker binding reads
+  and writes:
+  <https://developers.cloudflare.com/r2/reference/consistency/>
