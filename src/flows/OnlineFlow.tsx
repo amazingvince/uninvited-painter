@@ -1,12 +1,17 @@
 // Online mode. Room code + link, every phone draws on the same canvas.
 // Target: link tap → drawing in under 10 seconds.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { isGameOver } from "../../shared/engine";
 import type { PublicRoundState } from "../../shared/protocol";
 import { useOnlineRoom } from "../game/onlineClient";
 import { useGameCues } from "../lib/cues";
+import {
+  PostRoundAiUploadError,
+  uploadOnlineAiSource,
+} from "../lib/postRoundAi";
+import { drawingReferencePng } from "../lib/share";
 import { cueLock } from "../lib/sound";
 import { useWakeLock } from "../lib/useWakeLock";
 import { Screen, Btn, Kicker } from "../components/ui";
@@ -74,6 +79,13 @@ export function OnlineFlow({
   const [peekCard, setPeekCard] = useState(false);
   const [tallySeen, setTallySeen] = useState<number>(0); // roundNo whose tally was dismissed
   const [revealStep, setRevealStep] = useState<"reveal" | "standings">("reveal");
+  const [aiRetryTick, setAiRetryTick] = useState(0);
+  const aiUploadAttempts = useRef(new Map<number, number>());
+  const aiUploadComplete = useRef(new Set<number>());
+  const aiUploadInFlight = useRef(new Set<number>());
+  const aiRetryTimers = useRef(
+    new Map<number, ReturnType<typeof setTimeout>>(),
+  );
 
   const { state, you } = room;
   const round = state?.round ?? null;
@@ -108,6 +120,85 @@ export function OnlineFlow({
   useEffect(() => {
     if (state && state.phase !== "lobby") setShowHouse(false);
   }, [state?.phase]);
+
+  // Every seated artist may make the same idempotent attempt as voting opens;
+  // the room serializes them and starts exactly one Workflow.
+  useEffect(() => {
+    if (state?.phase === "lobby") {
+      aiUploadAttempts.current.clear();
+      aiUploadComplete.current.clear();
+      aiUploadInFlight.current.clear();
+      for (const timer of aiRetryTimers.current.values()) clearTimeout(timer);
+      aiRetryTimers.current.clear();
+      return;
+    }
+    if (state?.phase === "dealing" && round?.ai.jobId === null) {
+      aiUploadAttempts.current.delete(round.roundNo);
+      aiUploadComplete.current.delete(round.roundNo);
+      aiUploadInFlight.current.delete(round.roundNo);
+      const timer = aiRetryTimers.current.get(round.roundNo);
+      if (timer) clearTimeout(timer);
+      aiRetryTimers.current.delete(round.roundNo);
+    }
+    if (
+      watch ||
+      !room.joined ||
+      !state ||
+      state.phase !== "voting" ||
+      !round ||
+      !you?.playerId ||
+      (!state.settings.aiCritic && !state.settings.aiDetective) ||
+      !round.turnOrder.includes(you.playerId) ||
+      round.droppedIds.includes(you.playerId)
+    ) {
+      return;
+    }
+
+    const roundNo = round.roundNo;
+    if (
+      aiUploadComplete.current.has(roundNo) ||
+      aiUploadInFlight.current.has(roundNo)
+    ) {
+      return;
+    }
+    const attempts = aiUploadAttempts.current.get(roundNo) ?? 0;
+    if (attempts >= 2) {
+      aiUploadComplete.current.add(roundNo);
+      return;
+    }
+    aiUploadAttempts.current.set(roundNo, attempts + 1);
+    aiUploadInFlight.current.add(roundNo);
+
+    void (async () => {
+      try {
+        const png = await drawingReferencePng(round.strokes);
+        await uploadOnlineAiSource(code, roundNo, png);
+        aiUploadComplete.current.add(roundNo);
+      } catch (error) {
+        const retryable =
+          error instanceof PostRoundAiUploadError && error.retryable;
+        if (!retryable || attempts + 1 >= 2) {
+          aiUploadComplete.current.add(roundNo);
+        } else if (!aiRetryTimers.current.has(roundNo)) {
+          const timer = setTimeout(() => {
+            aiRetryTimers.current.delete(roundNo);
+            setAiRetryTick((value) => value + 1);
+          }, 5000);
+          aiRetryTimers.current.set(roundNo, timer);
+        }
+      } finally {
+        aiUploadInFlight.current.delete(roundNo);
+      }
+    })();
+  }, [aiRetryTick, code, room.joined, round, state, watch, you?.playerId]);
+
+  useEffect(
+    () => () => {
+      for (const timer of aiRetryTimers.current.values()) clearTimeout(timer);
+      aiRetryTimers.current.clear();
+    },
+    [],
+  );
 
   // Release the card peek if the pointer never comes back (e.g. system gesture).
   useEffect(() => {

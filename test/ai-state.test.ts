@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { aiEnabled, createRoom, currentDrawerId, normalizeRoom, reduce } from "../shared/engine";
 import type { CriticVerdict, GameEvent, RoomState, Settings } from "../shared/types";
 import { redactState } from "../shared/protocol";
+import {
+  buildOnlineAiForm,
+  localAiRequestMeta,
+  shouldPollLocalAi,
+  shouldStartLocalAi,
+} from "../src/lib/postRoundAi";
 
 const JOB_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -80,6 +86,59 @@ function revealedRoomWithPendingAi(): RoomState {
 }
 
 describe("post-round AI state", () => {
+  it("decides when local AI starts and polling continues", () => {
+    const voting = votingRoom();
+    expect(shouldStartLocalAi(voting)).toBe(true);
+    const pending = apply(voting, {
+      type: "START_ROUND_AI",
+      roundNo: 1,
+      jobId: JOB_ID,
+    });
+    expect(shouldStartLocalAi(pending)).toBe(false);
+    expect(shouldPollLocalAi(pending.round!.ai)).toBe(true);
+    expect(
+      shouldPollLocalAi({
+        ...pending.round!.ai,
+        criticStatus: "ready",
+        renditionStatus: "unavailable",
+      }),
+    ).toBe(false);
+  });
+
+  it("builds bounded local metadata and a secret-free online upload", () => {
+    const voting = votingRoom({ aiDetective: true, aiTone: "absurd" });
+    const meta = localAiRequestMeta(voting, JOB_ID);
+    expect(meta).toMatchObject({
+      jobId: JOB_ID,
+      roundNo: 1,
+      word: "penguin",
+      aiCritic: true,
+      aiDetective: true,
+      aiTone: "absurd",
+    });
+    expect(meta.artists).toEqual([
+      { id: "p0", colorIndex: 0 },
+      { id: "p1", colorIndex: 1 },
+      { id: "p2", colorIndex: 2 },
+      { id: "p3", colorIndex: 3 },
+      { id: "p4", colorIndex: 4 },
+    ]);
+
+    const form = buildOnlineAiForm(
+      "seat-token",
+      1,
+      new Blob(["png"], { type: "image/png" }),
+    );
+    expect([...form.keys()].sort()).toEqual(["image", "roundNo", "token"]);
+    expect(form.get("token")).toBe("seat-token");
+    expect(form.get("roundNo")).toBe("1");
+    const serialized = JSON.stringify([...form.entries()]);
+    expect(serialized).not.toContain("penguin");
+    expect(serialized).not.toContain("Player");
+    expect(serialized).not.toContain("aiTone");
+    expect(serialized).not.toContain("fakeId");
+  });
+
   it("defaults and normalizes AI settings", () => {
     const room = createRoom({ code: "", mode: "local", hostId: "" });
     expect(room.settings).toMatchObject({

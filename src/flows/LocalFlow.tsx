@@ -1,7 +1,7 @@
 // Pass-one-phone mode. Same reducer as online; the phone travels and this flow
 // inserts the hand-off ceremony between private moments.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   activeArtists,
@@ -14,6 +14,14 @@ import { prepareRoundEvent, redrawWordEvent } from "../../shared/decks";
 import { guessMatches } from "../../shared/fuzzy";
 import type { GameEvent, RoomState } from "../../shared/types";
 import { clearLocalGame, saveLocalGame } from "../lib/storage";
+import {
+  aiResultEvents,
+  getLocalAiJob,
+  shouldPollLocalAi,
+  shouldStartLocalAi,
+  startLocalAiJob,
+} from "../lib/postRoundAi";
+import { drawingReferencePng } from "../lib/share";
 import { cueLock, cueReveal, cueRound } from "../lib/sound";
 import { useWakeLock } from "../lib/useWakeLock";
 import { Screen, Btn } from "../components/ui";
@@ -48,6 +56,10 @@ export function LocalFlow({
   const [showRules, setShowRules] = useState(false);
   const [showHouse, setShowHouse] = useState(false);
   const [peekWall, setPeekWall] = useState(false);
+  const aiStarts = useRef(new Set<number>());
+  const aiPollers = useRef(
+    new Map<string, { roundNo: number; cancelled: boolean }>(),
+  );
 
   useWakeLock(true); // game night — the shared phone must not doze off
 
@@ -65,6 +77,133 @@ export function LocalFlow({
   const ack = (key: string) => setAcks((a) => ({ ...a, [key]: true }));
 
   const round = state.round;
+
+  const applyAiEvent = useCallback((event: GameEvent) => {
+    setState((current) => {
+      const result = reduce(current, event);
+      if (!result.ok) return current;
+      saveLocalGame(result.state);
+      return result.state;
+    });
+  }, []);
+
+  // The source upload begins as soon as drawing closes. It never waits for,
+  // or changes, the human ballot.
+  useEffect(() => {
+    const currentRound = state.round;
+    if (
+      (state.phase === "lobby" || state.phase === "dealing") &&
+      currentRound?.ai.jobId === null
+    ) {
+      aiStarts.current.delete(currentRound.roundNo);
+    }
+    if (!currentRound || !shouldStartLocalAi(state)) return;
+    if (aiStarts.current.has(currentRound.roundNo)) return;
+    aiStarts.current.add(currentRound.roundNo);
+
+    const jobId = crypto.randomUUID();
+    const started = reduce(state, {
+      type: "START_ROUND_AI",
+      roundNo: currentRound.roundNo,
+      jobId,
+    });
+    if (!started.ok) return;
+    setState(started.state);
+    saveLocalGame(started.state);
+
+    void (async () => {
+      try {
+        const png = await drawingReferencePng(currentRound.strokes);
+        await startLocalAiJob(state, jobId, png);
+      } catch {
+        applyAiEvent({
+          type: "FAIL_ROUND_CRITIC",
+          roundNo: currentRound.roundNo,
+          jobId,
+        });
+        applyAiEvent({
+          type: "FAIL_ROUND_RENDITION",
+          roundNo: currentRound.roundNo,
+          jobId,
+        });
+      }
+    })();
+  }, [applyAiEvent, state]);
+
+  // Jobs stay alive across later rounds. Keep polling every archived pending
+  // job until both independent branches settle.
+  useEffect(() => {
+    const pending: Array<{ jobId: string; roundNo: number }> = [];
+    if (state.round && shouldPollLocalAi(state.round.ai)) {
+      pending.push({
+        jobId: state.round.ai.jobId!,
+        roundNo: state.round.roundNo,
+      });
+    }
+    for (const entry of state.archive) {
+      if (entry.ai && shouldPollLocalAi(entry.ai)) {
+        pending.push({ jobId: entry.ai.jobId!, roundNo: entry.roundNo });
+      }
+    }
+    const active = new Set(pending.map((job) => job.jobId));
+    for (const [jobId, poller] of aiPollers.current) {
+      if (!active.has(jobId)) {
+        poller.cancelled = true;
+        aiPollers.current.delete(jobId);
+      }
+    }
+
+    for (const job of pending) {
+      if (aiPollers.current.has(job.jobId)) continue;
+      const poller = { roundNo: job.roundNo, cancelled: false };
+      aiPollers.current.set(job.jobId, poller);
+      void (async () => {
+        const delays = [1000, 1500, 2500, 4000, 5000];
+        let attempt = 0;
+        try {
+          while (!poller.cancelled) {
+            const delay = delays[Math.min(attempt, delays.length - 1)];
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            if (poller.cancelled) return;
+            attempt += 1;
+            try {
+              const result = await getLocalAiJob(job.jobId);
+              if (
+                result.jobId !== job.jobId ||
+                result.roundNo !== poller.roundNo
+              ) {
+                continue;
+              }
+              for (const event of aiResultEvents(result)) applyAiEvent(event);
+              if (
+                result.criticStatus !== "pending" &&
+                result.renditionStatus !== "pending"
+              ) {
+                return;
+              }
+            } catch {
+              // The Workflow may not have published yet; the next bounded poll
+              // continues without touching official play.
+            }
+          }
+        } finally {
+          if (aiPollers.current.get(job.jobId) === poller) {
+            aiPollers.current.delete(job.jobId);
+          }
+        }
+      })();
+    }
+  }, [applyAiEvent, state]);
+
+  useEffect(
+    () => () => {
+      for (const poller of aiPollers.current.values()) {
+        poller.cancelled = true;
+      }
+      aiPollers.current.clear();
+    },
+    [],
+  );
 
   // Reset per-round sub-steps when a new round starts.
   useEffect(() => {

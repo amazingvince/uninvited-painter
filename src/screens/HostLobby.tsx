@@ -56,6 +56,15 @@ export function HostLobby({
     onSettings({ inkLimit: s.inkLimit === 0 ? 120 : s.inkLimit === 120 ? 60 : 0 });
   const cyclePresence = () =>
     onSettings({ presence: s.presence === "strict" ? "relaxed" : "strict" });
+  const cycleTone = () =>
+    onSettings({
+      aiTone:
+        s.aiTone === "witty"
+          ? "savage"
+          : s.aiTone === "savage"
+            ? "absurd"
+            : "witty",
+    });
 
   const copy = async (text: string) => {
     try {
@@ -188,6 +197,28 @@ export function HostLobby({
             "Question master",
             s.qmMode === "rotate" ? "Rotate" : "Auto word — all play",
             () => onSettings({ qmMode: s.qmMode === "rotate" ? "off" : "rotate" }),
+          )}
+          {settingRow(
+            "Luna critic",
+            s.aiCritic ? "On" : "Off",
+            () => onSettings({ aiCritic: !s.aiCritic }),
+          )}
+          {settingRow(
+            "AI detective",
+            s.aiDetective ? "On · non-scoring" : "Off",
+            () => onSettings({ aiDetective: !s.aiDetective }),
+          )}
+          {(s.aiCritic || s.aiDetective) &&
+            settingRow(
+              "AI tone",
+              s.aiTone[0].toUpperCase() + s.aiTone.slice(1),
+              cycleTone,
+            )}
+          {(s.aiCritic || s.aiDetective) && (
+            <div className="note" style={{ fontSize: 11, lineHeight: 1.4 }}>
+              OpenAI reviews the finished drawing while ballots come in. GPT
+              Image 2 also makes its realistic version.
+            </div>
           )}
           <button className="kicker u-muted" style={{ letterSpacing: "0.1em", textAlign: "left", paddingTop: 4 }} onClick={onRules}>
             How it works

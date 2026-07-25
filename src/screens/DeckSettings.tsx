@@ -3,6 +3,7 @@
 
 import { deckList } from "../../shared/decks";
 import { HOUSE_MIN_WORDS, type DeckId, type QmMode, type Settings } from "../../shared/types";
+import { AiSettings } from "../components/AiSettings";
 import { Screen, Btn, BackLink } from "../components/ui";
 
 export function DeckSettings({
@@ -205,6 +206,7 @@ export function DeckSettings({
             artist.
           </div>
         )}
+        <AiSettings settings={settings} onChange={onChange} />
       </div>
       <div className="footer footer--rule">
         <Btn variant="red" onClick={onStart}>
