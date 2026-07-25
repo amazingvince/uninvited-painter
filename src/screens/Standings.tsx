@@ -2,7 +2,7 @@
 // every device.
 
 import type { ReactNode } from "react";
-import type { Player } from "../../shared/types";
+import { SCORE_TARGET, type Player } from "../../shared/types";
 import { Screen, Btn, Swatch } from "../components/ui";
 
 export function Standings({
@@ -13,10 +13,13 @@ export function Standings({
   nextLabel,
   waiting,
   banner,
+  scoreMode = false,
 }: {
   players: Player[];
   roundsPlayed: number;
   totalRounds: number;
+  /** "First to 10" rooms have no fixed round count to count towards. */
+  scoreMode?: boolean;
   onNext?: () => void;
   nextLabel?: string;
   waiting?: string;
@@ -31,7 +34,9 @@ export function Standings({
           Standings
         </div>
         <div className="kicker u-muted" style={{ letterSpacing: "0.14em" }}>
-          After {roundsPlayed} of {totalRounds}
+          {scoreMode
+            ? `After ${roundsPlayed} · first to ${SCORE_TARGET}`
+            : `After ${roundsPlayed} of ${totalRounds}`}
         </div>
       </div>
       <div className="grow scroll" style={{ padding: "0 20px" }}>

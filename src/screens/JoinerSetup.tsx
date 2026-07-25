@@ -12,12 +12,14 @@ export function JoinerSetup({
   connected,
   error,
   onJoin,
+  onLeave,
 }: {
   code: string;
   state: PublicRoomState | null;
   connected: boolean;
   error: string | null;
   onJoin: (name: string, colorIndex: number) => void;
+  onLeave: () => void;
 }) {
   const taken = (state?.players ?? []).map((p) => p.colorIndex);
   const [name, setName] = useState("");
@@ -73,7 +75,23 @@ export function JoinerSetup({
             recognise.
           </div>
         </div>
-        {error && <div className="small u-red">{error}</div>}
+        {error && (
+          // A full room or a taken name is a dead end without a way out —
+          // always offer the exit alongside the complaint.
+          <div
+            role="alert"
+            style={{ border: "3px solid var(--red)", padding: "12px 14px", display: "grid", gap: 8 }}
+          >
+            <div className="small u-red">{error}</div>
+            <button
+              className="kicker u-muted"
+              style={{ letterSpacing: "0.1em", textAlign: "left" }}
+              onClick={onLeave}
+            >
+              ← Back to the entrance
+            </button>
+          </div>
+        )}
         <div style={{ marginTop: "auto", border: "3px solid var(--ink)", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
           <Kicker style={{ color: "var(--muted)" }}>
             {midGame ? "Round underway" : "Waiting on the host"}

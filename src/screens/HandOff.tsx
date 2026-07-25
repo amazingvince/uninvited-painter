@@ -64,7 +64,14 @@ export function HandOff({
     </Screen>
   );
 
-  return <HoldToReveal gate={gate} card={card} onFirstRelease={onSeen} />;
+  return (
+    <HoldToReveal
+      gate={gate}
+      card={card}
+      onFirstRelease={onSeen}
+      label={`Hold to read ${name}'s card`}
+    />
+  );
 }
 
 export function Interstitial({

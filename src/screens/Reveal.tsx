@@ -220,7 +220,7 @@ export function Reveal({
                         <>
                           {qm.name}{" "}
                           <span className="u-muted" style={{ fontSize: 11 }}>
-                            Q.MASTER
+                            QUESTION MASTER
                           </span>
                         </>
                       ),
@@ -264,7 +264,7 @@ export function Reveal({
                 )
               }
             >
-              Save to archive
+              Save this drawing as a PNG
             </Btn>
           )}
         </div>

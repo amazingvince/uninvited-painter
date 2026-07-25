@@ -1,18 +1,44 @@
 // A5 Rules sheet — reachable from any screen via the header.
 
 import { useState } from "react";
+import type { Settings } from "../../shared/types";
 import { setSoundEnabled, soundEnabled } from "../lib/sound";
 import { Screen, Kicker } from "./ui";
 
-const STEPS = [
-  "Everyone sees the category. Every artist but one also sees the word.",
-  "In turn, each artist draws one unbroken line in their own colour. Lift your finger and the turn is over.",
-  "Two passes around the table. Draw well enough to prove you know the word — badly enough that the fake can't guess it.",
-  "Everyone votes. Ties acquit. If the fake artist is caught, they get one guess at the word.",
-];
+const PASS_WORD = ["", "One pass", "Two passes", "Three passes"];
 
-export function RulesSheet({ onClose }: { onClose: () => void }) {
+/** The sheet describes the room you are actually in, not the default one. */
+function steps(settings?: Settings): string[] {
+  const passes = settings?.passes ?? 2;
+  const pen =
+    settings?.penMode === "free"
+      ? settings.inkLimit > 0
+        ? "In turn, each artist draws as many lines as their ink allows, then ends the turn."
+        : "In turn, each artist draws freely in their own colour, then ends the turn."
+      : "In turn, each artist draws one unbroken line in their own colour. Lift your finger and the turn is over.";
+  return [
+    settings?.qmMode === "off"
+      ? "Everyone sees the category. Every artist but one also sees the word."
+      : "The question master sets the word. Every artist but one gets to see it.",
+    pen,
+    `${PASS_WORD[passes] ?? `${passes} passes`} around the table. Draw well enough to prove you know the word — badly enough that the fake can't guess it.`,
+    settings?.strokeClock
+      ? `Everyone votes. Ties acquit. If the fake artist is caught, they get one guess at the word. Turns time out after ${settings.strokeClock}s.`
+      : "Everyone votes. Ties acquit. If the fake artist is caught, they get one guess at the word.",
+  ];
+}
+
+export function RulesSheet({
+  onClose,
+  settings,
+}: {
+  onClose: () => void;
+  /** Omitted outside a game (the entrance), where defaults are the honest answer. */
+  settings?: Settings;
+}) {
   const [sound, setSound] = useState(soundEnabled());
+  const STEPS = steps(settings);
+  const luna = settings?.aiCritic || settings?.aiDetective;
   return (
     <div className="overlay">
       <Screen>
@@ -68,6 +94,20 @@ export function RulesSheet({ onClose }: { onClose: () => void }) {
               A tie in the vote counts as survived
             </Kicker>
           </div>
+          {luna && (
+            <div style={{ borderTop: "3px solid var(--ink)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="shout" style={{ fontSize: 18, letterSpacing: "-0.02em" }}>
+                Luna
+              </div>
+              <div className="body-copy" style={{ fontSize: 14 }}>
+                An art critic looks at the finished picture without being told the
+                word.{" "}
+                {settings?.aiDetective
+                  ? "She reviews it, guesses the subject, and names a suspect — her opinion is entertainment and never changes the score."
+                  : "She reviews it and guesses the subject — entertainment only, never part of the score."}
+              </div>
+            </div>
+          )}
           <button
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--rule)", paddingTop: 12 }}
             onClick={() => {

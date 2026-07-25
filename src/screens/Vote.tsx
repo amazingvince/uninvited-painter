@@ -2,7 +2,7 @@
 // hidden until everyone has locked in.
 
 import { useEffect, useState } from "react";
-import { SEAT_COLORS } from "../../shared/palette";
+import { SEAT_TEXT_COLORS } from "../../shared/palette";
 import type { Player, Stroke } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
 import { Screen, Btn, Swatch } from "../components/ui";
@@ -100,14 +100,11 @@ export function Vote({
                 opacity: isSelf ? 0.5 : 1,
               }}
             >
-              <span
-                className="swatch"
-                style={{
-                  background: selected ? "var(--cream-on-red)" : undefined,
-                }}
-              >
-                {!selected && <Swatch index={player.colorIndex} />}
-              </span>
+              {selected ? (
+                <span className="swatch" style={{ background: "var(--cream-on-red)" }} />
+              ) : (
+                <Swatch index={player.colorIndex} />
+              )}
               <span
                 className="shout"
                 style={{
@@ -115,8 +112,9 @@ export function Vote({
                   fontSize: 17,
                   letterSpacing: "-0.02em",
                   textAlign: "left",
-                  // Names wear their stroke colour so the ballot reads like the wall.
-                  color: selected ? "inherit" : SEAT_COLORS[player.colorIndex],
+                  // Names wear their stroke colour so the ballot reads like the
+                  // wall — in the text-safe variant, which stays legible on cream.
+                  color: selected ? "inherit" : SEAT_TEXT_COLORS[player.colorIndex],
                 }}
               >
                 {player.name}
@@ -130,7 +128,7 @@ export function Vote({
       </div>
       <div className="footer btn-stack">
         <Btn variant={choice ? "ink" : "disabled"} onClick={() => choice && onLock(choice)}>
-          {choice ? `Lock in ${players.find((p) => p.id === choice)?.name}` : "Pick a painter"}
+          {choice ? `Lock in ${players.find((p) => p.id === choice)?.name}` : "Pick an artist"}
         </Btn>
         <div className="note u-center">Votes stay hidden until everyone has locked in</div>
       </div>

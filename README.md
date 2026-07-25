@@ -17,9 +17,14 @@ Two modes:
 
 Options per room: deck (four built-ins, "everything", or a **house deck** the
 players write themselves — the fake artist is never dealt a word they wrote),
-game length (3/5/7 rounds or first to 10 points), 1–3 passes, an optional
-60/90-second **stroke clock** so an idle player can't stall the round, and the
-rotating question master. The optional post-round AI exhibition adds a
+game length (3/5/7 rounds or first to 10 points), 1–3 passes, **pen style**
+(one unbroken line, or free ink with an explicit End Turn), an **ink budget**
+per turn, an optional 60/90-second **stroke clock** so an idle player can't
+stall the round, how **away players** are handled (pause the room for 30s, or
+just wait for them), the rotating question master (or "auto word", where the
+app draws it and everyone plays), and **Luna** — an AI critic who reviews the
+finished picture, guesses the subject blind, and optionally names a suspect
+(entertainment only; she never touches the score). The optional post-round AI exhibition adds a
 selectable Witty, Savage, or Absurd Luna 5.6 critic, an optional non-scoring
 AI detective vote, and a GPT Image 2 realistic rendition.
 

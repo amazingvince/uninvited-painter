@@ -16,6 +16,26 @@ export const SEAT_COLORS = [
   "#0d5c8a",
 ] as const;
 
+/**
+ * The same twelve seats, darkened where necessary to clear 4.5:1 against
+ * cream. Ink on paper can be vivid; a player's name set in their own colour
+ * still has to be readable, and gold at #c98a12 managed only 2.5:1.
+ */
+export const SEAT_TEXT_COLORS = [
+  "#1b4a8a",
+  "#cc281d",
+  "#3e782b",
+  "#8d610d",
+  "#5c3a86",
+  "#0f786e",
+  "#b4472e",
+  "#2f6f9c",
+  "#647119",
+  "#96246b",
+  "#4a4a4a",
+  "#0d5c8a",
+] as const;
+
 export const UI = {
   cream: "#f2ede1",
   ink: "#121212",

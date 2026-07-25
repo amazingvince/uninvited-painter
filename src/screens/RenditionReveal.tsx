@@ -80,13 +80,24 @@ export function RenditionReveal({
         }}
       >
         <div className="kicker u-red">The reality treatment</div>
-        <div className="shout" style={{ fontSize: 38, lineHeight: 0.9 }}>
-          {title ?? "Untitled"} — after a brief argument with reality
+        <div
+          className="shout"
+          style={{
+            fontSize: (title?.length ?? 0) > 38 ? "clamp(18px, 6vw, 24px)" : "clamp(24px, 8vw, 34px)",
+            lineHeight: 0.95,
+            overflowWrap: "anywhere",
+          }}
+        >
+          {title ?? "Untitled"}
+        </div>
+        {/* The variable-length title shouldn't drag the joke line with it. */}
+        <div className="note" style={{ marginTop: -8 }}>
+          After a brief argument with reality.
         </div>
 
         {ai.renditionStatus === "ready" && ai.renditionId && !imageFailed ? (
           showRendition ? (
-            <div className="rendition-pair rendition-pair--unveil">
+            <div className="rendition-pair rendition-pair--unveil" aria-live="polite">
               <figure>
                 {original}
                 <figcaption className="kicker">What it was</figcaption>

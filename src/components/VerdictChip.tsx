@@ -21,7 +21,7 @@ export function VerdictChip({
   if (!ready) return null;
 
   return (
-    <button className="verdict-chip" onClick={onOpen}>
+    <button className="verdict-chip" onClick={onOpen} aria-live="polite">
       <span className="verdict-chip__dot" />
       {target === "critic" ? "Luna's verdict is in" : "The rendition is ready"}
       <span className="verdict-chip__go">→</span>

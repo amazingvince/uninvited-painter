@@ -78,6 +78,17 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
           </span>
         </div>
         <div className="grow" style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 16, padding: "0 22px" }}>
+          {status === "loading" && (
+            // A shared link opening onto a blank cream screen reads as broken.
+            <>
+              <div className="shout pulse" style={{ fontSize: 40, lineHeight: 0.9 }}>
+                Unlocking
+                <br />
+                the gallery
+              </div>
+              <div className="body-copy u-muted">Hanging the pictures back up.</div>
+            </>
+          )}
           {status === "missing" && (
             <>
               <div className="shout" style={{ fontSize: 40, lineHeight: 0.9 }}>

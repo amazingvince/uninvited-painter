@@ -52,12 +52,37 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Keyboard and switch users need to see where they are. The offset puts the
+   ring outside the control, so ink reads even on a red or ink-filled button;
+   dark screens flip it to gold. */
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.screen--ink :focus-visible,
+.screen--red :focus-visible,
+.overlay .screen--ink :focus-visible {
+  outline-color: var(--gold);
+}
+
 input {
   font: inherit;
   color: inherit;
   background: none;
   border: none;
   outline: none;
+}
+
+/* The hold gate wraps whole screens, so it must not introduce a box — but it
+   still has to be focusable and show a ring when it is. */
+.hold-gate {
+  display: contents;
+}
+
+.hold-gate:focus-visible > .screen {
+  outline: 3px solid var(--red);
+  outline-offset: -3px;
 }
 
 /* ---- app frame: phone-sized column, centered on desktop ---- */
@@ -234,7 +259,9 @@ input {
 .btn--ink { background: var(--ink); color: var(--cream); }
 .btn--outline { border: 3px solid currentColor; padding: 17px; }
 .btn--cream { background: var(--cream); color: var(--ink); }
-.btn--disabled { background: var(--rule); color: var(--cream-on-red); pointer-events: none; }
+/* This label explains what the room is still waiting for, so it has to be the
+   most readable disabled state in the app, not the least. */
+.btn--disabled { background: var(--rule); color: var(--ink); opacity: 0.75; pointer-events: none; }
 .btn--split { justify-content: space-between; text-align: left; }
 .btn:active { transform: translateY(1px); }
 
@@ -264,6 +291,9 @@ input {
 }
 
 .swatch {
+  /* Inline spans ignore width/height — this only worked where a flex parent
+     happened to blockify it. */
+  display: block;
   width: 14px;
   height: 14px;
   flex: none;
@@ -397,6 +427,20 @@ input {
   flex-direction: column;
   background: var(--cream);
   padding-top: env(safe-area-inset-top);
+  /* Sheets slid in over the game were the one surface that appeared instantly,
+     which read as a glitch next to everything else. */
+  animation: overlayIn 0.2s ease-out;
+}
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ---- deck cards (A3) ---- */
@@ -708,6 +752,10 @@ input {
 .stagger-in > *:nth-child(1) { animation-delay: 0.9s; }
 .stagger-in > *:nth-child(2) { animation-delay: 1.05s; }
 .stagger-in > *:nth-child(3) { animation-delay: 1.2s; }
+.stagger-in > *:nth-child(4) { animation-delay: 1.35s; }
+.stagger-in > *:nth-child(5) { animation-delay: 1.5s; }
+/* Anything past the choreographed rows still has to appear. */
+.stagger-in > *:nth-child(n + 6) { animation-delay: 1.6s; }
 
 .rendition-pair {
   display: grid;
@@ -745,11 +793,6 @@ input {
   min-height: 44px;
 }
 
-.rendition-reveal button:focus-visible {
-  outline: 3px solid var(--red);
-  outline-offset: 3px;
-}
-
 @keyframes renditionWipe {
   from {
     opacity: 0;
@@ -782,6 +825,11 @@ input {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .blink,
+  .overlay {
+    animation: none;
+  }
   .fade-wrap {
     animation: none;
   }
@@ -847,6 +895,7 @@ input {
 .verdict-stagger > *:nth-child(4) { animation-delay: 1.4s; }
 .verdict-stagger > *:nth-child(5) { animation-delay: 1.85s; }
 .verdict-stagger > *:nth-child(6) { animation-delay: 2.3s; }
+.verdict-stagger > *:nth-child(n + 7) { animation-delay: 2.6s; }
 
 /* The rating stamps down with a little indignation. */
 .rating-stamp {

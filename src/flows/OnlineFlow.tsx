@@ -274,6 +274,7 @@ export function OnlineFlow({
         connected={room.connected}
         error={room.error}
         onJoin={(name, colorIndex) => room.join(name, colorIndex)}
+        onLeave={onExit}
       />
     );
   } else if (state.phase === "lobby") {
@@ -352,6 +353,7 @@ export function OnlineFlow({
       ) {
         body = (
           <HoldToReveal
+            label="Hold to read your card"
             gate={
               <Screen>
                 <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--ink)" }}>
@@ -629,6 +631,7 @@ export function OnlineFlow({
             players={state.players}
             roundsPlayed={state.roundsPlayed}
             totalRounds={state.settings.rounds}
+            scoreMode={state.settings.winMode === "score10"}
             nextLabel={isLastRound ? "Close the exhibition" : `Round ${state.roundsPlayed + 1}`}
             onNext={isHost ? () => room.send({ t: "next" }) : undefined}
             waiting="Waiting for the host…"
@@ -752,7 +755,9 @@ export function OnlineFlow({
           />
         </div>
       )}
-      {showRules && <RulesSheet onClose={() => setShowRules(false)} />}
+      {showRules && (
+        <RulesSheet onClose={() => setShowRules(false)} settings={state?.settings} />
+      )}
       {room.error && room.joined && (
         <ErrorToast message={room.error} onDone={room.clearError} />
       )}
@@ -971,6 +976,7 @@ function WatchBody({
         players={state.players}
         roundsPlayed={state.roundsPlayed}
         totalRounds={state.settings.rounds}
+            scoreMode={state.settings.winMode === "score10"}
         waiting="The table decides what's next"
       />
     );

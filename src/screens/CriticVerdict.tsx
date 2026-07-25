@@ -109,14 +109,21 @@ export function CriticVerdict({
         {view.status === "ready" && verdict ? (
           <div
             className="verdict-stagger"
+            aria-live="polite"
             style={{ display: "flex", flexDirection: "column", gap: 18 }}
           >
             <div
               className="shout"
               style={{
-                fontSize: 46,
-                lineHeight: 0.9,
-                letterSpacing: "-0.045em",
+                // Luna may write up to 80 characters; a fixed 46px turns that
+                // into seven lines and pushes the rating off the phone.
+                fontSize:
+                  (verdict.title?.length ?? 0) > 38
+                    ? "clamp(20px, 6.5vw, 28px)"
+                    : "clamp(28px, 9vw, 46px)",
+                lineHeight: 0.95,
+                letterSpacing: "-0.04em",
+                overflowWrap: "anywhere",
               }}
             >
               {verdict.title ?? "A suspiciously untitled work"}

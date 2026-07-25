@@ -89,7 +89,24 @@ export function LocalFlow({
 
   const applyAiEvent = useCallback((event: GameEvent) => {
     setState((current) => {
-      const result = reduce(current, event);
+      let result = reduce(current, event);
+      // A verdict the engine rejects (e.g. it named an artist who has since
+      // been dropped) must still settle the branch, or the screen sits on
+      // "Luna is still deciding" forever. The DO already does this; local mode
+      // used to drop the rejection on the floor.
+      if (!result.ok && event.type === "RESOLVE_ROUND_CRITIC") {
+        result = reduce(current, {
+          type: "FAIL_ROUND_CRITIC",
+          roundNo: event.roundNo,
+          jobId: event.jobId,
+        });
+      } else if (!result.ok && event.type === "RESOLVE_ROUND_RENDITION") {
+        result = reduce(current, {
+          type: "FAIL_ROUND_RENDITION",
+          roundNo: event.roundNo,
+          jobId: event.jobId,
+        });
+      }
       if (!result.ok) return current;
       saveLocalGame(result.state);
       return result.state;
@@ -270,7 +287,9 @@ export function LocalFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase, round?.guessDeadline, guessHandedOver]);
 
-  const rules = showRules ? <RulesSheet onClose={() => setShowRules(false)} /> : null;
+  const rules = showRules ? (
+    <RulesSheet onClose={() => setShowRules(false)} settings={state.settings} />
+  ) : null;
 
   const wallPeek = peekWall && round && (
     <div className="overlay" style={{ background: "var(--paper)", pointerEvents: "none" }}>
@@ -618,6 +637,7 @@ export function LocalFlow({
           players={state.players}
           roundsPlayed={state.roundsPlayed}
           totalRounds={state.settings.rounds}
+            scoreMode={state.settings.winMode === "score10"}
           nextLabel={isLastRound ? "Close the exhibition" : `Round ${state.roundsPlayed + 1}`}
           onNext={() => {
             if (isLastRound) {

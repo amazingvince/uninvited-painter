@@ -68,7 +68,8 @@ export function Spectate({
   return (
     <Screen>
       <div className="header header-row">
-        <div>
+        {/* The turn changes without anyone touching this device — announce it. */}
+        <div aria-live="polite">
           <div className="kicker u-muted" style={{ display: "flex", gap: 10 }}>
             <span>{kicker}</span>
             <ClockChip deadline={deadline} />
