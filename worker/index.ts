@@ -8,6 +8,12 @@ import {
   type WorkflowStep,
 } from "cloudflare:workers";
 import type { PostRoundAiPayload, PostRoundAiResult } from "./ai-jobs";
+import {
+  handleAiRendition,
+  handleAiStatus,
+  handleLocalAiPost,
+  handleOnlineAiPost,
+} from "./ai-routes";
 import { handleArchiveGet, handleArchiveImage, handleArchivePost, getArchive } from "./archives";
 import { archiveTags, roomTags, serveShellWithOg } from "./og";
 import {
@@ -58,6 +64,21 @@ export default {
     if (url.pathname === "/api/archives" && request.method === "POST") {
       return handleArchivePost(request, env);
     }
+    if (url.pathname === "/api/ai/jobs" && request.method === "POST") {
+      return handleLocalAiPost(request, env);
+    }
+    const aiJobApi = url.pathname.match(
+      /^\/api\/ai\/jobs\/([A-Za-z0-9-]{1,64})$/,
+    );
+    if (aiJobApi && request.method === "GET") {
+      return handleAiStatus(env, aiJobApi[1]);
+    }
+    const aiRenditionApi = url.pathname.match(
+      /^\/api\/ai\/renditions\/([A-Za-z0-9-]{1,64})$/,
+    );
+    if (aiRenditionApi && request.method === "GET") {
+      return handleAiRendition(env, aiRenditionApi[1]);
+    }
     const archiveApi = url.pathname.match(/^\/api\/archives\/([A-Za-z0-9]{1,32})(\/og\.png)?$/);
     if (archiveApi && (request.method === "GET" || request.method === "HEAD")) {
       return archiveApi[2]
@@ -65,7 +86,9 @@ export default {
         : handleArchiveGet(env, archiveApi[1]);
     }
 
-    const roomApi = url.pathname.match(/^\/api\/rooms\/([A-Za-z]{4})(\/ws)?$/);
+    const roomApi = url.pathname.match(
+      /^\/api\/rooms\/([A-Za-z]{4})(\/ws|\/ai)?$/,
+    );
     if (roomApi) {
       const code = normalizeRoomCode(roomApi[1]);
       if (!isValidRoomCode(code)) {
@@ -75,8 +98,16 @@ export default {
         });
       }
       const stub = env.ROOM.getByName(code);
-      if (roomApi[2]) {
+      if (roomApi[2] === "/ws") {
         return stub.fetch(request);
+      }
+      if (roomApi[2] === "/ai") {
+        return request.method === "POST"
+          ? handleOnlineAiPost(request, env, code)
+          : new Response(JSON.stringify({ error: "Method not allowed" }), {
+              status: 405,
+              headers: JSON_HEADERS,
+            });
       }
       const summary = await stub.summary();
       if (!summary) {

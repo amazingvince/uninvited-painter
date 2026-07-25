@@ -125,6 +125,8 @@ export interface ArchiveEntry {
   strokes: Stroke[];
   outcome: Outcome;
   fakeName: string;
+  /** Eligible anonymous artist IDs retained for validating late AI results. */
+  artistIds?: string[];
   ai?: RoundAi;
   fakeId?: string;
   criticSubjectMatched?: boolean;

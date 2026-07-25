@@ -349,7 +349,10 @@ function aiTargets(
   if (archive?.ai) {
     targets.push({
       ai: archive.ai,
-      eligible: new Set(archive.strokes.map((stroke) => stroke.playerId).filter(Boolean)),
+      eligible: new Set(
+        archive.artistIds ??
+          archive.strokes.map((stroke) => stroke.playerId).filter(Boolean),
+      ),
       archive,
     });
   }
@@ -384,6 +387,7 @@ function finishRound(state: RoomState, outcome: NonNullable<RoundState["outcome"
       strokes: round.strokes,
       outcome,
       fakeName: fake?.name ?? "?",
+      artistIds: activeArtists(round),
       fakeId: round.fakeId,
       ai: round.ai,
     });

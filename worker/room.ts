@@ -9,6 +9,13 @@ import { prepareRoundEvent, redrawWordEvent } from "../shared/decks";
 import { guessMatches } from "../shared/fuzzy";
 import { redactState, type ClientMsg, type ServerMsg } from "../shared/protocol";
 import { ROOM_TTL_MS, type GameEvent, type RoomState } from "../shared/types";
+import { validateReferencePng } from "./ai-input";
+import {
+  putPendingJob,
+  putSource,
+  type PostRoundAiResult,
+} from "./ai-jobs";
+import { onlineAiPayload } from "./ai-routes";
 
 interface Attachment {
   token: string;
@@ -17,6 +24,7 @@ interface Attachment {
 
 export class RoomDO extends DurableObject<Env> {
   private cached: RoomState | null | undefined;
+  private aiStartGate: Promise<void> = Promise.resolve();
   /** Ephemeral per-turn budget for the live relay (resets with the instance —
    *  hibernation wiping it just refills the bucket, which is harmless). */
   private liveBudget: { turnKey: string; coords: number } = { turnKey: "", coords: 0 };
@@ -41,6 +49,161 @@ export class RoomDO extends DurableObject<Env> {
     const state = await this.getState();
     if (!state) return null;
     return { exists: true, phase: state.phase, players: state.players.length };
+  }
+
+  async startAiJob(
+    token: string,
+    roundNo: number,
+    png: ArrayBuffer,
+  ): Promise<{ jobId: string }> {
+    let release!: () => void;
+    const previous = this.aiStartGate;
+    this.aiStartGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await this.startAiJobLocked(token, roundNo, png);
+    } finally {
+      release();
+    }
+  }
+
+  private async startAiJobLocked(
+    token: string,
+    roundNo: number,
+    png: ArrayBuffer,
+  ): Promise<{ jobId: string }> {
+    const tokens = await this.getTokens();
+    const playerId = tokens[token];
+    const state = await this.getState();
+    if (!state || !playerId) throw new Error("No active seat");
+    const round = state.round;
+    if (!round || round.roundNo !== roundNo) throw new Error("Wrong AI round");
+    if (round.ai.jobId) return { jobId: round.ai.jobId };
+
+    validateReferencePng(png);
+    const jobId = crypto.randomUUID();
+    const payload = onlineAiPayload(state, playerId, roundNo, jobId);
+    const started = reduce(state, {
+      type: "START_ROUND_AI",
+      roundNo,
+      jobId,
+    });
+    if (!started.ok) throw new Error(started.error);
+
+    // Persist the authoritative job assignment before any R2 or Workflow work,
+    // so concurrent uploads can only ever observe and reuse this job.
+    await this.persistAndBroadcast(started.state);
+    try {
+      await putSource(this.env, jobId, png);
+      await putPendingJob(this.env, payload);
+      await this.env.POST_ROUND_AI.create({
+        id: jobId,
+        params: payload,
+        retention: {
+          successRetention: "1 day",
+          errorRetention: "1 day",
+        },
+      });
+    } catch (error) {
+      let failed = started.state;
+      const critic = reduce(failed, {
+        type: "FAIL_ROUND_CRITIC",
+        roundNo,
+        jobId,
+      });
+      if (critic.ok) failed = critic.state;
+      const rendition = reduce(failed, {
+        type: "FAIL_ROUND_RENDITION",
+        roundNo,
+        jobId,
+      });
+      if (rendition.ok) failed = rendition.state;
+      await this.persistAndBroadcast(failed);
+      console.error("AI job start failed", error);
+    }
+    return { jobId };
+  }
+
+  async completeAiJob(result: PostRoundAiResult): Promise<void> {
+    let state = await this.getState();
+    if (!state) return;
+    const currentAi =
+      state.round?.roundNo === result.roundNo ? state.round.ai : null;
+    const archiveAi = state.archive.find(
+      (entry) => entry.roundNo === result.roundNo,
+    )?.ai;
+    const matching =
+      currentAi?.jobId === result.jobId
+        ? currentAi
+        : archiveAi?.jobId === result.jobId
+          ? archiveAi
+          : null;
+    if (!matching) return;
+
+    let changed = false;
+    if (matching.criticStatus === "pending") {
+      const event: GameEvent =
+        result.criticStatus === "ready" && result.critic
+          ? {
+              type: "RESOLVE_ROUND_CRITIC",
+              roundNo: result.roundNo,
+              jobId: result.jobId,
+              verdict: result.critic,
+            }
+          : {
+              type: "FAIL_ROUND_CRITIC",
+              roundNo: result.roundNo,
+              jobId: result.jobId,
+            };
+      let applied = reduce(state, event);
+      if (!applied.ok && event.type === "RESOLVE_ROUND_CRITIC") {
+        applied = reduce(state, {
+          type: "FAIL_ROUND_CRITIC",
+          roundNo: result.roundNo,
+          jobId: result.jobId,
+        });
+      }
+      if (applied.ok) {
+        state = applied.state;
+        changed = true;
+      }
+    }
+
+    const refreshedAi =
+      state.round?.roundNo === result.roundNo
+        ? state.round.ai
+        : state.archive.find((entry) => entry.roundNo === result.roundNo)?.ai;
+    if (refreshedAi?.renditionStatus === "pending") {
+      const event: GameEvent =
+        result.renditionStatus === "ready" && result.renditionId
+          ? {
+              type: "RESOLVE_ROUND_RENDITION",
+              roundNo: result.roundNo,
+              jobId: result.jobId,
+              renditionId: result.renditionId,
+            }
+          : {
+              type: "FAIL_ROUND_RENDITION",
+              roundNo: result.roundNo,
+              jobId: result.jobId,
+            };
+      let applied = reduce(state, event);
+      if (!applied.ok && event.type === "RESOLVE_ROUND_RENDITION") {
+        applied = reduce(state, {
+          type: "FAIL_ROUND_RENDITION",
+          roundNo: result.roundNo,
+          jobId: result.jobId,
+        });
+      }
+      if (applied.ok) {
+        state = applied.state;
+        changed = true;
+      }
+    }
+
+    if (changed) await this.persistAndBroadcast(state);
   }
 
   // -------------------------------------------------------------------------
