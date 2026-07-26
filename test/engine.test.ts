@@ -225,7 +225,13 @@ describe("voting and outcomes", () => {
     expect(state.phase).toBe("guessing");
     expect(state.round!.accusedId).toBe("p1");
     expect(state.round!.guessDeadline).toBe(31_000);
-    state = apply(state, { type: "SUBMIT_GUESS", playerId: "p1", text: "penguins", matched: true });
+    state = apply(state, {
+      type: "SUBMIT_GUESS",
+      playerId: "p1",
+      text: "penguins",
+      matched: true,
+      now: 1_001,
+    });
     expect(state.phase).toBe("reveal");
     expect(state.round!.outcome).toBe("caught_named");
     expect(state.players.find((p) => p.id === "p1")!.score).toBe(2);
@@ -245,7 +251,13 @@ describe("voting and outcomes", () => {
         now: 0,
       });
     }
-    state = apply(state, { type: "SUBMIT_GUESS", playerId: "p1", text: "walrus", matched: false });
+    state = apply(state, {
+      type: "SUBMIT_GUESS",
+      playerId: "p1",
+      text: "walrus",
+      matched: false,
+      now: 1,
+    });
     expect(state.round!.outcome).toBe("caught_wrong");
     for (const id of ["p2", "p3", "p4", "p5", "p6"]) {
       expect(state.players.find((p) => p.id === id)!.score).toBe(1);
@@ -304,6 +316,7 @@ describe("voting and outcomes", () => {
       playerId: "p1",
       text: "penguin",
       matched: true,
+      now: 1_001,
     });
     expect(
       reduce(revealed, {
@@ -311,6 +324,7 @@ describe("voting and outcomes", () => {
         playerId: "p1",
         text: "otter",
         matched: false,
+        now: 1_002,
       }),
     ).toEqual({ ok: false, error: "Not guessing" });
   });
@@ -327,9 +341,27 @@ describe("voting and outcomes", () => {
         playerId: "p1",
         text: "penguin",
         matched: true,
+        now: 31_001,
       }),
     ).toEqual({ ok: false, error: "Not guessing" });
   });
+
+  it.each([31_000, 31_001])(
+    "a submitted guess received at or after the deadline settles as a timeout (%i)",
+    (now) => {
+      const result = reduce(caughtGuessingRound(), {
+        type: "SUBMIT_GUESS",
+        playerId: "p1",
+        text: "penguin",
+        matched: true,
+        now,
+      });
+      if (!result.ok) throw new Error(result.error);
+      expect(result.state.phase).toBe("reveal");
+      expect(result.state.round!.guess).toBeNull();
+      expect(result.state.round!.outcome).toBe("caught_wrong");
+    },
+  );
 });
 
 describe("full game", () => {
@@ -356,7 +388,13 @@ describe("full game", () => {
           state = apply(state, { type: "CAST_VOTE", voterId: voter, targetId: fake, now: 0 });
         }
       }
-      state = apply(state, { type: "SUBMIT_GUESS", playerId: fake, text: "nope", matched: false });
+      state = apply(state, {
+        type: "SUBMIT_GUESS",
+        playerId: fake,
+        text: "nope",
+        matched: false,
+        now: 1,
+      });
       if (round < 2) {
         state = apply(state, {
           type: "START_ROUND",
@@ -553,7 +591,13 @@ describe("redaction", () => {
     expect(during.state.phase).toBe("guessing");
     expect(during.state.round!.fakeId).toBe("p1"); // the vote outed them
     expect(during.state.round!.word).toBeNull(); // but the word stays hidden
-    state = apply(state, { type: "SUBMIT_GUESS", playerId: "p1", text: "seal", matched: false });
+    state = apply(state, {
+      type: "SUBMIT_GUESS",
+      playerId: "p1",
+      text: "seal",
+      matched: false,
+      now: 1,
+    });
     const after = redactState(state, "p1");
     expect(after.state.round!.word).toBe("penguin");
     expect(after.state.round!.votes).not.toBeNull();
@@ -647,7 +691,13 @@ describe("review regressions", () => {
         now: 0,
       });
     }
-    state = apply(state, { type: "SUBMIT_GUESS", playerId: "p1", text: "x", matched: false });
+    state = apply(state, {
+      type: "SUBMIT_GUESS",
+      playerId: "p1",
+      text: "x",
+      matched: false,
+      now: 1,
+    });
     expect(state.phase).toBe("reveal");
     state = apply(state, { type: "SET_CONNECTED", playerId: "p0", connected: false, now: 0 });
     expect(state.hostId).not.toBe("p0");
@@ -999,6 +1049,7 @@ describe("seat holds do not outlive their round", () => {
       playerId: "p1",
       text: "seal",
       matched: false,
+      now: 1,
     });
     expect(state.phase).toBe("reveal");
     expect(state.holds).toEqual({});
@@ -1015,6 +1066,7 @@ describe("seat holds do not outlive their round", () => {
       playerId: "p1",
       text: "seal",
       matched: false,
+      now: 1,
     });
     // p5 is still away, so they sit the next round out entirely.
     state = apply(state, {

@@ -61,8 +61,9 @@ describe("drawing screen feedback", () => {
     );
 
     expect(markup).toContain(
-      'aria-label="Finished drawing. Select an artist below to highlight their lines."',
+      'aria-label="Finished drawing. Enlarge drawing."',
     );
+    expect(markup).toContain('aria-expanded="false"');
   });
 
   it("names the finished round drawing in the reveal", () => {

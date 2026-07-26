@@ -470,6 +470,7 @@ describe("post-round AI state", () => {
       playerId: "p0",
       text: "walrus",
       matched: false,
+      now: 1,
     });
     const visible = redactState(state, "p1").state.round!.ai;
     expect(visible.critic?.title).toBe("Untitled Emergency");

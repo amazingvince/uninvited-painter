@@ -202,6 +202,35 @@ describe("deliberate ballot and reveal interactions", () => {
     expect(onLock).toHaveBeenCalledWith("p1");
   });
 
+  it("names the finished drawing as a stateful zoom control", () => {
+    act(() => {
+      root.render(
+        <Vote
+          voterId="p2"
+          candidates={["p1", "p2"]}
+          qmId="p0"
+          players={PLAYERS}
+          strokes={[]}
+          votersIn={[]}
+          onLock={() => undefined}
+        />,
+      );
+    });
+
+    const drawing = container.querySelector<HTMLButtonElement>(
+      'button[aria-expanded="false"]',
+    );
+    expect(drawing?.getAttribute("aria-label")).toBe(
+      "Finished drawing. Enlarge drawing.",
+    );
+
+    act(() => drawing?.click());
+    expect(drawing?.getAttribute("aria-expanded")).toBe("true");
+    expect(drawing?.getAttribute("aria-label")).toBe(
+      "Finished drawing. Shrink drawing.",
+    );
+  });
+
   it("renders reduced-motion tally values immediately with progress semantics", () => {
     vi.stubGlobal(
       "matchMedia",

@@ -890,6 +890,11 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
     case "SUBMIT_GUESS": {
       if (state.phase !== "guessing" || !round) return fail("Not guessing");
       if (event.playerId !== round.fakeId) return fail("Only the accused guesses");
+      if (round.guessDeadline !== null && event.now >= round.guessDeadline) {
+        round.guess = null;
+        finishRound(state, "caught_wrong");
+        return { ok: true, state };
+      }
       round.guess = event.text.trim().slice(0, 60);
       finishRound(state, event.matched ? "caught_named" : "caught_wrong");
       return { ok: true, state };

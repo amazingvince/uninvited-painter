@@ -372,7 +372,13 @@ export class RoomDO extends DurableObject<Env> {
           if (!round) return this.sendError(ws, "No round");
           const text = String(msg.text ?? "").slice(0, 200);
           const matched = guessMatches(text, round.word);
-          return await this.dispatch(ws, { type: "SUBMIT_GUESS", playerId, text, matched });
+          return await this.dispatch(ws, {
+            type: "SUBMIT_GUESS",
+            playerId,
+            text,
+            matched,
+            now,
+          });
         }
         case "next": {
           if (!isHost) return this.sendError(ws, "Host only");

@@ -542,6 +542,7 @@ export function LocalFlow({
             playerId: round.fakeId,
             text,
             matched: guessMatches(text, round.word),
+            now: Date.now(),
           })
         }
       />
