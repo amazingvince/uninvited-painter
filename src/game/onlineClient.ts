@@ -37,8 +37,10 @@ export interface OnlineRoom {
  *  the time the socket returns, and join/rejoin is redone on open anyway. */
 const EPHEMERAL_MSGS = new Set<ClientMsg["t"]>(["live", "liveClear", "join", "rejoin"]);
 const OUTBOX_MAX = 32;
+const INITIAL_PROBE_TIMEOUT_MS = 1_200;
 
 export function useOnlineRoom(code: string, watch = false): OnlineRoom {
+  const roomIdentity = `${code}\u0000${watch ? "watch" : "play"}`;
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("checking");
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
@@ -52,23 +54,85 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
   const liveBuf = useRef<number[]>([]);
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const goneRef = useRef(false);
-  const outbox = useRef<ClientMsg[]>([]);
+  const effectGenerationRef = useRef(0);
+  const activeIdentityRef = useRef(roomIdentity);
+  const wsIdentityRef = useRef<string | null>(null);
+  const outbox = useRef<{ generation: number; messages: ClientMsg[] }>({
+    generation: 0,
+    messages: [],
+  });
 
   useEffect(() => {
+    const generation = effectGenerationRef.current + 1;
+    effectGenerationRef.current = generation;
+    activeIdentityRef.current = roomIdentity;
     let closed = false;
     let attempts = 0;
+    let openedSockets = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let initialProbeTimer: ReturnType<typeof setTimeout> | null = null;
+    let initialProbePending = true;
+    const probeControllers = new Set<AbortController>();
+
+    if (liveTimer.current !== null) {
+      clearTimeout(liveTimer.current);
+      liveTimer.current = null;
+    }
+    liveBuf.current = [];
+    outbox.current = { generation, messages: [] };
     goneRef.current = false;
     setConnectionState("checking");
     setReconnectAttempt(0);
+    setJoined(false);
+    setState(null);
+    setYou(null);
+    setError(null);
+    setLive({});
+
+    const isCurrentEffect = () =>
+      !closed &&
+      effectGenerationRef.current === generation &&
+      activeIdentityRef.current === roomIdentity;
+
+    const abortProbes = () => {
+      for (const controller of probeControllers) controller.abort();
+      probeControllers.clear();
+    };
+
+    const markGone = () => {
+      if (!isCurrentEffect()) return;
+      goneRef.current = true;
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+      abortProbes();
+      const activeSocket = wsRef.current;
+      if (activeSocket && wsIdentityRef.current === roomIdentity) {
+        wsRef.current = null;
+        wsIdentityRef.current = null;
+        activeSocket.close(1000, "gone");
+      }
+      setConnectionState("gone");
+    };
 
     const connect = () => {
-      if (closed) return;
+      if (!isCurrentEffect() || goneRef.current) return;
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${proto}://${location.host}/api/rooms/${code}/ws`);
       wsRef.current = ws;
+      wsIdentityRef.current = roomIdentity;
+
+      const isCurrentSocket = () =>
+        isCurrentEffect() &&
+        !goneRef.current &&
+        wsRef.current === ws &&
+        wsIdentityRef.current === roomIdentity;
 
       ws.onopen = () => {
+        if (!isCurrentSocket()) return;
+        openedSockets += 1;
+        abortProbes();
         attempts = 0;
         setConnectionState("connected");
         setReconnectAttempt(0);
@@ -78,12 +142,16 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
         }
         // Replay what the player did while the socket was down — after the
         // rejoin, so the room knows whose actions these are.
-        const queued = outbox.current;
-        outbox.current = [];
+        const queued =
+          outbox.current.generation === generation
+            ? outbox.current.messages
+            : [];
+        outbox.current = { generation, messages: [] };
         for (const msg of queued) ws.send(JSON.stringify(msg));
       };
 
       ws.onmessage = (e) => {
+        if (!isCurrentSocket()) return;
         let msg: ServerMsg;
         try {
           msg = JSON.parse(e.data as string);
@@ -143,8 +211,7 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
             if (msg.message.startsWith("No seat to rejoin")) {
               setJoined(false);
             } else if (msg.message === "This room has closed") {
-              goneRef.current = true;
-              setConnectionState("gone");
+              markGone();
             } else {
               setError(msg.message);
             }
@@ -153,57 +220,117 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
       };
 
       ws.onclose = () => {
+        if (!isCurrentSocket()) return;
         wsRef.current = null;
-        if (closed || goneRef.current) return;
+        wsIdentityRef.current = null;
         attempts += 1;
         setConnectionState("reconnecting");
         setReconnectAttempt(attempts);
         if (attempts % 4 === 0) {
           // Repeated failures — check whether the room still exists at all.
-          fetch(`/api/rooms/${code}`).then((res) => {
-            if (res.status === 404) {
-              goneRef.current = true;
-              setConnectionState("gone");
-            }
-          }).catch(() => {});
+          const openedAtProbe = openedSockets;
+          const controller = new AbortController();
+          probeControllers.add(controller);
+          fetch(`/api/rooms/${code}`, { signal: controller.signal })
+            .then((res) => {
+              probeControllers.delete(controller);
+              if (
+                !isCurrentEffect() ||
+                controller.signal.aborted ||
+                openedSockets !== openedAtProbe
+              ) {
+                return;
+              }
+              if (res.status === 404) markGone();
+            })
+            .catch(() => {
+              probeControllers.delete(controller);
+            });
         }
-        retryTimer = setTimeout(connect, Math.min(5000, 600 * attempts));
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          connect();
+        }, Math.min(5000, 600 * attempts));
       };
       ws.onerror = () => {
         // onclose follows and handles the retry
       };
     };
 
+    const beginConnecting = () => {
+      if (!isCurrentEffect() || goneRef.current) return;
+      setConnectionState("connecting");
+      connect();
+    };
+
     // A 404 on upgrade means the room is gone — probe once so we can say so.
-    fetch(`/api/rooms/${code}`)
+    const initialProbeController = new AbortController();
+    probeControllers.add(initialProbeController);
+    initialProbeTimer = setTimeout(() => {
+      if (!initialProbePending || !isCurrentEffect()) return;
+      initialProbePending = false;
+      probeControllers.delete(initialProbeController);
+      initialProbeController.abort();
+      beginConnecting();
+    }, INITIAL_PROBE_TIMEOUT_MS);
+    fetch(`/api/rooms/${code}`, { signal: initialProbeController.signal })
       .then((res) => {
-        if (closed) return;
+        if (!initialProbePending) return;
+        initialProbePending = false;
+        probeControllers.delete(initialProbeController);
+        if (initialProbeTimer !== null) {
+          clearTimeout(initialProbeTimer);
+          initialProbeTimer = null;
+        }
+        if (!isCurrentEffect()) return;
         if (res.status === 404) {
-          goneRef.current = true;
-          setConnectionState("gone");
+          markGone();
         } else {
-          setConnectionState("connecting");
-          connect();
+          beginConnecting();
         }
       })
       .catch(() => {
-        if (closed) return;
-        setConnectionState("connecting");
-        connect();
+        if (!initialProbePending) return;
+        initialProbePending = false;
+        probeControllers.delete(initialProbeController);
+        if (initialProbeTimer !== null) {
+          clearTimeout(initialProbeTimer);
+          initialProbeTimer = null;
+        }
+        beginConnecting();
       });
 
     return () => {
       closed = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      wsRef.current?.close(1000, "bye");
-      wsRef.current = null;
+      initialProbePending = false;
+      if (retryTimer !== null) clearTimeout(retryTimer);
+      if (initialProbeTimer !== null) clearTimeout(initialProbeTimer);
+      abortProbes();
+      if (liveTimer.current !== null) {
+        clearTimeout(liveTimer.current);
+        liveTimer.current = null;
+      }
+      liveBuf.current = [];
+      if (
+        wsRef.current !== null &&
+        wsIdentityRef.current === roomIdentity
+      ) {
+        const socket = wsRef.current;
+        wsRef.current = null;
+        wsIdentityRef.current = null;
+        socket.close(1000, "bye");
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, watch]);
+  }, [code, roomIdentity, watch]);
 
   const send = useCallback((msg: ClientMsg) => {
     const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (
+      ws &&
+      wsIdentityRef.current === roomIdentity &&
+      ws.readyState === WebSocket.OPEN
+    ) {
       ws.send(JSON.stringify(msg));
       return;
     }
@@ -212,10 +339,17 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
     // on a card that was read minutes ago; dropping a "commit" loses a stroke
     // with no trace. The DO re-validates every replayed message, so a stale
     // one is refused rather than misapplied.
-    if (!EPHEMERAL_MSGS.has(msg.t) && outbox.current.length < OUTBOX_MAX) {
-      outbox.current.push(msg);
+    const generation = effectGenerationRef.current;
+    if (outbox.current.generation !== generation) {
+      outbox.current = { generation, messages: [] };
     }
-  }, []);
+    if (
+      !EPHEMERAL_MSGS.has(msg.t) &&
+      outbox.current.messages.length < OUTBOX_MAX
+    ) {
+      outbox.current.messages.push(msg);
+    }
+  }, [roomIdentity]);
 
   /** Clear the in-flight ink, cancelling anything still sitting in the buffer.
    *  Sending the clear on its own would race the 40ms flush and leave a
@@ -252,23 +386,39 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
       }
       liveBuf.current.push(...batch);
       if (liveTimer.current === null) {
+        const identity = roomIdentity;
         liveTimer.current = setTimeout(() => {
           liveTimer.current = null;
+          if (activeIdentityRef.current !== identity) {
+            liveBuf.current = [];
+            return;
+          }
           const points = liveBuf.current;
           liveBuf.current = [];
           if (points.length > 0) send({ t: "live", points });
         }, 40);
       }
     },
-    [send],
+    [roomIdentity, send],
   );
 
   const clearError = useCallback(() => setError(null), []);
-  const connected = connectionState === "connected";
-  const gone = connectionState === "gone";
+  const scopeIsCurrent = activeIdentityRef.current === roomIdentity;
+  const visibleConnectionState = scopeIsCurrent ? connectionState : "checking";
+  const visibleReconnectAttempt = scopeIsCurrent ? reconnectAttempt : 0;
+  const connected = visibleConnectionState === "connected";
+  const gone = visibleConnectionState === "gone";
 
   return {
-    connected, connectionState, reconnectAttempt, joined, gone, state, you, error, live,
+    connected,
+    connectionState: visibleConnectionState,
+    reconnectAttempt: visibleReconnectAttempt,
+    joined: scopeIsCurrent ? joined : false,
+    gone,
+    state: scopeIsCurrent ? state : null,
+    you: scopeIsCurrent ? you : null,
+    error: scopeIsCurrent ? error : null,
+    live: scopeIsCurrent ? live : {},
     join, send, sendLive, sendLiveClear, clearError,
   };
 }
