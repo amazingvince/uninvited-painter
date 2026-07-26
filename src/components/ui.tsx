@@ -7,10 +7,13 @@ export function ClockChip({ deadline }: { deadline: number | null | undefined })
   const now = useNow(250, deadline != null);
   if (deadline == null) return null;
   const left = Math.max(0, deadline - now);
+  const secondsLeft = Math.ceil(left / 1_000);
   return (
     <span
       className="kicker"
       style={{ color: left < 10_000 ? "var(--amber)" : "var(--muted)", letterSpacing: "0.1em" }}
+      role="timer"
+      aria-label={`${secondsLeft} seconds left`}
     >
       {formatClock(left)}
     </span>
@@ -45,18 +48,22 @@ export function Kicker({ children, style }: { children: ReactNode; style?: CSSPr
 
 export function Btn({
   variant = "ink",
+  type = "button",
   onClick,
   children,
   disabled,
   split,
   style,
+  ariaLabel,
 }: {
   variant?: "red" | "ink" | "outline" | "disabled";
+  type?: "button" | "submit";
   onClick?: () => void;
   children: ReactNode;
   disabled?: boolean;
   split?: boolean;
   style?: CSSProperties;
+  ariaLabel?: string;
 }) {
   // Every call site says variant="disabled" rather than disabled — which used
   // to leave the button focusable, so Tab+Enter still fired onClick. Both
@@ -64,7 +71,14 @@ export function Btn({
   const off = disabled || variant === "disabled";
   const cls = `btn btn--${off ? "disabled" : variant}${split ? " btn--split" : ""}`;
   return (
-    <button className={cls} onClick={onClick} disabled={off} style={style}>
+    <button
+      type={type}
+      className={cls}
+      onClick={onClick}
+      disabled={off}
+      style={style}
+      aria-label={ariaLabel}
+    >
       {children}
     </button>
   );
@@ -81,7 +95,7 @@ export function Swatch({ index, size = 14 }: { index: number; size?: number }) {
 
 export function BackLink({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button className="kicker u-muted" onClick={onClick} style={{ padding: "2px 0" }}>
+    <button className="kicker u-muted tap-target" onClick={onClick}>
       {label}
     </button>
   );
