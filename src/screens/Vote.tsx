@@ -55,6 +55,8 @@ export function Vote({
         )}
       </div>
       <button
+        type="button"
+        aria-label="Finished drawing. Select an artist below to highlight their lines."
         style={{
           margin: "14px 20px",
           background: "var(--paper)",

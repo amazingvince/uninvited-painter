@@ -152,7 +152,11 @@ export function Reveal({
         </div>
         {!voided && (
           <div style={{ display: "flex", alignItems: "center", gap: 14, borderTop: "3px solid var(--ink)", borderBottom: "3px solid var(--ink)", padding: "14px 0" }}>
-            <div style={{ width: 112, height: 112, background: "var(--paper)", border: "2px solid var(--ink)", position: "relative", flex: "none" }}>
+            <div
+              role="img"
+              aria-label={`Finished round ${round.roundNo} drawing.`}
+              style={{ width: 112, height: 112, background: "var(--paper)", border: "2px solid var(--ink)", position: "relative", flex: "none" }}
+            >
               <svg className="draw-in" viewBox="0 0 1000 1000" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
                 <StrokePaths
                   strokes={round.strokes}

@@ -88,6 +88,16 @@ input {
   outline-offset: -3px;
 }
 
+.hold-peek {
+  padding: 0 4px;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* ---- app frame: phone-sized column, centered on desktop ---- */
 
 .frame {
@@ -386,6 +396,24 @@ input {
   text-transform: uppercase;
   color: var(--muted);
   pointer-events: none;
+}
+
+.draw-controls {
+  min-height: 0;
+}
+
+.draw-paused-banner {
+  flex: none;
+  border: 3px solid var(--red);
+  background: var(--paper);
+  color: var(--red-deep);
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.draw-undo {
+  padding: 0 8px;
 }
 
 .nib {

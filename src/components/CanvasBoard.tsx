@@ -76,6 +76,7 @@ export interface LiveStroke {
 }
 
 interface CanvasBoardProps {
+  ariaLabel: string;
   strokes: Stroke[];
   /** In-progress remote stroke(s), keyed by player — drawn with a moving nib. */
   live?: Record<string, LiveStroke>;
@@ -96,7 +97,14 @@ interface CanvasBoardProps {
   };
 }
 
-export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasBoardProps) {
+export function CanvasBoard({
+  ariaLabel,
+  strokes,
+  live,
+  pending,
+  corner,
+  drawing,
+}: CanvasBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
   const pointsRef = useRef<number[]>([]);
   const gestureLen = useRef(0);
@@ -192,22 +200,34 @@ export function CanvasBoard({ strokes, live, pending, corner, drawing }: CanvasB
       finish();
     };
 
+    const lostCapture = (e: PointerEvent) => {
+      if (activePointer.current !== e.pointerId) return;
+      finish();
+    };
+
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", up);
+    el.addEventListener("lostpointercapture", lostCapture);
     return () => {
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", up);
+      el.removeEventListener("lostpointercapture", lostCapture);
     };
   }, []);
 
   const liveEntries = Object.entries(live ?? {});
 
   return (
-    <div className="board" ref={boardRef}>
+    <div
+      className="board"
+      ref={boardRef}
+      role={drawing ? "application" : "img"}
+      aria-label={ariaLabel}
+    >
       <svg viewBox={`0 0 ${VIEW} ${VIEW}`}>
         <StrokePaths strokes={strokes} />
         {liveEntries.map(([pid, s]) => (

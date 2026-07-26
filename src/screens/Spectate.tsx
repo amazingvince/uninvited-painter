@@ -6,6 +6,7 @@ import { SEAT_COLORS } from "../../shared/palette";
 import type { Player, RoundState, Stroke } from "../../shared/types";
 import { CanvasBoard, type LiveStroke } from "../components/CanvasBoard";
 import { ClockChip, Screen } from "../components/ui";
+import { drawingCanvasLabel } from "../lib/labels";
 
 export interface TurnChip {
   player: Player;
@@ -81,7 +82,17 @@ export function Spectate({
           Live
         </div>
       </div>
-      <CanvasBoard strokes={strokes} live={live} corner={`${String(strokeNo).padStart(2, "0")} / ${strokeTotal}`} />
+      <CanvasBoard
+        ariaLabel={drawingCanvasLabel({
+          actor: drawerName,
+          strokeNo,
+          strokeTotal,
+          live: true,
+        })}
+        strokes={strokes}
+        live={live}
+        corner={`${String(strokeNo).padStart(2, "0")} / ${strokeTotal}`}
+      />
       <div
         className="grow"
         style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "16px 20px calc(24px + env(safe-area-inset-bottom))", minHeight: 0 }}
