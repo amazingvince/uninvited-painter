@@ -10,7 +10,14 @@ import {
   useState,
 } from "react";
 import { drawerOf } from "../../shared/engine";
-import type { ClientMsg, PublicRoomState, ServerMsg, YouView } from "../../shared/protocol";
+import {
+  isAuthoritativeClientMsg,
+  scopeClientMsg,
+  type ClientMsg,
+  type PublicRoomState,
+  type ServerMsg,
+  type YouView,
+} from "../../shared/protocol";
 import type { StrokePoints } from "../../shared/types";
 import type { LiveStroke } from "../components/CanvasBoard";
 import { hasJoined, markJoined, roomToken, saveLastRoom } from "../lib/storage";
@@ -55,6 +62,7 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
   const [you, setYou] = useState<YouView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState<Record<string, LiveStroke>>({});
+  const stateRef = useRef<PublicRoomState | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const liveBuf = useRef<number[]>([]);
@@ -94,6 +102,7 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
     setConnectionState("checking");
     setReconnectAttempt(0);
     setJoined(false);
+    stateRef.current = null;
     setState(null);
     setYou(null);
     setError(null);
@@ -176,6 +185,7 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
             saveLastRoom(code);
             break;
           case "state": {
+            stateRef.current = msg.state;
             setState(msg.state);
             setYou(msg.you);
             // In-progress overlays only make sense for the current drawer.
@@ -363,7 +373,8 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
       !EPHEMERAL_MSGS.has(msg.t) &&
       outbox.current.messages.length < OUTBOX_MAX
     ) {
-      outbox.current.messages.push(msg);
+      if (!isAuthoritativeClientMsg(msg) || !stateRef.current) return;
+      outbox.current.messages.push(scopeClientMsg(msg, stateRef.current));
     }
   }, [roomIdentity]);
 

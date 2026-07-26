@@ -173,6 +173,16 @@ describe("observable browser actions", () => {
       "Could not copy — select the visible URL",
     );
 
+    await act(async () => {
+      buttonWithText(container, "Copy spectator link").click();
+      await Promise.resolve();
+    });
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Spectator link"]')?.value)
+      .toBe("https://example.test/w/MOLT");
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "Could not copy — use the spectator link shown below",
+    );
+
     Reflect.deleteProperty(
       globalThis.navigator as Navigator & { share?: Navigator["share"] },
       "share",
@@ -211,6 +221,24 @@ describe("observable browser actions", () => {
       await Promise.resolve();
     });
 
+    expect(share.publishArchive).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain(
+      "public archive",
+    );
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain(
+      "kept for one year",
+    );
+
+    act(() => buttonWithText(container, "Cancel").click());
+    expect(share.publishArchive).not.toHaveBeenCalled();
+
+    act(() => buttonWithText(container, "Publish the archive").click());
+    await act(async () => {
+      buttonWithText(container, "Publish publicly").click();
+      await Promise.resolve();
+    });
+
+    expect(share.publishArchive).toHaveBeenCalledTimes(1);
     expect(writeText).not.toHaveBeenCalled();
     expect(nativeShare).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Published");
@@ -249,8 +277,9 @@ describe("observable browser actions", () => {
       );
     });
 
+    act(() => buttonWithText(container, "Publish the archive").click());
     await act(async () => {
-      buttonWithText(container, "Publish the archive").click();
+      buttonWithText(container, "Publish publicly").click();
       await Promise.resolve();
     });
     expect(container.textContent).toContain("Devon takes");
@@ -259,12 +288,29 @@ describe("observable browser actions", () => {
       "Publishing failed",
     );
 
+    act(() => buttonWithText(container, "Publishing failed").click());
     await act(async () => {
-      buttonWithText(container, "Publishing failed").click();
+      buttonWithText(container, "Publish publicly").click();
       await Promise.resolve();
     });
     expect(container.textContent).toContain("Published");
     expect(share.publishArchive).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not offer online archive publishing to a non-host", () => {
+    act(() => {
+      root.render(
+        <Final
+          players={PLAYERS}
+          archive={[archiveEntry()]}
+          canPublish={false}
+          waiting="Waiting for the host…"
+        />,
+      );
+    });
+
+    expect(container.textContent).not.toContain("Publish the archive");
+    expect(share.publishArchive).not.toHaveBeenCalled();
   });
 
   it("reports a cancelled archive PNG save without claiming completion", async () => {

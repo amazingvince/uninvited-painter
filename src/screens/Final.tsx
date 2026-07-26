@@ -12,6 +12,7 @@ import { numberWord } from "../lib/labels";
 import { contactSheetPng, drawingPng, publishArchive, shareOrDownload } from "../lib/share";
 import { renditionImageUrl } from "./RenditionReveal";
 import { Confetti } from "../components/Confetti";
+import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Screen, Btn, Kicker, Swatch } from "../components/ui";
 
 export function Final({
@@ -19,6 +20,7 @@ export function Final({
   archive,
   onAgain,
   waiting,
+  canPublish = true,
 }: {
   players: Player[];
   archive: ArchiveEntry[];
@@ -26,6 +28,7 @@ export function Final({
   totalRounds?: number;
   onAgain?: () => void;
   waiting?: string;
+  canPublish?: boolean;
 }) {
   const ranked = [...players].sort((a, b) => b.score - a.score);
   const winner = ranked[0];
@@ -49,6 +52,7 @@ export function Final({
     message: string;
     tone: NoticeTone;
   } | null>(null);
+  const [confirmPublish, setConfirmPublish] = useState(false);
 
   const noticeForResult = (
     result: Awaited<ReturnType<typeof shareOrDownload>>,
@@ -67,7 +71,7 @@ export function Final({
   };
 
   const publish = async () => {
-    if (publishState.kind === "busy") return;
+    if (!canPublish || publishState.kind === "busy") return;
     setNotice(null);
     setPublishState({ kind: "busy" });
     try {
@@ -273,7 +277,7 @@ export function Final({
         ) : (
           <div className="note u-center pulse">{waiting ?? "Waiting for the host…"}</div>
         )}
-        {publishState.kind === "done" ? (
+        {canPublish && publishState.kind === "done" ? (
           <div className="archive-link-panel">
             <div className="kicker u-red">Published</div>
             <div className="small u-center archive-link-url">
@@ -294,15 +298,19 @@ export function Final({
               </button>
             </div>
           </div>
-        ) : (
-          <Btn variant="outline" onClick={() => void publish()}>
+        ) : canPublish ? (
+          <Btn
+            variant="outline"
+            disabled={publishState.kind === "busy"}
+            onClick={() => setConfirmPublish(true)}
+          >
             {publishState.kind === "busy"
               ? "Hanging it in the archive…"
               : publishState.kind === "error"
                 ? "Publishing failed — try again"
                 : "Publish the archive"}
           </Btn>
-        )}
+        ) : null}
         <button
           className="kicker u-muted u-center tap-target archive-secondary-action"
           onClick={() => void saveContactSheet()}
@@ -314,6 +322,20 @@ export function Final({
           tone={notice?.tone}
         />
       </div>
+      {confirmPublish && (
+        <ConfirmSheet
+          title="Publish a public archive?"
+          body="Player names, scores, words, outcomes, and drawings will be public to anyone with the link and kept for one year."
+          confirmLabel="Publish publicly"
+          cancelLabel="Cancel"
+          tone="neutral"
+          onConfirm={() => {
+            setConfirmPublish(false);
+            void publish();
+          }}
+          onCancel={() => setConfirmPublish(false)}
+        />
+      )}
     </Screen>
   );
 }

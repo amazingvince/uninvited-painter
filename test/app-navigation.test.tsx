@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
+import { loadLastRoom, saveLastRoom } from "../src/lib/storage";
 
 class PendingWebSocket {
   static readonly CONNECTING = 0;
@@ -97,5 +98,51 @@ describe("App route transitions", () => {
       ),
     ).toBe(false);
     consoleError.mockRestore();
+  });
+
+  it("does not let a delayed room probe erase a newer tab's shortcut", async () => {
+    const probes: Array<{
+      url: string;
+      signal: AbortSignal | null;
+      resolve: (response: Response) => void;
+    }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        return new Promise<Response>((resolve) => {
+          probes.push({
+            url: String(input),
+            signal: init?.signal ?? null,
+            resolve,
+          });
+        });
+      }),
+    );
+    saveLastRoom("MOLT");
+
+    act(() => root.render(<App />));
+    act(() => buttonNamed(container, "Play online→").click());
+    await act(async () => Promise.resolve());
+    expect(probes[0].signal).not.toBeNull();
+
+    saveLastRoom("INKS");
+    act(() => buttonNamed(container, "← Entrance").click());
+    act(() => buttonNamed(container, "Play online→").click());
+    await act(async () => Promise.resolve());
+
+    expect(probes[0].signal?.aborted).toBe(true);
+    expect(probes[1].url).toBe("/api/rooms/INKS");
+    await act(async () => {
+      probes[0].resolve({ ok: false, status: 404 } as Response);
+      await Promise.resolve();
+    });
+
+    expect(loadLastRoom()?.code).toBe("INKS");
+
+    await act(async () => {
+      probes[1].resolve({ ok: true, status: 200 } as Response);
+      await Promise.resolve();
+    });
+    expect(loadLastRoom()?.code).toBe("INKS");
   });
 });

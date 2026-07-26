@@ -64,4 +64,15 @@ describe("last room recovery", () => {
     clearLastRoom();
     expect(values.has("painter.lastRoom.v1")).toBe(false);
   });
+
+  it("only clears the room code the caller actually observed", () => {
+    saveLastRoom("MOLT");
+    saveLastRoom("INKS");
+
+    expect(clearLastRoom("MOLT")).toBe(false);
+    expect(loadLastRoom()?.code).toBe("INKS");
+
+    expect(clearLastRoom("INKS")).toBe(true);
+    expect(loadLastRoom()).toBeNull();
+  });
 });

@@ -55,11 +55,23 @@ export interface LastRoom {
   at: number;
 }
 
-export function clearLastRoom(): void {
+export function clearLastRoom(expectedCode?: string): boolean {
   try {
+    if (expectedCode !== undefined) {
+      const saved = read<LastRoom>(LAST_ROOM);
+      if (
+        !saved ||
+        typeof saved.code !== "string" ||
+        normalizeRoomCode(saved.code) !== normalizeRoomCode(expectedCode)
+      ) {
+        return false;
+      }
+    }
     localStorage.removeItem(LAST_ROOM);
+    return true;
   } catch {
     // Storage is optional.
+    return false;
   }
 }
 

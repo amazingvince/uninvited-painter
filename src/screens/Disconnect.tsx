@@ -6,6 +6,32 @@ import { HOLD_MS } from "../../shared/types";
 import type { PublicRoomState } from "../../shared/protocol";
 import { Screen, Kicker, Btn } from "../components/ui";
 
+export function dropPlayerConsequence(
+  state: PublicRoomState,
+  playerId: string,
+): { description: string; action: string } {
+  const name =
+    state.players.find((player) => player.id === playerId)?.name ?? "them";
+  if (state.round?.fakeId === playerId) {
+    return {
+      description: `Dropping ${name} voids this round and deals fresh cards.`,
+      action: "Void round and re-deal",
+    };
+  }
+  if (state.round?.fakeId !== null && state.round?.fakeId !== undefined) {
+    return {
+      description: `Dropping ${name} removes their pending turn or vote and play continues.`,
+      action: `Drop ${name} and continue`,
+    };
+  }
+  return {
+    description:
+      `Dropping the fake artist voids this round and deals fresh cards. ` +
+      `Otherwise ${name}'s pending turn or vote is removed and play continues.`,
+    action: `Resolve ${name}'s seat`,
+  };
+}
+
 export function DisconnectOverlay({
   state,
   isHost,
@@ -20,6 +46,7 @@ export function DisconnectOverlay({
   if (holds.length === 0) return null;
   const [firstId, firstDeadline] = holds[0];
   const held = state.players.find((p) => p.id === firstId);
+  const dropCopy = dropPlayerConsequence(state, firstId);
   const additionalHolds = holds.length - 1;
   const remaining = Math.max(0, firstDeadline - now);
   const pct = Math.min(100, Math.max(0, (remaining / HOLD_MS) * 100));
@@ -97,14 +124,14 @@ export function DisconnectOverlay({
                   className="note u-center"
                   style={{ fontSize: 12 }}
                 >
-                  Dropping the fake voids this round and deals fresh cards.
+                  {dropCopy.description}
                 </div>
                 <Btn
                   variant="red"
                   ariaDescribedBy="drop-player-consequence"
                   onClick={() => onDrop(firstId)}
                 >
-                  Drop {held?.name ?? "them"} and continue
+                  {dropCopy.action}
                 </Btn>
               </>
             ) : (

@@ -13,7 +13,7 @@ import {
 } from "../../shared/engine";
 import { aiFallbackEvent } from "../../shared/aiResults";
 import { prepareRoundEvent, redrawWordEvent } from "../../shared/decks";
-import { guessMatches } from "../../shared/fuzzy";
+import { prepareGuessSubmission } from "../../shared/fuzzy";
 import type { GameEvent, RoomState } from "../../shared/types";
 import { clearLocalGame, saveLocalGame } from "../lib/storage";
 import {
@@ -536,15 +536,16 @@ export function LocalFlow({
         category={round.category}
         strokes={round.strokes}
         deadline={round.guessDeadline}
-        onSubmit={(text) =>
+        onSubmit={(raw) => {
+          const { text, matched } = prepareGuessSubmission(raw, round.word);
           dispatch({
             type: "SUBMIT_GUESS",
             playerId: round.fakeId,
             text,
-            matched: guessMatches(text, round.word),
+            matched,
             now: Date.now(),
-          })
-        }
+          });
+        }}
       />
     );
   } else if (state.phase === "reveal") {

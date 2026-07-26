@@ -78,6 +78,7 @@ export function HostLobby({
   } | null>(null);
   const canShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const spectatorUrl = shareUrl.replace("/r/", "/w/");
 
   const copy = async (text: string, label: "Room" | "Spectator") => {
     const result = await copyText(text);
@@ -85,7 +86,10 @@ export function HostLobby({
       result === "done"
         ? { message: `${label} link copied`, tone: "success" }
         : {
-            message: "Could not copy — select the visible URL",
+            message:
+              label === "Spectator"
+                ? "Could not copy — use the spectator link shown below"
+                : "Could not copy — select the visible URL",
             tone: "error",
           },
     );
@@ -178,12 +182,26 @@ export function HostLobby({
         <button
           className="kicker"
           style={{ color: "var(--muted-dark)", letterSpacing: "0.1em", paddingTop: 10 }}
-          onClick={() =>
-            void copy(shareUrl.replace("/r/", "/w/"), "Spectator")
-          }
+          onClick={() => void copy(spectatorUrl, "Spectator")}
         >
           Copy spectator link — watch only, no seat
         </button>
+        <input
+          aria-label="Spectator link"
+          readOnly
+          value={spectatorUrl}
+          onFocus={(event) => event.currentTarget.select()}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            marginTop: 8,
+            padding: "8px 10px",
+            border: "1px solid var(--muted-dark)",
+            background: "transparent",
+            color: "var(--muted-dark)",
+            fontSize: 12,
+          }}
+        />
         <ActionNotice
           message={notice?.message ?? null}
           tone={notice?.tone}

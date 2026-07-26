@@ -87,6 +87,8 @@ export function createRoom(params: {
   return {
     code: params.code,
     mode: params.mode,
+    gameNo: 1,
+    roundVersion: 0,
     hostId: params.hostId,
     phase: "lobby",
     players: [],
@@ -105,6 +107,8 @@ export function createRoom(params: {
 
 /** Fill fields added after a state was persisted — old rooms survive deploys. */
 export function normalizeRoom(state: RoomState): RoomState {
+  state.gameNo ??= 1;
+  state.roundVersion ??= state.round ? 1 : 0;
   const s = (state.settings ?? {}) as Partial<Settings>;
   state.settings = {
     deckId: s.deckId ?? DEFAULT_SETTINGS.deckId,
@@ -750,6 +754,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
         return fail(`Needs at least ${MIN_PLAYERS} players present`);
       }
 
+      state.roundVersion += 1;
       state.round = {
         roundNo: state.roundsPlayed + 1,
         word: event.word,
@@ -1012,6 +1017,8 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
 
     case "PLAY_AGAIN": {
       if (state.phase !== "closed") return fail("The exhibition is still open");
+      state.gameNo += 1;
+      state.roundVersion = 0;
       state.phase = "lobby";
       state.round = null;
       state.archive = [];

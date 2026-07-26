@@ -5,6 +5,7 @@
 
 import type {
   GameEvent,
+  Phase,
   Player,
   RoomState,
   RoundState,
@@ -14,27 +15,105 @@ import type {
 
 export type Role = "artist" | "fake" | "qm";
 
-export type ClientMsg =
-  | { t: "join"; token: string; name: string; colorIndex: number }
-  | { t: "rejoin"; token: string }
+export interface ActionScope {
+  gameNo: number;
+  roundVersion: number;
+  phase: Phase;
+  roundNo: number | null;
+  turnIndex: number | null;
+}
+
+type AuthoritativeClientMsg =
   | { t: "rename"; name: string }
   | { t: "setColor"; colorIndex: number }
   | { t: "settings"; settings: Partial<Settings> }
   | { t: "houseWords"; add?: string[]; remove?: string }
-  | { t: "lock"; locked: boolean } // host only
-  | { t: "start" } // host only
-  | { t: "redraw" } // QM only, while dealing
-  | { t: "deal" } // QM only
+  | { t: "lock"; locked: boolean }
+  | { t: "start" }
+  | { t: "redraw" }
+  | { t: "deal" }
   | { t: "seen" }
-  | { t: "live"; points: StrokePoints; newSegment?: boolean } // in-progress ink (ephemeral)
-  | { t: "liveClear" } // undo within the grace window
   | { t: "commit"; points: StrokePoints; breaks?: number[] }
   | { t: "vote"; targetId: string }
   | { t: "guess"; text: string }
-  | { t: "next" } // host: next round / re-deal after a void / close
-  | { t: "again" } // host, from closed
-  | { t: "dropPlayer"; playerId: string } // host: carry on without them
+  | { t: "next" }
+  | { t: "again" }
+  | { t: "dropPlayer"; playerId: string }
   | { t: "leave" };
+
+type EphemeralClientMsg =
+  | { t: "join"; token: string; name: string; colorIndex: number }
+  | { t: "rejoin"; token: string }
+  | { t: "live"; points: StrokePoints; newSegment?: boolean } // in-progress ink (ephemeral)
+  | { t: "liveClear" };
+
+export type ClientMsg =
+  | EphemeralClientMsg
+  | (AuthoritativeClientMsg & { scope?: ActionScope });
+
+const EPHEMERAL_CLIENT_TYPES = new Set<ClientMsg["t"]>([
+  "join",
+  "rejoin",
+  "live",
+  "liveClear",
+]);
+
+export function isAuthoritativeClientMsg(
+  msg: ClientMsg,
+): msg is AuthoritativeClientMsg & { scope?: ActionScope } {
+  return !EPHEMERAL_CLIENT_TYPES.has(msg.t);
+}
+
+type ScopeState = {
+  gameNo: number;
+  roundVersion: number;
+  phase: Phase;
+  round: Pick<RoundState, "roundNo" | "turnIndex"> | null;
+};
+
+export function actionScopeFor(state: ScopeState): ActionScope {
+  return {
+    gameNo: state.gameNo,
+    roundVersion: state.roundVersion,
+    phase: state.phase,
+    roundNo: state.round?.roundNo ?? null,
+    turnIndex: state.round?.turnIndex ?? null,
+  };
+}
+
+export function scopeMatchesState(
+  scope: unknown,
+  state: ScopeState,
+): boolean {
+  if (!scope || typeof scope !== "object") return false;
+  const candidate = scope as Record<string, unknown>;
+  if (
+    !Number.isInteger(candidate.gameNo) ||
+    !Number.isInteger(candidate.roundVersion) ||
+    typeof candidate.phase !== "string" ||
+    !(candidate.roundNo === null || Number.isInteger(candidate.roundNo)) ||
+    !(candidate.turnIndex === null || Number.isInteger(candidate.turnIndex))
+  ) {
+    return false;
+  }
+  const current = actionScopeFor(state);
+  return (
+    candidate.gameNo === current.gameNo &&
+    candidate.roundVersion === current.roundVersion &&
+    candidate.phase === current.phase &&
+    candidate.roundNo === current.roundNo &&
+    candidate.turnIndex === current.turnIndex
+  );
+}
+
+export function scopeClientMsg(
+  msg: ClientMsg,
+  state: ScopeState,
+): ClientMsg {
+  return isAuthoritativeClientMsg(msg)
+    ? { ...msg, scope: actionScopeFor(state) }
+    : msg;
+}
 
 export type ServerMsg =
   | { t: "joined"; playerId: string }

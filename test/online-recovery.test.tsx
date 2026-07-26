@@ -8,6 +8,7 @@ import { createRoom, reduce } from "../shared/engine";
 import { redactState, type PublicRoomState } from "../shared/protocol";
 import type { GameEvent, RoomState } from "../shared/types";
 import { DisconnectOverlay, ReconnectingBanner } from "../src/screens/Disconnect";
+import { AwayNudge } from "../src/flows/OnlineFlow";
 import { HostLobby } from "../src/screens/HostLobby";
 import { JoinerSetup } from "../src/screens/JoinerSetup";
 
@@ -74,7 +75,10 @@ function heldRound(additionalHolds = 1): PublicRoomState {
 }
 
 function textOf(markup: string): string {
-  return markup.replace(/<[^>]*>/g, "").replaceAll("&amp;", "&");
+  return markup
+    .replace(/<[^>]*>/g, "")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&#x27;", "'");
 }
 
 describe("online recovery presentation", () => {
@@ -111,6 +115,43 @@ describe("online recovery presentation", () => {
       );
 
       expect(textOf(markup)).toContain(label);
+    },
+  );
+
+  it.each([
+    [
+      null,
+      "Dropping the fake artist voids this round and deals fresh cards. Otherwise Maya's pending turn or vote is removed and play continues.",
+      "Resolve Maya's seat",
+    ],
+    [
+      "p1",
+      "Dropping Maya voids this round and deals fresh cards.",
+      "Void round and re-deal",
+    ],
+    [
+      "p2",
+      "Dropping Maya removes their pending turn or vote and play continues.",
+      "Drop Maya and continue",
+    ],
+  ] as const)(
+    "makes the relaxed drop consequence truthful when fakeId is %s",
+    (fakeId, consequence, action) => {
+      const base = heldRound();
+      const state = {
+        ...base,
+        settings: { ...base.settings, presence: "relaxed" as const },
+        round: base.round ? { ...base.round, fakeId } : null,
+      };
+      const markup = renderToStaticMarkup(
+        <AwayNudge state={state} onDrop={() => undefined} />,
+      );
+      const text = textOf(markup);
+
+      expect(text).toContain(consequence);
+      expect(text).toContain(action);
+      expect(markup).toContain('aria-describedby="away-drop-player-consequence"');
+      expect(markup).toContain('id="away-drop-player-consequence"');
     },
   );
 
@@ -160,8 +201,8 @@ describe("online recovery presentation", () => {
       />,
     );
     const text = textOf(markup);
-    const consequence = "Dropping the fake voids this round and deals fresh cards.";
-    const action = "Drop Maya and continue";
+    const consequence = "Dropping Maya voids this round and deals fresh cards.";
+    const action = "Void round and re-deal";
 
     expect(text).toContain(heldCopy);
     expect(text.indexOf(consequence)).toBeLessThan(text.indexOf(action));

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoom } from "../shared/engine";
 import { normalizeRoomCode, isValidRoomCode } from "../shared/codes";
 import type { RoomState } from "../shared/types";
@@ -56,6 +56,7 @@ export function App() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [lastRoom, setLastRoom] = useState<LastRoom | null>(() => loadLastRoom());
   const [lastRoomStatus, setLastRoomStatus] = useState<LastRoomStatus>("ready");
+  const lastRoomProbeRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const onPop = () => setPath(location.pathname);
@@ -63,6 +64,7 @@ export function App() {
     // Browsers gate audio behind a gesture — arm it on the first touch.
     window.addEventListener("pointerdown", unlockAudio, { once: true });
     return () => {
+      lastRoomProbeRef.current?.abort();
       window.removeEventListener("popstate", onPop);
       window.removeEventListener("pointerdown", unlockAudio);
     };
@@ -74,18 +76,30 @@ export function App() {
   }, []);
 
   const verifyLastRoom = useCallback(async (room = loadLastRoom()) => {
+    lastRoomProbeRef.current?.abort();
     setLastRoom(room);
     if (!room) {
+      lastRoomProbeRef.current = null;
       setLastRoomStatus("ready");
       return false;
     }
 
+    const controller = new AbortController();
+    lastRoomProbeRef.current = controller;
     setLastRoomStatus("checking");
     try {
-      const res = await fetch(`/api/rooms/${room.code}`);
+      const res = await fetch(`/api/rooms/${room.code}`, {
+        signal: controller.signal,
+      });
+      if (
+        controller.signal.aborted ||
+        lastRoomProbeRef.current !== controller
+      ) {
+        return false;
+      }
       if (res.status === 404) {
-        clearLastRoom();
-        setLastRoom(null);
+        const cleared = clearLastRoom(room.code);
+        setLastRoom(cleared ? null : loadLastRoom());
         setLastRoomStatus("ready");
         return false;
       }
@@ -96,8 +110,18 @@ export function App() {
       setLastRoomStatus("ready");
       return true;
     } catch {
+      if (
+        controller.signal.aborted ||
+        lastRoomProbeRef.current !== controller
+      ) {
+        return false;
+      }
       setLastRoomStatus("failed");
       return false;
+    } finally {
+      if (lastRoomProbeRef.current === controller) {
+        lastRoomProbeRef.current = null;
+      }
     }
   }, []);
 

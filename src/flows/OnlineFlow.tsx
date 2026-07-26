@@ -42,7 +42,11 @@ import { Reveal } from "../screens/Reveal";
 import { RenditionReveal } from "../screens/RenditionReveal";
 import { Standings } from "../screens/Standings";
 import { Final } from "../screens/Final";
-import { DisconnectOverlay, ReconnectingBanner } from "../screens/Disconnect";
+import {
+  DisconnectOverlay,
+  ReconnectingBanner,
+  dropPlayerConsequence,
+} from "../screens/Disconnect";
 import { VerdictChip } from "../components/VerdictChip";
 import { useRevealSequence } from "../lib/revealSequence";
 
@@ -231,8 +235,11 @@ export function OnlineFlow({
     };
   }, [peekCard]);
 
+  useEffect(() => {
+    if (room.gone) clearLastRoom(code);
+  }, [code, room.gone]);
+
   if (room.gone) {
-    clearLastRoom();
     return (
       <Screen>
         <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--ink)" }}>
@@ -296,6 +303,7 @@ export function OnlineFlow({
         players={state.players}
         archive={state.archive}
         totalRounds={state.settings.rounds}
+        canPublish={isHost}
         onAgain={isHost ? () => room.send({ t: "again" }) : undefined}
         waiting="The host can open another exhibition"
       />
@@ -761,7 +769,7 @@ export function OnlineFlow({
 
 /** Relaxed rooms never pause — but the host still needs a way past a player
  *  who is away AND currently blocking the round. */
-function AwayNudge({
+export function AwayNudge({
   state,
   onDrop,
 }: {
@@ -792,6 +800,7 @@ function AwayNudge({
   }
   if (blockers.length === 0) return null;
   const first = state.players.find((p) => p.id === blockers[0]);
+  const dropCopy = dropPlayerConsequence(state, blockers[0]);
   return (
     <div
       style={{
@@ -808,16 +817,20 @@ function AwayNudge({
         gap: 12,
       }}
     >
-      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
-        Waiting on {first?.name ?? "someone"} — their app is closed. The room plays on when they
-        return…
+      <span
+        id="away-drop-player-consequence"
+        style={{ flex: 1, fontSize: 13, fontWeight: 600 }}
+      >
+        Waiting on {first?.name ?? "someone"} — their app is closed.{" "}
+        {dropCopy.description}
       </span>
       <button
         className="shout"
         style={{ fontSize: 13, color: "var(--gold)", flex: "none" }}
+        aria-describedby="away-drop-player-consequence"
         onClick={() => onDrop(blockers[0])}
       >
-        Carry on without them
+        {dropCopy.action}
       </button>
     </div>
   );
@@ -863,6 +876,7 @@ function WatchBody({
         players={state.players}
         archive={state.archive}
         totalRounds={state.settings.rounds}
+        canPublish={false}
         waiting="You watched the whole thing"
       />
     );

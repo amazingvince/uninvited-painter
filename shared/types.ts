@@ -148,6 +148,10 @@ export interface ArchiveEntry {
 export interface RoomState {
   code: string; // "" in local mode
   mode: Mode;
+  /** Monotonic exhibition generation used to expire queued online actions. */
+  gameNo: number;
+  /** Changes every time cards are prepared, including a voided-round re-deal. */
+  roundVersion: number;
   hostId: string;
   phase: Phase;
   players: Player[];

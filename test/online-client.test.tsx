@@ -82,6 +82,41 @@ function publicRoom(code: string) {
   return redactState(state, `${code}-host`);
 }
 
+function drawingRoom(code: string) {
+  let state = createRoom({ code, mode: "online", hostId: "" });
+  for (let index = 0; index < 5; index += 1) {
+    state = apply(state, {
+      type: "ADD_PLAYER",
+      player: {
+        id: `${code}-p${index}`,
+        name: `${code} player ${index}`,
+        colorIndex: index,
+      },
+    });
+  }
+  const turnOrder = state.players.map((player) => player.id);
+  state = apply(state, {
+    type: "START_ROUND",
+    word: "penguin",
+    category: "Animals",
+    qmId: null,
+    fakeId: turnOrder[1],
+    turnOrder,
+  });
+  for (const playerId of turnOrder) {
+    state = apply(state, { type: "MARK_SEEN", playerId, now: 0 });
+  }
+  for (let index = 0; index < 4; index += 1) {
+    state = apply(state, {
+      type: "COMMIT_STROKE",
+      playerId: state.round!.schedule[state.round!.turnIndex],
+      points: [0.1, 0.1, 0.5, 0.5, 0.9, 0.9],
+      now: 0,
+    });
+  }
+  return redactState(state, `${code}-p0`);
+}
+
 const IDENTITY_CHANGES = [
   ["code", "INKS", false],
   ["watch mode", "MOLT", true],
@@ -449,14 +484,30 @@ describe("useOnlineRoom connection ownership", () => {
     localStorage.setItem("painter.token.MOLT", "token-molt");
     render();
     await resolveFetch(0, 200);
-    act(() => latest.send({ t: "seen" }));
+    const view = drawingRoom("MOLT");
+    const scopedState = { ...view.state, gameNo: 3 };
     const socket = ControlledWebSocket.instances[0];
-
     open(socket);
+    message(socket, { t: "state", state: scopedState, you: view.you });
+    close(socket);
+    act(() => latest.send({ t: "seen" }));
+    advance(600);
+    const retry = ControlledWebSocket.instances[1];
 
-    expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([
+    open(retry);
+
+    expect(retry.sent.map((frame) => JSON.parse(frame))).toEqual([
       { t: "rejoin", token: "token-molt" },
-      { t: "seen" },
+      {
+        t: "seen",
+        scope: {
+          gameNo: 3,
+          roundVersion: 1,
+          phase: "drawing",
+          roundNo: 1,
+          turnIndex: 4,
+        },
+      },
     ]);
   });
 });
