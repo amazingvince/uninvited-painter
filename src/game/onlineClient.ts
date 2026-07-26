@@ -56,11 +56,13 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
   const goneRef = useRef(false);
   const effectGenerationRef = useRef(0);
   const activeIdentityRef = useRef(roomIdentity);
+  const requestedIdentityRef = useRef(roomIdentity);
   const wsIdentityRef = useRef<string | null>(null);
   const outbox = useRef<{ generation: number; messages: ClientMsg[] }>({
     generation: 0,
     messages: [],
   });
+  requestedIdentityRef.current = roomIdentity;
 
   useEffect(() => {
     const generation = effectGenerationRef.current + 1;
@@ -325,6 +327,12 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
   }, [code, roomIdentity, watch]);
 
   const send = useCallback((msg: ClientMsg) => {
+    if (
+      requestedIdentityRef.current !== roomIdentity ||
+      activeIdentityRef.current !== roomIdentity
+    ) {
+      return;
+    }
     const ws = wsRef.current;
     if (
       ws &&
@@ -355,13 +363,19 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
    *  Sending the clear on its own would race the 40ms flush and leave a
    *  phantom nib on every spectator's screen for the rest of the turn. */
   const sendLiveClear = useCallback(() => {
+    if (
+      requestedIdentityRef.current !== roomIdentity ||
+      activeIdentityRef.current !== roomIdentity
+    ) {
+      return;
+    }
     if (liveTimer.current !== null) {
       clearTimeout(liveTimer.current);
       liveTimer.current = null;
     }
     liveBuf.current = [];
     send({ t: "liveClear" });
-  }, [send]);
+  }, [roomIdentity, send]);
 
   const join = useCallback(
     (name: string, colorIndex: number) => {
@@ -372,6 +386,12 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
 
   const sendLive = useCallback(
     (batch: StrokePoints, newSegment = false) => {
+      if (
+        requestedIdentityRef.current !== roomIdentity ||
+        activeIdentityRef.current !== roomIdentity
+      ) {
+        return;
+      }
       if (newSegment) {
         // Flush the previous segment's tail, then mark the fresh one.
         if (liveTimer.current !== null) {

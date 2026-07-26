@@ -82,6 +82,11 @@ function publicRoom(code: string) {
   return redactState(state, `${code}-host`);
 }
 
+const IDENTITY_CHANGES = [
+  ["code", "INKS", false],
+  ["watch mode", "MOLT", true],
+] as const;
+
 describe("useOnlineRoom connection ownership", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -283,10 +288,7 @@ describe("useOnlineRoom connection ownership", () => {
     });
   });
 
-  it.each([
-    ["code", "INKS", false],
-    ["watch mode", "MOLT", true],
-  ] as const)(
+  it.each(IDENTITY_CHANGES)(
     "clears private state, live buffers, and queued actions when %s changes",
     async (_scope, nextCode, nextWatch) => {
       render("MOLT", false);
@@ -322,6 +324,81 @@ describe("useOnlineRoom connection ownership", () => {
       advance(40);
 
       expect(newSocket.sent).toEqual([]);
+    },
+  );
+
+  async function retainCallbacksAcrossIdentityChange(
+    nextCode: string,
+    nextWatch: boolean,
+  ) {
+    render("MOLT", false);
+    await resolveFetch(0, 200);
+    open(ControlledWebSocket.instances[0]);
+    const stale = {
+      send: latest.send,
+      sendLive: latest.sendLive,
+      sendLiveClear: latest.sendLiveClear,
+    };
+
+    render(nextCode, nextWatch);
+    await resolveFetch(1, 200);
+    return {
+      stale,
+      current: latest,
+      socket: ControlledWebSocket.instances[1],
+    };
+  }
+
+  it.each(IDENTITY_CHANGES)(
+    "makes a stale send inert after a %s change",
+    async (_scope, nextCode, nextWatch) => {
+      const { stale, socket } = await retainCallbacksAcrossIdentityChange(
+        nextCode,
+        nextWatch,
+      );
+
+      act(() => stale.send({ t: "seen" }));
+      open(socket);
+
+      expect(socket.sent).toEqual([]);
+    },
+  );
+
+  it.each(IDENTITY_CHANGES)(
+    "keeps current live points intact when stale sendLive runs after a %s change",
+    async (_scope, nextCode, nextWatch) => {
+      const { stale, current, socket } =
+        await retainCallbacksAcrossIdentityChange(nextCode, nextWatch);
+      open(socket);
+
+      act(() => {
+        current.sendLive([0.1, 0.2]);
+        stale.sendLive([0.9, 1], true);
+      });
+      advance(40);
+
+      expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([
+        { t: "live", points: [0.1, 0.2] },
+      ]);
+    },
+  );
+
+  it.each(IDENTITY_CHANGES)(
+    "keeps the current live timer and buffer when stale sendLiveClear runs after a %s change",
+    async (_scope, nextCode, nextWatch) => {
+      const { stale, current, socket } =
+        await retainCallbacksAcrossIdentityChange(nextCode, nextWatch);
+      open(socket);
+
+      act(() => {
+        current.sendLive([0.3, 0.4]);
+        stale.sendLiveClear();
+      });
+      advance(40);
+
+      expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([
+        { t: "live", points: [0.3, 0.4] },
+      ]);
     },
   );
 
