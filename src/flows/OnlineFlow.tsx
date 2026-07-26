@@ -268,7 +268,7 @@ export function OnlineFlow({
       <JoinerSetup
         code={code}
         state={state}
-        connected={room.connected}
+        connectionState={room.connectionState}
         error={room.error}
         onJoin={(name, colorIndex) => room.join(name, colorIndex)}
         onLeave={onExit}
@@ -713,7 +713,9 @@ export function OnlineFlow({
         ["dealing", "drawing", "voting", "guessing"].includes(state.phase) && (
           <AwayNudge state={state} onDrop={(playerId) => room.send({ t: "dropPlayer", playerId })} />
         )}
-      {(room.joined || watch) && !room.connected && !room.gone && <ReconnectingBanner />}
+      {(room.joined || watch) && room.connectionState === "reconnecting" && (
+        <ReconnectingBanner attempt={room.reconnectAttempt} />
+      )}
       {watch && (
         <div
           className="kicker"

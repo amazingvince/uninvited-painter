@@ -359,6 +359,33 @@ describe("disconnects", () => {
     expect(reduce(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE, now: 0 }).ok).toBe(true);
   });
 
+  it("tracks multiple held seats and releases only the returning seat", () => {
+    let state = dealtRound();
+    state = apply(state, {
+      type: "SET_CONNECTED",
+      playerId: "p3",
+      connected: false,
+      now: 1_000,
+    });
+    state = apply(state, {
+      type: "SET_CONNECTED",
+      playerId: "p4",
+      connected: false,
+      now: 2_000,
+    });
+    expect(Object.keys(state.holds).sort()).toEqual(["p3", "p4"]);
+
+    state = apply(state, {
+      type: "SET_CONNECTED",
+      playerId: "p3",
+      connected: true,
+      now: 5_000,
+    });
+    expect(state.holds.p3).toBeUndefined();
+    expect(state.holds.p4).toBe(32_000);
+    expect(state.round!.droppedIds).toEqual([]);
+  });
+
   it("dropping a player removes their remaining turns but keeps committed strokes", () => {
     let state = dealtRound();
     state = apply(state, { type: "COMMIT_STROKE", playerId: "p1", points: LINE, now: 0 });

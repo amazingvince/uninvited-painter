@@ -55,6 +55,7 @@ export function Btn({
   split,
   style,
   ariaLabel,
+  ariaDescribedBy,
 }: {
   variant?: "red" | "ink" | "outline" | "disabled";
   type?: "button" | "submit";
@@ -64,6 +65,7 @@ export function Btn({
   split?: boolean;
   style?: CSSProperties;
   ariaLabel?: string;
+  ariaDescribedBy?: string;
 }) {
   // Every call site says variant="disabled" rather than disabled — which used
   // to leave the button focusable, so Tab+Enter still fired onClick. Both
@@ -78,6 +80,7 @@ export function Btn({
       disabled={off}
       style={style}
       aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
     >
       {children}
     </button>

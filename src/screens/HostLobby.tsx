@@ -187,33 +187,46 @@ export function HostLobby({
             {state.players.length} of {MAX_PLAYERS}
           </span>
         </div>
-        {state.players.map((p) => (
-          <div key={p.id} className="row" style={{ padding: "12px 0" }}>
-            <Swatch index={p.colorIndex} />
-            <span style={{ flex: 1, fontSize: 16, fontWeight: 600 }}>
-              {p.name}{" "}
-              {(p.id === state.hostId || p.id === youId) && (
-                <span className="kicker u-muted" style={{ letterSpacing: "0.1em" }}>
-                  {p.id === state.hostId ? "host" : ""}
-                  {p.id === state.hostId && p.id === youId ? " · " : ""}
-                  {p.id === youId ? "you" : ""}
-                </span>
-              )}
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: p.connected ? "var(--green)" : "var(--muted)" }}>
-              {p.connected ? "●" : "away"}
-            </span>
-            {isHost && onKick && p.id !== youId && (
-              <button
-                style={{ fontSize: 18, color: "var(--muted)", padding: "2px 6px" }}
-                onClick={() => onKick(p.id)}
-                aria-label={`Remove ${p.name}`}
+        {state.players.map((p) => {
+          const held = state.holds[p.id] !== undefined;
+          return (
+            <div key={p.id} className="row" style={{ padding: "12px 0" }}>
+              <Swatch index={p.colorIndex} />
+              <span style={{ flex: 1, fontSize: 16, fontWeight: 600 }}>
+                {p.name}{" "}
+                {(p.id === state.hostId || p.id === youId) && (
+                  <span className="kicker u-muted" style={{ letterSpacing: "0.1em" }}>
+                    {p.id === state.hostId ? "host" : ""}
+                    {p.id === state.hostId && p.id === youId ? " · " : ""}
+                    {p.id === youId ? "you" : ""}
+                  </span>
+                )}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: held
+                    ? "var(--amber)"
+                    : p.connected
+                      ? "var(--green)"
+                      : "var(--muted)",
+                }}
               >
-                ×
-              </button>
-            )}
-          </div>
-        ))}
+                {held ? "◐ seat held" : p.connected ? "● live" : "○ away"}
+              </span>
+              {isHost && onKick && p.id !== youId && (
+                <button
+                  style={{ fontSize: 18, color: "var(--muted)", padding: "2px 6px" }}
+                  onClick={() => onKick(p.id)}
+                  aria-label={`Remove ${p.name}`}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--rule)", paddingTop: 12 }}>
           {settingControl(
             "Deck",

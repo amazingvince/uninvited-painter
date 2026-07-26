@@ -20,6 +20,7 @@ export function DisconnectOverlay({
   if (holds.length === 0) return null;
   const [firstId, firstDeadline] = holds[0];
   const held = state.players.find((p) => p.id === firstId);
+  const additionalHolds = holds.length - 1;
   const remaining = Math.max(0, firstDeadline - now);
   const pct = Math.min(100, Math.max(0, (remaining / HOLD_MS) * 100));
 
@@ -40,6 +41,11 @@ export function DisconnectOverlay({
               <br />
               the room
             </div>
+            {additionalHolds > 0 && (
+              <Kicker style={{ color: "var(--amber)" }}>
+                and {additionalHolds} more seats held
+              </Kicker>
+            )}
             <div className="body-copy">
               Their seat is held for {Math.round(HOLD_MS / 1000)} seconds. If they don't come back,
               the round continues without their stroke — and their vote is dropped from the count.
@@ -85,12 +91,20 @@ export function DisconnectOverlay({
           <div style={{ marginTop: "auto" }} className="btn-stack">
             {isHost ? (
               <>
-                <Btn variant="red" onClick={() => onDrop(firstId)}>
-                  Carry on without {held?.name ?? "them"}
-                </Btn>
-                <div className="note u-center" style={{ fontSize: 12 }}>
-                  Host only. If the fake artist drops, the round is voided and re-dealt.
+                <div
+                  id="drop-player-consequence"
+                  className="note u-center"
+                  style={{ fontSize: 12 }}
+                >
+                  Dropping the fake voids this round and deals fresh cards.
                 </div>
+                <Btn
+                  variant="red"
+                  ariaDescribedBy="drop-player-consequence"
+                  onClick={() => onDrop(firstId)}
+                >
+                  Drop {held?.name ?? "them"} and continue
+                </Btn>
               </>
             ) : (
               <div className="note u-center" style={{ fontSize: 12 }}>
@@ -105,10 +119,16 @@ export function DisconnectOverlay({
   );
 }
 
-export function ReconnectingBanner() {
+export function ReconnectingBanner({ attempt }: { attempt: number }) {
+  const message =
+    attempt >= 4
+      ? "Still reconnecting · your seat and locked actions are being held"
+      : "Connection lost · reconnecting…";
   return (
     <div
       className="kicker"
+      role="status"
+      aria-live="polite"
       style={{
         position: "absolute",
         top: 0,
@@ -122,8 +142,9 @@ export function ReconnectingBanner() {
         justifyContent: "space-between",
       }}
     >
-      <span style={{ color: "var(--cream)" }}>Connection lost</span>
-      <span className="pulse">Reconnecting…</span>
+      <span className="pulse" style={{ color: "var(--cream)" }}>
+        {message}
+      </span>
     </div>
   );
 }

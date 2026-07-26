@@ -9,8 +9,17 @@ import type { StrokePoints } from "../../shared/types";
 import type { LiveStroke } from "../components/CanvasBoard";
 import { hasJoined, markJoined, roomToken, saveLastRoom } from "../lib/storage";
 
+export type ConnectionState =
+  | "checking"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "gone";
+
 export interface OnlineRoom {
   connected: boolean;
+  connectionState: ConnectionState;
+  reconnectAttempt: number;
   joined: boolean;
   gone: boolean; // room expired / never existed
   state: PublicRoomState | null;
@@ -30,9 +39,10 @@ const EPHEMERAL_MSGS = new Set<ClientMsg["t"]>(["live", "liveClear", "join", "re
 const OUTBOX_MAX = 32;
 
 export function useOnlineRoom(code: string, watch = false): OnlineRoom {
-  const [connected, setConnected] = useState(false);
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("checking");
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [joined, setJoined] = useState(false);
-  const [gone, setGone] = useState(false);
   const [state, setState] = useState<PublicRoomState | null>(null);
   const [you, setYou] = useState<YouView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +58,9 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
     let closed = false;
     let attempts = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    goneRef.current = false;
+    setConnectionState("checking");
+    setReconnectAttempt(0);
 
     const connect = () => {
       if (closed) return;
@@ -57,7 +70,8 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
 
       ws.onopen = () => {
         attempts = 0;
-        setConnected(true);
+        setConnectionState("connected");
+        setReconnectAttempt(0);
         // Watchers never take a seat — they just listen to the broadcasts.
         if (!watch && hasJoined(code)) {
           ws.send(JSON.stringify({ t: "rejoin", token: roomToken(code) } satisfies ClientMsg));
@@ -130,7 +144,7 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
               setJoined(false);
             } else if (msg.message === "This room has closed") {
               goneRef.current = true;
-              setGone(true);
+              setConnectionState("gone");
             } else {
               setError(msg.message);
             }
@@ -139,16 +153,17 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
       };
 
       ws.onclose = () => {
-        setConnected(false);
         wsRef.current = null;
         if (closed || goneRef.current) return;
         attempts += 1;
+        setConnectionState("reconnecting");
+        setReconnectAttempt(attempts);
         if (attempts % 4 === 0) {
           // Repeated failures — check whether the room still exists at all.
           fetch(`/api/rooms/${code}`).then((res) => {
             if (res.status === 404) {
               goneRef.current = true;
-              setGone(true);
+              setConnectionState("gone");
             }
           }).catch(() => {});
         }
@@ -162,14 +177,20 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
     // A 404 on upgrade means the room is gone — probe once so we can say so.
     fetch(`/api/rooms/${code}`)
       .then((res) => {
+        if (closed) return;
         if (res.status === 404) {
           goneRef.current = true;
-          setGone(true);
+          setConnectionState("gone");
         } else {
+          setConnectionState("connecting");
           connect();
         }
       })
-      .catch(() => connect());
+      .catch(() => {
+        if (closed) return;
+        setConnectionState("connecting");
+        connect();
+      });
 
     return () => {
       closed = true;
@@ -243,9 +264,11 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
   );
 
   const clearError = useCallback(() => setError(null), []);
+  const connected = connectionState === "connected";
+  const gone = connectionState === "gone";
 
   return {
-    connected, joined, gone, state, you, error, live,
+    connected, connectionState, reconnectAttempt, joined, gone, state, you, error, live,
     join, send, sendLive, sendLiveClear, clearError,
   };
 }
