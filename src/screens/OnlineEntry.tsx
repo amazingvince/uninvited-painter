@@ -5,6 +5,7 @@ import type { LastRoom } from "../lib/storage";
 
 export function OnlineEntry({
   lastRoom,
+  lastRoomStatus,
   busy,
   error,
   onBack,
@@ -13,6 +14,7 @@ export function OnlineEntry({
   onRejoin,
 }: {
   lastRoom: LastRoom | null;
+  lastRoomStatus: "ready" | "checking" | "failed";
   busy: boolean;
   error: string | null;
   onBack: () => void;
@@ -59,12 +61,17 @@ export function OnlineEntry({
             <button
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "2px dashed var(--rule)", padding: "14px 16px" }}
               onClick={() => onRejoin(lastRoom.code)}
+              disabled={lastRoomStatus === "checking"}
             >
               <span className="shout" style={{ fontSize: 22, letterSpacing: "0.06em" }}>
                 {lastRoom.code}
               </span>
               <span className="kicker u-red" style={{ letterSpacing: "0.1em", fontSize: 12 }}>
-                Rejoin
+                {lastRoomStatus === "checking"
+                  ? "Checking…"
+                  : lastRoomStatus === "failed"
+                    ? "Could not verify — tap to retry"
+                    : "Rejoin"}
               </span>
             </button>
             <div className="note" style={{ fontSize: 12 }}>

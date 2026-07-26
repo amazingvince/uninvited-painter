@@ -21,6 +21,7 @@ import {
 } from "../lib/postRoundAi";
 import { drawingReferencePng } from "../lib/share";
 import { cueLock } from "../lib/sound";
+import { clearLastRoom } from "../lib/storage";
 import { useWakeLock } from "../lib/useWakeLock";
 import { Screen, Btn } from "../components/ui";
 import { HoldToReveal } from "../components/HoldToReveal";
@@ -231,6 +232,7 @@ export function OnlineFlow({
   }, [peekCard]);
 
   if (room.gone) {
+    clearLastRoom();
     return (
       <Screen>
         <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--ink)" }}>

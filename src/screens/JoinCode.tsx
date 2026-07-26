@@ -1,7 +1,8 @@
 // D3 Join by code — letters only, uppercase, no ambiguous glyphs in generated
 // codes. Or open the link they sent — it skips this screen entirely.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { normalizeRoomCode } from "../../shared/codes";
 import { Screen, BackLink } from "../components/ui";
 
 const ROWS = ["QWERTYU", "IOPASDF", "GHJKLZX", "CVBNM"];
@@ -18,6 +19,7 @@ export function JoinCode({
   error: string | null;
 }) {
   const [code, setCode] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const press = (letter: string) => {
     if (code.length < 4) setCode(code + letter);
@@ -31,7 +33,23 @@ export function JoinCode({
           Four letters
         </div>
       </div>
-      <div className="code-cells">
+      <input
+        ref={inputRef}
+        className="visually-hidden"
+        aria-label="Room code"
+        autoCapitalize="characters"
+        autoComplete="one-time-code"
+        autoCorrect="off"
+        spellCheck={false}
+        value={code}
+        onChange={(event) => setCode(normalizeRoomCode(event.target.value))}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && code.length === 4 && !checking) {
+            onEnter(code);
+          }
+        }}
+      />
+      <div className="code-cells" onClick={() => inputRef.current?.focus()}>
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
@@ -47,7 +65,11 @@ export function JoinCode({
           </div>
         ))}
       </div>
-      <div className="small" style={{ padding: "0 20px 10px", fontSize: 13, color: error ? "var(--red)" : "var(--muted)" }}>
+      <div
+        className="small"
+        role={error ? "alert" : undefined}
+        style={{ padding: "0 20px 10px", fontSize: 13, color: error ? "var(--red)" : "var(--muted)" }}
+      >
         {error ?? "Or open the link they sent — it skips this screen entirely."}
       </div>
       <div className="keyboard">
