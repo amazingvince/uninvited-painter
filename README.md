@@ -49,6 +49,34 @@ offline, slow, blocked, or unavailable.
 Enabling the feature sends the finished drawing to OpenAI and uses API credits.
 The OpenAI key remains server-side and must never use a `VITE_` prefix.
 
+### Changing Luna's prompt
+
+Run the evaluation first, and again afterwards:
+
+```sh
+npx vite-node scripts/critic-eval.mts              # 9 live calls, text only
+npx vite-node scripts/critic-eval.mts --tone savage --repeat 3
+```
+
+It runs the real critic against three panels from a real finished game
+(`scripts/fixtures/`) and reports the measurements that have actually caught
+problems, rather than a sample to eyeball:
+
+- **rating** should vary by *drawing* and not by *tone*. It once did the exact
+  reverse — savage returned 5/10 on six of six pictures — which also meant
+  "Luna's pick of the exhibition" was always round one.
+- **confidence** should be higher on the legible panel than the murky two.
+- **subject guess** must stay a short answer. When it drifted into describing
+  the scene it stopped being comparable to the word at all: 0/9.
+- **stock phrasing** counts known crutches and flags repeated rating tags.
+  Banning a word does not remove the tic, it relocates it — "chaos" appeared
+  in six of nine tags, and banning it produced "bold" in six of the next nine.
+  Constrain the *shape* of the phrase instead, then re-run and check what new
+  word moved in.
+
+Every substantive problem with this feature was found this way and none of them
+by reading the prompt, so it is worth the few cents.
+
 ## Architecture
 
 - **Cloudflare Worker** serves the static app (Vite/React build in `dist/`)
