@@ -21,6 +21,7 @@ import {
 } from "../lib/postRoundAi";
 import { drawingReferencePng } from "../lib/share";
 import { cueLock } from "../lib/sound";
+import { clearLastRoom } from "../lib/storage";
 import { useWakeLock } from "../lib/useWakeLock";
 import { Screen, Btn } from "../components/ui";
 import { HoldToReveal } from "../components/HoldToReveal";
@@ -41,7 +42,11 @@ import { Reveal } from "../screens/Reveal";
 import { RenditionReveal } from "../screens/RenditionReveal";
 import { Standings } from "../screens/Standings";
 import { Final } from "../screens/Final";
-import { DisconnectOverlay, ReconnectingBanner } from "../screens/Disconnect";
+import {
+  DisconnectOverlay,
+  ReconnectingBanner,
+  dropPlayerConsequence,
+} from "../screens/Disconnect";
 import { VerdictChip } from "../components/VerdictChip";
 import { useRevealSequence } from "../lib/revealSequence";
 
@@ -230,6 +235,10 @@ export function OnlineFlow({
     };
   }, [peekCard]);
 
+  useEffect(() => {
+    if (room.gone) clearLastRoom(code);
+  }, [code, room.gone]);
+
   if (room.gone) {
     return (
       <Screen>
@@ -266,7 +275,7 @@ export function OnlineFlow({
       <JoinerSetup
         code={code}
         state={state}
-        connected={room.connected}
+        connectionState={room.connectionState}
         error={room.error}
         onJoin={(name, colorIndex) => room.join(name, colorIndex)}
         onLeave={onExit}
@@ -294,6 +303,7 @@ export function OnlineFlow({
         players={state.players}
         archive={state.archive}
         totalRounds={state.settings.rounds}
+        canPublish={isHost}
         onAgain={isHost ? () => room.send({ t: "again" }) : undefined}
         waiting="The host can open another exhibition"
       />
@@ -507,7 +517,11 @@ export function OnlineFlow({
                 coming in
               </>
             }
-            body={`${r.votersIn.length} of ${voters.length} locked in. Votes stay hidden until everyone has.`}
+            body={
+              voted
+                ? `Ballot sealed · ${r.votersIn.length} of ${voters.length} in`
+                : `${r.votersIn.length} of ${voters.length} locked in. Votes stay hidden until everyone has.`
+            }
           />
         );
       }
@@ -711,7 +725,9 @@ export function OnlineFlow({
         ["dealing", "drawing", "voting", "guessing"].includes(state.phase) && (
           <AwayNudge state={state} onDrop={(playerId) => room.send({ t: "dropPlayer", playerId })} />
         )}
-      {(room.joined || watch) && !room.connected && !room.gone && <ReconnectingBanner />}
+      {(room.joined || watch) && room.connectionState === "reconnecting" && (
+        <ReconnectingBanner attempt={room.reconnectAttempt} />
+      )}
       {watch && (
         <div
           className="kicker"
@@ -753,7 +769,7 @@ export function OnlineFlow({
 
 /** Relaxed rooms never pause — but the host still needs a way past a player
  *  who is away AND currently blocking the round. */
-function AwayNudge({
+export function AwayNudge({
   state,
   onDrop,
 }: {
@@ -784,6 +800,7 @@ function AwayNudge({
   }
   if (blockers.length === 0) return null;
   const first = state.players.find((p) => p.id === blockers[0]);
+  const dropCopy = dropPlayerConsequence(state, blockers[0]);
   return (
     <div
       style={{
@@ -800,16 +817,20 @@ function AwayNudge({
         gap: 12,
       }}
     >
-      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
-        Waiting on {first?.name ?? "someone"} — their app is closed. The room plays on when they
-        return…
+      <span
+        id="away-drop-player-consequence"
+        style={{ flex: 1, fontSize: 13, fontWeight: 600 }}
+      >
+        Waiting on {first?.name ?? "someone"} — their app is closed.{" "}
+        {dropCopy.description}
       </span>
       <button
         className="shout"
         style={{ fontSize: 13, color: "var(--gold)", flex: "none" }}
+        aria-describedby="away-drop-player-consequence"
         onClick={() => onDrop(blockers[0])}
       >
-        Carry on without them
+        {dropCopy.action}
       </button>
     </div>
   );
@@ -855,6 +876,7 @@ function WatchBody({
         players={state.players}
         archive={state.archive}
         totalRounds={state.settings.rounds}
+        canPublish={false}
         waiting="You watched the whole thing"
       />
     );

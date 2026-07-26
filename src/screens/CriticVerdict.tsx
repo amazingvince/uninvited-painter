@@ -108,6 +108,7 @@ export function CriticVerdict({
     <Screen tone="ink">
       <div
         className="grow scroll"
+        aria-busy={view.status === "pending"}
         style={{
           display: "flex",
           flexDirection: "column",

@@ -38,6 +38,22 @@ export function roundLabel(
     : `Round ${roundNo} / ${settings.rounds}`;
 }
 
+export function drawingCanvasLabel({
+  actor,
+  strokeNo,
+  strokeTotal,
+  live,
+}: {
+  actor: string;
+  strokeNo: number;
+  strokeTotal: number;
+  live: boolean;
+}): string {
+  return live
+    ? `Live drawing canvas. ${actor} is drawing, stroke ${strokeNo} of ${strokeTotal}.`
+    : `Drawing canvas. ${actor} stroke, ${strokeNo} of ${strokeTotal}.`;
+}
+
 const NUMBER_WORDS = [
   "Zero",
   "One",

@@ -27,33 +27,41 @@ export function Standings({
   banner?: ReactNode;
 }) {
   const ranked = [...players].sort((a, b) => b.score - a.score);
+  const rankFor = (player: Player): number =>
+    ranked.findIndex((candidate) => candidate.score === player.score) + 1;
   return (
     <Screen>
       <div className="header header-row">
-        <div className="shout" style={{ fontSize: 30, letterSpacing: "-0.035em" }}>
-          Standings
-        </div>
-        <div className="kicker u-muted" style={{ letterSpacing: "0.14em" }}>
+        <div className="shout standings-title">Standings</div>
+        <div className="kicker u-muted standings-progress">
           {scoreMode
             ? `After ${roundsPlayed} · first to ${SCORE_TARGET}`
             : `After ${roundsPlayed} of ${totalRounds}`}
         </div>
       </div>
-      <div className="grow scroll" style={{ padding: "0 20px" }}>
-        {ranked.map((p, i) => (
-          <div key={p.id} className="row" style={{ padding: "16px 0" }}>
-            <span className="shout" style={{ fontSize: 18, color: i === 0 ? "var(--red)" : "var(--muted)", width: 26 }}>
-              {i + 1}
-            </span>
-            <Swatch index={p.colorIndex} />
-            <span className="shout" style={{ flex: 1, fontSize: 19, letterSpacing: "-0.02em" }}>
-              {p.name}
-            </span>
-            <span className="shout" style={{ fontSize: 26 }}>
-              {p.score}
-            </span>
-          </div>
-        ))}
+      <div className="screen-scroll screen-scroll--gutter">
+        {ranked.map((p) => {
+          const rank = rankFor(p);
+          return (
+            <div key={p.id} className="score-row score-row--large">
+              <span
+                className={`shout score-rank ${
+                  rank === 1 ? "score-rank--leader" : ""
+                }`}
+              >
+                {rank}
+              </span>
+              <Swatch index={p.colorIndex} />
+              <span className="shout score-player">
+                {p.name}
+                {rank === 1 && <span className="score-status">Leader</span>}
+              </span>
+              <span className="shout score-value score-value--large">
+                {p.score}
+              </span>
+            </div>
+          );
+        })}
         <div className="note" style={{ paddingTop: 14, fontSize: 12 }}>
           Fake artist duty rotates so nobody plays it twice before everyone has.
         </div>

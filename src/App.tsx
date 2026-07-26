@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoom } from "../shared/engine";
 import { normalizeRoomCode, isValidRoomCode } from "../shared/codes";
 import type { RoomState } from "../shared/types";
-import { loadLocalGame, loadLastRoom, clearLocalGame } from "./lib/storage";
+import { clearLastRoom, clearLocalGame, loadLastRoom, loadLocalGame, type LastRoom } from "./lib/storage";
 import { RulesSheet } from "./components/RulesSheet";
+import { ConfirmSheet } from "./components/ConfirmSheet";
 import { Entrance } from "./screens/Entrance";
 import { OnlineEntry } from "./screens/OnlineEntry";
 import { JoinCode } from "./screens/JoinCode";
@@ -13,6 +14,7 @@ import { ArchivePage } from "./screens/ArchivePage";
 import { unlockAudio } from "./lib/sound";
 
 type HomeStep = "entrance" | "local" | "online" | "joincode";
+type LastRoomStatus = "ready" | "checking" | "failed";
 
 function roomCodeFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/r\/([A-Za-z]{4})$/);
@@ -47,10 +49,14 @@ export function App() {
   const [step, setStep] = useState<HomeStep>("entrance");
   const [localInitial, setLocalInitial] = useState<RoomState | null>(null);
   const [showRules, setShowRules] = useState(false);
+  const [confirmRestart, setConfirmRestart] = useState(false);
   const [creating, setCreating] = useState(false);
   const [onlineError, setOnlineError] = useState<string | null>(null);
   const [joinChecking, setJoinChecking] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [lastRoom, setLastRoom] = useState<LastRoom | null>(() => loadLastRoom());
+  const [lastRoomStatus, setLastRoomStatus] = useState<LastRoomStatus>("ready");
+  const lastRoomProbeRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const onPop = () => setPath(location.pathname);
@@ -58,6 +64,7 @@ export function App() {
     // Browsers gate audio behind a gesture — arm it on the first touch.
     window.addEventListener("pointerdown", unlockAudio, { once: true });
     return () => {
+      lastRoomProbeRef.current?.abort();
       window.removeEventListener("popstate", onPop);
       window.removeEventListener("pointerdown", unlockAudio);
     };
@@ -66,6 +73,56 @@ export function App() {
   const navigate = useCallback((to: string) => {
     history.pushState(null, "", to);
     setPath(to);
+  }, []);
+
+  const verifyLastRoom = useCallback(async (room = loadLastRoom()) => {
+    lastRoomProbeRef.current?.abort();
+    setLastRoom(room);
+    if (!room) {
+      lastRoomProbeRef.current = null;
+      setLastRoomStatus("ready");
+      return false;
+    }
+
+    const controller = new AbortController();
+    lastRoomProbeRef.current = controller;
+    setLastRoomStatus("checking");
+    try {
+      const res = await fetch(`/api/rooms/${room.code}`, {
+        signal: controller.signal,
+      });
+      if (
+        controller.signal.aborted ||
+        lastRoomProbeRef.current !== controller
+      ) {
+        return false;
+      }
+      if (res.status === 404) {
+        const cleared = clearLastRoom(room.code);
+        setLastRoom(cleared ? null : loadLastRoom());
+        setLastRoomStatus("ready");
+        return false;
+      }
+      if (!res.ok) {
+        setLastRoomStatus("failed");
+        return false;
+      }
+      setLastRoomStatus("ready");
+      return true;
+    } catch {
+      if (
+        controller.signal.aborted ||
+        lastRoomProbeRef.current !== controller
+      ) {
+        return false;
+      }
+      setLastRoomStatus("failed");
+      return false;
+    } finally {
+      if (lastRoomProbeRef.current === controller) {
+        lastRoomProbeRef.current = null;
+      }
+    }
   }, []);
 
   const goHome = () => {
@@ -127,6 +184,10 @@ export function App() {
         setJoinError("No room with those letters. Check with whoever invited you.");
         return;
       }
+      if (!res.ok) {
+        setJoinError("The gallery could not check that room. Try again.");
+        return;
+      }
       navigate(`/r/${code}`);
     } catch {
       setJoinError("Couldn't reach the gallery. Check your connection.");
@@ -149,13 +210,18 @@ export function App() {
   } else if (step === "online") {
     body = (
       <OnlineEntry
-        lastRoom={loadLastRoom()}
+        lastRoom={lastRoom}
+        lastRoomStatus={lastRoomStatus}
         busy={creating}
         error={onlineError}
         onBack={() => setStep("entrance")}
         onOpenRoom={openRoom}
         onJoinRoom={() => setStep("joincode")}
-        onRejoin={(code) => navigate(`/r/${code}`)}
+        onRejoin={async (code) => {
+          if (await verifyLastRoom(lastRoom?.code === code ? lastRoom : undefined)) {
+            navigate(`/r/${code}`);
+          }
+        }}
       />
     );
   } else if (step === "joincode") {
@@ -178,11 +244,17 @@ export function App() {
           }
         }}
         onLocal={() => {
-          if (saved && saved.phase !== "lobby") clearLocalGame();
+          if (saved && saved.phase !== "lobby") {
+            setConfirmRestart(true);
+            return;
+          }
           setLocalInitial(saved && saved.phase === "lobby" ? saved : freshLocal(saved));
           setStep("local");
         }}
-        onOnline={() => setStep("online")}
+        onOnline={() => {
+          setStep("online");
+          void verifyLastRoom();
+        }}
         onRules={() => setShowRules(true)}
       />
     );
@@ -192,6 +264,25 @@ export function App() {
     <div className="frame">
       {body}
       {showRules && <RulesSheet onClose={() => setShowRules(false)} />}
+      {confirmRestart && (
+        <ConfirmSheet
+          title="Start a new game?"
+          body="Your current round is saved. Starting over replaces it."
+          confirmLabel="Start over"
+          cancelLabel="Resume saved game"
+          onConfirm={() => {
+            clearLocalGame();
+            setLocalInitial(freshLocal(saved));
+            setStep("local");
+            setConfirmRestart(false);
+          }}
+          onCancel={() => {
+            setLocalInitial(saved);
+            setStep("local");
+            setConfirmRestart(false);
+          }}
+        />
+      )}
     </div>
   );
 }

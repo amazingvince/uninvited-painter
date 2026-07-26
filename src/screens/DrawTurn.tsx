@@ -10,6 +10,7 @@ import { GRACE_MS } from "../../shared/types";
 import type { PenMode, Stroke, StrokePoints } from "../../shared/types";
 import { CanvasBoard } from "../components/CanvasBoard";
 import { ClockChip, Screen, Swatch } from "../components/ui";
+import { drawingCanvasLabel } from "../lib/labels";
 
 export function DrawTurn({
   word,
@@ -188,7 +189,7 @@ export function DrawTurn({
           <ClockChip deadline={clockDeadline} />
         </div>
         <div className="shout" style={{ fontSize: word && word.length > 14 ? 20 : 26, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {word ?? `${category} · ???`}
+          {word ?? `Category · ${category} · word unknown`}
         </div>
       </div>
       <div className="kicker" style={{ display: "flex", alignItems: "center", gap: 7, letterSpacing: "0.12em", flex: "none" }}>
@@ -202,6 +203,12 @@ export function DrawTurn({
     <Screen>
       {header}
       <CanvasBoard
+        ariaLabel={drawingCanvasLabel({
+          actor: "Your",
+          strokeNo,
+          strokeTotal,
+          live: false,
+        })}
         strokes={strokes}
         pending={penMode === "free" ? freePending : pending ? { colorIndex, points: pending } : null}
         corner={`${String(strokeNo).padStart(2, "0")} / ${strokeTotal}`}
@@ -232,9 +239,14 @@ export function DrawTurn({
         }
       />
       <div
-        className="grow"
+        className="grow screen-scroll draw-controls"
         style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 12, padding: "16px 20px calc(24px + env(safe-area-inset-bottom))" }}
       >
+        {paused && (
+          <div className="draw-paused-banner shout">
+            Paused — waiting for a seat
+          </div>
+        )}
         {penMode === "free" ? (
           <>
             {inkLimit > 0 && (
@@ -253,7 +265,7 @@ export function DrawTurn({
                   </div>
                 </div>
                 {segs.length > 0 && (
-                  <button className="shout u-red" style={{ fontSize: 14 }} onClick={undoSegment}>
+                  <button className="shout u-red tap-target draw-undo" style={{ fontSize: 14 }} onClick={undoSegment}>
                     Undo
                   </button>
                 )}
@@ -275,7 +287,7 @@ export function DrawTurn({
             >
               End turn
             </button>
-            <div className="note u-center">
+            <div className="note u-center" aria-live="polite">
               {misTap
                 ? "That looked like a mis-tap — draw a full line."
                 : inkLimit > 0
@@ -288,26 +300,26 @@ export function DrawTurn({
             <div style={{ display: "flex", alignItems: "center", gap: 12, border: "3px solid var(--ink)", padding: "13px 15px" }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
                 <div className="shout" style={{ fontSize: 14, letterSpacing: "-0.01em" }}>
-                  Keeping in {Math.ceil(remaining / 1000)}
+                  Stroke ready · commits in {Math.ceil(remaining / 1000)}
                 </div>
                 <div className="meter" style={{ height: 6 }}>
                   <div style={{ width: `${(remaining / GRACE_MS) * 100}%` }} />
                 </div>
               </div>
-              <button className="shout u-red" style={{ fontSize: 14 }} onClick={undoLine}>
+              <button className="shout u-red tap-target draw-undo" style={{ fontSize: 14 }} onClick={undoLine}>
                 Undo
               </button>
             </div>
             <button className="btn btn--ink" onClick={commitNow}>
               Commit stroke
             </button>
-            <div className="note u-center">
+            <div className="note u-center" aria-live="polite">
               One unbroken line. Lifting ends the line, not the turn — you get{" "}
               {Math.ceil(GRACE_MS / 1000)}s to undo.
             </div>
           </>
         ) : (
-          <div className="note u-center" style={{ paddingBottom: 8 }}>
+          <div className="note u-center" style={{ paddingBottom: 8 }} aria-live="polite">
             {misTap
               ? "That looked like a mis-tap — draw a full line."
               : inkLimit > 0

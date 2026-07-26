@@ -1,5 +1,6 @@
 import { aiEnabled } from "../../shared/engine";
-import type { AiTone, Settings } from "../../shared/types";
+import type { Settings } from "../../shared/types";
+import { SETTING_OPTIONS } from "../lib/settingsOptions";
 
 export function AiSettings({
   settings,
@@ -61,14 +62,15 @@ export function AiSettings({
             Critic temperament
           </div>
           <div className="seg" style={{ width: "100%" }}>
-            {(["witty", "savage", "absurd"] as AiTone[]).map((tone) => (
+            {SETTING_OPTIONS.tone.map(({ value: tone, label }) => (
               <button
                 key={tone}
                 className={settings.aiTone === tone ? "on" : ""}
-                style={{ flex: 1, fontSize: 13, textTransform: "capitalize" }}
+                style={{ flex: 1, fontSize: 13 }}
+                aria-pressed={settings.aiTone === tone}
                 onClick={() => onChange({ aiTone: tone })}
               >
-                {tone}
+                {label}
               </button>
             ))}
           </div>

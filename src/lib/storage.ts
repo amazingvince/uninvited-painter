@@ -1,4 +1,5 @@
 import { normalizeRoom } from "../../shared/engine";
+import { isValidRoomCode, normalizeRoomCode } from "../../shared/codes";
 import type { RoomState } from "../../shared/types";
 
 const LOCAL_GAME = "painter.local.v1";
@@ -54,8 +55,38 @@ export interface LastRoom {
   at: number;
 }
 
+export function clearLastRoom(expectedCode?: string): boolean {
+  try {
+    if (expectedCode !== undefined) {
+      const saved = read<LastRoom>(LAST_ROOM);
+      if (
+        !saved ||
+        typeof saved.code !== "string" ||
+        normalizeRoomCode(saved.code) !== normalizeRoomCode(expectedCode)
+      ) {
+        return false;
+      }
+    }
+    localStorage.removeItem(LAST_ROOM);
+    return true;
+  } catch {
+    // Storage is optional.
+    return false;
+  }
+}
+
 export function loadLastRoom(): LastRoom | null {
-  return read<LastRoom>(LAST_ROOM);
+  const saved = read<LastRoom>(LAST_ROOM);
+  if (!saved || typeof saved.code !== "string" || !Number.isFinite(saved.at)) {
+    clearLastRoom();
+    return null;
+  }
+  const code = normalizeRoomCode(saved.code);
+  if (!isValidRoomCode(code)) {
+    clearLastRoom();
+    return null;
+  }
+  return { code, at: saved.at };
 }
 
 export function saveLastRoom(code: string): void {

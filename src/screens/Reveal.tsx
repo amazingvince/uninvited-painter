@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { voteTally } from "../../shared/engine";
 import { guessMatches } from "../../shared/fuzzy";
 import type { Outcome, Player, RoundState } from "../../shared/types";
+import { ActionNotice, type NoticeTone } from "../components/ActionNotice";
 import { StrokePaths } from "../components/CanvasBoard";
 import { numberWord } from "../lib/labels";
 import { drawingPng, shareOrDownload } from "../lib/share";
@@ -100,6 +101,9 @@ export function Reveal({
   // The picture redraws itself with the fake's strokes spotlit, then floods
   // back to full colour.
   const [spotlight, setSpotlight] = useState(true);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveTone, setSaveTone] = useState<NoticeTone>("neutral");
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setSpotlight(false), 1700);
     return () => clearTimeout(t);
@@ -126,6 +130,37 @@ export function Reveal({
         ]
       : []),
   ];
+  const saveDrawing = async () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveTone("neutral");
+    setSaveMessage("Preparing the drawing…");
+    try {
+      const blob = await drawingPng(
+        round.strokes,
+        `${String(round.roundNo).padStart(2, "0")} ${round.word}`,
+      );
+      const result = await shareOrDownload(
+        blob,
+        `painter-${round.roundNo}-${round.word}.png`,
+      );
+      if (result === "done") {
+        setSaveTone("success");
+        setSaveMessage("Drawing saved.");
+      } else if (result === "cancelled") {
+        setSaveTone("neutral");
+        setSaveMessage("Saving cancelled.");
+      } else {
+        setSaveTone("error");
+        setSaveMessage("Couldn’t save the drawing. Try again.");
+      }
+    } catch {
+      setSaveTone("error");
+      setSaveMessage("Couldn’t save the drawing. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Screen>
@@ -152,7 +187,11 @@ export function Reveal({
         </div>
         {!voided && (
           <div style={{ display: "flex", alignItems: "center", gap: 14, borderTop: "3px solid var(--ink)", borderBottom: "3px solid var(--ink)", padding: "14px 0" }}>
-            <div style={{ width: 112, height: 112, background: "var(--paper)", border: "2px solid var(--ink)", position: "relative", flex: "none" }}>
+            <div
+              role="img"
+              aria-label={`Finished round ${round.roundNo} drawing.`}
+              style={{ width: 112, height: 112, background: "var(--paper)", border: "2px solid var(--ink)", position: "relative", flex: "none" }}
+            >
               <svg className="draw-in" viewBox="0 0 1000 1000" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
                 <StrokePaths
                   strokes={round.strokes}
@@ -183,7 +222,7 @@ export function Reveal({
             }}
           >
             <div className="kicker u-muted" style={{ fontSize: 10 }}>
-              AI opinion · decorative, not evidence
+              Luna&apos;s non-scoring opinion
             </div>
             {aiComparisons.map((line) => (
               <div key={line} className="small" style={{ fontWeight: 700 }}>
@@ -193,54 +232,57 @@ export function Reveal({
           </div>
         )}
         {!voided && (
-          <div className="stagger-in">
-            {[
-              {
-                label: (
-                  <>
-                    {fake?.name}{" "}
-                    <span className="u-red" style={{ fontSize: 11 }}>
-                      FAKE
-                    </span>
-                  </>
-                ),
-                delta: round.scoreDelta[round.fakeId] ?? 0,
-              },
-              ...(qm
-                ? [
-                    {
-                      label: (
-                        <>
-                          {qm.name}{" "}
-                          <span className="u-muted" style={{ fontSize: 11 }}>
-                            QUESTION MASTER
-                          </span>
-                        </>
-                      ),
-                      delta: round.scoreDelta[qm.id] ?? 0,
-                    },
-                  ]
-                : []),
-              {
-                label: <span className="u-muted">Every real artist</span>,
-                delta: outcome === "caught_wrong" ? 1 : 0,
-              },
-            ].map((row, i) => (
-              <div
-                key={i}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--rule)" }}
-              >
-                <span className="shout" style={{ fontSize: 15, letterSpacing: "-0.02em" }}>
-                  {row.label}
-                </span>
-                <span className="shout" style={{ fontSize: 22, color: row.delta > 0 ? "var(--red)" : "var(--muted)" }}>
-                  +{row.delta}
-                </span>
-              </div>
-            ))}
+          <div>
+            <div className="kicker u-muted">Official score</div>
+            <div className="stagger-in">
+              {[
+                {
+                  label: (
+                    <>
+                      {fake?.name}{" "}
+                      <span className="u-red" style={{ fontSize: 11 }}>
+                        FAKE
+                      </span>
+                    </>
+                  ),
+                  delta: round.scoreDelta[round.fakeId] ?? 0,
+                },
+                ...(qm
+                  ? [
+                      {
+                        label: (
+                          <>
+                            {qm.name}{" "}
+                            <span className="u-muted" style={{ fontSize: 11 }}>
+                              QUESTION MASTER
+                            </span>
+                          </>
+                        ),
+                        delta: round.scoreDelta[qm.id] ?? 0,
+                      },
+                    ]
+                  : []),
+                {
+                  label: <span className="u-muted">Every real artist</span>,
+                  delta: outcome === "caught_wrong" ? 1 : 0,
+                },
+              ].map((row, i) => (
+                <div
+                  key={i}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--rule)" }}
+                >
+                  <span className="shout" style={{ fontSize: 15, letterSpacing: "-0.02em" }}>
+                    {row.label}
+                  </span>
+                  <span className="shout" style={{ fontSize: 22, color: row.delta > 0 ? "var(--red)" : "var(--muted)" }}>
+                    +{row.delta}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-        <div style={{ marginTop: "auto" }} className="btn-stack">
+        <div style={{ marginTop: "auto" }} className="btn-stack reveal-actions">
           {onNext ? (
             <Btn variant="red" onClick={onNext}>
               {nextLabel}
@@ -251,15 +293,18 @@ export function Reveal({
           {!voided && (
             <Btn
               variant="outline"
-              onClick={() =>
-                drawingPng(round.strokes, `${String(round.roundNo).padStart(2, "0")} ${round.word}`).then((blob) =>
-                  shareOrDownload(blob, `painter-${round.roundNo}-${round.word}.png`),
-                )
-              }
+              disabled={saving}
+              ariaDescribedBy="save-drawing-status"
+              onClick={() => void saveDrawing()}
             >
-              Save this drawing as a PNG
+              {saving ? "Preparing PNG…" : "Save this drawing as a PNG"}
             </Btn>
           )}
+          <ActionNotice
+            id="save-drawing-status"
+            message={saveMessage}
+            tone={saveTone}
+          />
         </div>
       </div>
     </Screen>

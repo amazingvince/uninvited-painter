@@ -1,19 +1,50 @@
-// D2 Host lobby — code is the hero, QR beside it. Only the host sees the
-// deck/length/passes/clock controls.
+// D2 Host lobby — code is the hero, QR beside it. Only the host can change
+// room rules; everyone can read the selected values.
 
-import { deckList } from "../../shared/decks";
+import { useState } from "react";
 import { aiEnabled } from "../../shared/engine";
 import type { PublicRoomState } from "../../shared/protocol";
-import { HOUSE_MIN_WORDS, MIN_PLAYERS, MAX_PLAYERS, type Settings } from "../../shared/types";
+import {
+  HOUSE_MIN_WORDS,
+  MIN_PLAYERS,
+  MAX_PLAYERS,
+  type Settings,
+} from "../../shared/types";
+import { ActionNotice, type NoticeTone } from "../components/ActionNotice";
 import { QrCode } from "../components/QrCode";
+import { SettingSelect } from "../components/SettingSelect";
 import { Screen, Kicker, Btn, Swatch } from "../components/ui";
+import { copyText, shareLink } from "../lib/actionResult";
+import {
+  SETTING_OPTIONS,
+  advancedSettingsSummary,
+  type SettingOption,
+} from "../lib/settingsOptions";
 
-const DECK_CYCLE = ["animals", "food", "movies", "objects", "everything", "house"] as const;
+type LengthChoice = "rounds-3" | "rounds-5" | "rounds-7" | "score10";
 
-function deckLabel(id: string): string {
-  if (id === "everything") return "Everything";
-  if (id === "house") return "House deck";
-  return deckList().find((d) => d.id === id)?.name ?? id;
+const LENGTH_OPTIONS = [
+  { value: "rounds-3", label: "3 rounds" },
+  { value: "rounds-5", label: "5 rounds" },
+  { value: "rounds-7", label: "7 rounds" },
+  { value: "score10", label: "First to 10" },
+] as const satisfies readonly SettingOption<LengthChoice>[];
+
+const ON_OFF_OPTIONS = [
+  { value: "on", label: "On" },
+  { value: "off", label: "Off" },
+] as const satisfies readonly SettingOption<"on" | "off">[];
+
+const DETECTIVE_OPTIONS = [
+  { value: "on", label: "On · non-scoring" },
+  { value: "off", label: "Off" },
+] as const satisfies readonly SettingOption<"on" | "off">[];
+
+function selectedLabel<T extends string | number>(
+  value: T,
+  options: readonly SettingOption<T>[],
+): string {
+  return options.find((option) => option.value === value)?.label ?? String(value);
 }
 
 export function HostLobby({
@@ -41,69 +72,87 @@ export function HostLobby({
   onLock?: (locked: boolean) => void;
 }) {
   const s = state.settings;
+  const [notice, setNotice] = useState<{
+    message: string;
+    tone: NoticeTone;
+  } | null>(null);
+  const canShare =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const spectatorUrl = shareUrl.replace("/r/", "/w/");
 
-  const cycleDeck = () => {
-    const i = DECK_CYCLE.indexOf(s.deckId as (typeof DECK_CYCLE)[number]);
-    onSettings({ deckId: DECK_CYCLE[(i + 1) % DECK_CYCLE.length] });
-  };
-  const cycleLength = () => {
-    if (s.winMode === "score10") onSettings({ winMode: "rounds", rounds: 3 });
-    else if (s.rounds === 3) onSettings({ rounds: 5 });
-    else if (s.rounds === 5) onSettings({ rounds: 7 });
-    else onSettings({ winMode: "score10" });
-  };
-  const cyclePasses = () => onSettings({ passes: (s.passes % 3) + 1 });
-  const cycleClock = () =>
-    onSettings({ strokeClock: s.strokeClock === 0 ? 60 : s.strokeClock === 60 ? 90 : 0 });
-  const cyclePen = () => onSettings({ penMode: s.penMode === "line" ? "free" : "line" });
-  const cycleInk = () =>
-    onSettings({ inkLimit: s.inkLimit === 0 ? 120 : s.inkLimit === 120 ? 60 : 0 });
-  const cyclePresence = () =>
-    onSettings({ presence: s.presence === "strict" ? "relaxed" : "strict" });
-  const cycleTone = () =>
-    onSettings({
-      aiTone:
-        s.aiTone === "witty"
-          ? "savage"
-          : s.aiTone === "savage"
-            ? "absurd"
-            : "witty",
-    });
-
-  const copy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      /* clipboard unavailable */
-    }
+  const copy = async (text: string, label: "Room" | "Spectator") => {
+    const result = await copyText(text);
+    setNotice(
+      result === "done"
+        ? { message: `${label} link copied`, tone: "success" }
+        : {
+            message:
+              label === "Spectator"
+                ? "Could not copy — use the spectator link shown below"
+                : "Could not copy — select the visible URL",
+            tone: "error",
+          },
+    );
   };
   const shareSheet = async () => {
-    try {
-      await navigator.share?.({ title: "The Uninvited Painter", url: shareUrl });
-    } catch {
-      /* cancelled */
+    const result = await shareLink({
+      title: "The Uninvited Painter",
+      url: shareUrl,
+    });
+    if (result === "done") {
+      setNotice({ message: "Room link shared", tone: "success" });
+    } else if (result === "cancelled") {
+      setNotice({ message: "Sharing cancelled", tone: "neutral" });
+    } else {
+      setNotice({
+        message:
+          result === "unavailable"
+            ? "Sharing is not available — copy the link instead"
+            : "Could not share — copy the link instead",
+        tone: "error",
+      });
     }
   };
 
   const enough = state.players.length >= MIN_PLAYERS;
-  const lengthLabel = s.winMode === "score10" ? "First to 10" : `${s.rounds} rounds`;
+  const houseWordsNeeded =
+    s.deckId === "house"
+      ? Math.max(0, HOUSE_MIN_WORDS - state.houseWordCount)
+      : 0;
+  const canStart = enough && houseWordsNeeded === 0;
+  const lengthValue: LengthChoice =
+    s.winMode === "score10" ? "score10" : `rounds-${s.rounds}` as LengthChoice;
 
-  const settingRow = (label: string, value: string, onCycle: () => void) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-        {label}
-      </span>
-      {isHost ? (
-        <button className="shout" style={{ fontSize: 14 }} onClick={onCycle}>
-          {value} ▾
-        </button>
-      ) : (
-        <span className="shout" style={{ fontSize: 14 }}>
-          {value}
-        </span>
-      )}
-    </div>
-  );
+  const changeLength = (value: LengthChoice) => {
+    if (value === "score10") {
+      onSettings({ winMode: "score10" });
+      return;
+    }
+    onSettings({
+      winMode: "rounds",
+      rounds: Number(value.replace("rounds-", "")),
+    });
+  };
+
+  const settingControl = <T extends string | number,>(
+    label: string,
+    value: T,
+    options: readonly SettingOption<T>[],
+    onChange: (next: T) => void,
+  ) =>
+    isHost ? (
+      <SettingSelect
+        label={label}
+        value={value}
+        options={options}
+        onChange={onChange}
+      />
+    ) : (
+      <div className="setting-readout">
+        <span className="kicker">{label}</span>
+        <span className="shout">{selectedLabel(value, options)}</span>
+      </div>
+    );
 
   return (
     <Screen>
@@ -121,20 +170,42 @@ export function HostLobby({
           <QrCode url={shareUrl} size={116} />
         </div>
         <div style={{ display: "flex", gap: 8, paddingTop: 12 }}>
-          <button className="btn btn--red" style={{ padding: 14, fontSize: 14 }} onClick={() => copy(shareUrl)}>
+          <button className="btn btn--red" style={{ padding: 14, fontSize: 14 }} onClick={() => void copy(shareUrl, "Room")}>
             Copy link
           </button>
-          <button className="btn" style={{ border: "2px solid var(--cream)", padding: 12, fontSize: 14 }} onClick={shareSheet}>
-            Share sheet
-          </button>
+          {canShare && (
+            <button className="btn" style={{ border: "2px solid var(--cream)", padding: 12, fontSize: 14 }} onClick={() => void shareSheet()}>
+              Share sheet
+            </button>
+          )}
         </div>
         <button
           className="kicker"
           style={{ color: "var(--muted-dark)", letterSpacing: "0.1em", paddingTop: 10 }}
-          onClick={() => copy(shareUrl.replace("/r/", "/w/"))}
+          onClick={() => void copy(spectatorUrl, "Spectator")}
         >
           Copy spectator link — watch only, no seat
         </button>
+        <input
+          aria-label="Spectator link"
+          readOnly
+          value={spectatorUrl}
+          onFocus={(event) => event.currentTarget.select()}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            marginTop: 8,
+            padding: "8px 10px",
+            border: "1px solid var(--muted-dark)",
+            background: "transparent",
+            color: "var(--muted-dark)",
+            fontSize: 12,
+          }}
+        />
+        <ActionNotice
+          message={notice?.message ?? null}
+          tone={notice?.tone}
+        />
         {isHost && onLock && (
           <button
             className="kicker"
@@ -160,43 +231,62 @@ export function HostLobby({
           </button>
         )}
       </div>
-      <div className="grow scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column" }}>
+      <div className="screen-scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column" }}>
         <div className="kicker" style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)", paddingBottom: 8 }}>
           <span>In the room</span>
           <span className="u-red">
             {state.players.length} of {MAX_PLAYERS}
           </span>
         </div>
-        {state.players.map((p) => (
-          <div key={p.id} className="row" style={{ padding: "12px 0" }}>
-            <Swatch index={p.colorIndex} />
-            <span style={{ flex: 1, fontSize: 16, fontWeight: 600 }}>
-              {p.name}{" "}
-              {(p.id === state.hostId || p.id === youId) && (
-                <span className="kicker u-muted" style={{ letterSpacing: "0.1em" }}>
-                  {p.id === state.hostId ? "host" : ""}
-                  {p.id === state.hostId && p.id === youId ? " · " : ""}
-                  {p.id === youId ? "you" : ""}
-                </span>
-              )}
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: p.connected ? "var(--green)" : "var(--muted)" }}>
-              {p.connected ? "●" : "away"}
-            </span>
-            {isHost && onKick && p.id !== youId && (
-              <button
-                style={{ fontSize: 18, color: "var(--muted)", padding: "2px 6px" }}
-                onClick={() => onKick(p.id)}
-                aria-label={`Remove ${p.name}`}
+        {state.players.map((p) => {
+          const held = state.holds[p.id] !== undefined;
+          return (
+            <div key={p.id} className="row" style={{ padding: "12px 0" }}>
+              <Swatch index={p.colorIndex} />
+              <span style={{ flex: 1, fontSize: 16, fontWeight: 600 }}>
+                {p.name}{" "}
+                {(p.id === state.hostId || p.id === youId) && (
+                  <span className="kicker u-muted" style={{ letterSpacing: "0.1em" }}>
+                    {p.id === state.hostId ? "host" : ""}
+                    {p.id === state.hostId && p.id === youId ? " · " : ""}
+                    {p.id === youId ? "you" : ""}
+                  </span>
+                )}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: held
+                    ? "var(--amber)"
+                    : p.connected
+                      ? "var(--green)"
+                      : "var(--muted)",
+                }}
               >
-                ×
-              </button>
-            )}
-          </div>
-        ))}
+                {held ? "◐ seat held" : p.connected ? "● live" : "○ away"}
+              </span>
+              {isHost && onKick && p.id !== youId && (
+                <button
+                  style={{ fontSize: 18, color: "var(--muted)", padding: "2px 6px" }}
+                  onClick={() => onKick(p.id)}
+                  aria-label={`Remove ${p.name}`}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--rule)", paddingTop: 12 }}>
-          {settingRow("Deck", deckLabel(s.deckId), cycleDeck)}
+          {settingControl(
+            "Deck",
+            s.deckId,
+            SETTING_OPTIONS.deck,
+            (deckId) => onSettings({ deckId }),
+          )}
           <button
+            className="tap-target"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "2px dashed var(--rule)", padding: "10px 12px" }}
             onClick={onHouseWords}
           >
@@ -207,56 +297,93 @@ export function HostLobby({
               {state.houseWordCount} in the pot
             </span>
           </button>
-          {settingRow("Length", lengthLabel, cycleLength)}
-          {settingRow("Passes", String(s.passes), cyclePasses)}
-          {settingRow("Pen", s.penMode === "line" ? "One line" : "Free ink", cyclePen)}
-          {settingRow(
-            "Ink per turn",
-            s.inkLimit === 0 ? "Unlimited" : s.inkLimit === 120 ? "Long" : "Short",
-            cycleInk,
+          {settingControl("Length", lengthValue, LENGTH_OPTIONS, changeLength)}
+          {settingControl(
+            "Passes",
+            s.passes,
+            SETTING_OPTIONS.passes,
+            (passes) => onSettings({ passes }),
           )}
-          {settingRow("Stroke clock", s.strokeClock === 0 ? "Off" : `${s.strokeClock}s`, cycleClock)}
-          {settingRow(
-            "Away players",
-            s.presence === "strict" ? "Pause 30s" : "Wait for them",
-            cyclePresence,
-          )}
-          {settingRow(
-            "Question master",
-            s.qmMode === "rotate" ? "Rotate" : "Auto word — all play",
-            () => onSettings({ qmMode: s.qmMode === "rotate" ? "off" : "rotate" }),
-          )}
-          {settingRow(
-            "Luna critic",
-            s.aiCritic ? "On" : "Off",
-            () => onSettings({ aiCritic: !s.aiCritic }),
-          )}
-          {settingRow(
-            "AI detective",
-            s.aiDetective ? "On · non-scoring" : "Off",
-            () => onSettings({ aiDetective: !s.aiDetective }),
-          )}
-          {aiEnabled(s) &&
-            settingRow(
-              "AI tone",
-              s.aiTone[0].toUpperCase() + s.aiTone.slice(1),
-              cycleTone,
-            )}
-          {aiEnabled(s) && (
-            <div className="note" style={{ fontSize: 11, lineHeight: 1.4 }}>
-              OpenAI reviews the finished drawing while ballots come in. GPT
-              Image 2 also makes its realistic version.
+          <details className="settings-disclosure">
+            <summary>
+              <span className="shout">Advanced rules</span>
+              <span className="small u-muted">
+                {advancedSettingsSummary(s, "online")}
+              </span>
+            </summary>
+            <div className="settings-disclosure__body">
+              {settingControl(
+                "Pen",
+                s.penMode,
+                SETTING_OPTIONS.pen,
+                (penMode) => onSettings({ penMode }),
+              )}
+              {settingControl(
+                "Ink per turn",
+                s.inkLimit,
+                SETTING_OPTIONS.ink,
+                (inkLimit) => onSettings({ inkLimit }),
+              )}
+              {settingControl(
+                "Stroke clock",
+                s.strokeClock,
+                SETTING_OPTIONS.clock,
+                (strokeClock) => onSettings({ strokeClock }),
+              )}
+              {settingControl(
+                "Away players",
+                s.presence,
+                SETTING_OPTIONS.presence,
+                (presence) => onSettings({ presence }),
+              )}
+              {settingControl(
+                "Question master",
+                s.qmMode,
+                SETTING_OPTIONS.qm,
+                (qmMode) => onSettings({ qmMode }),
+              )}
+              {settingControl(
+                "Luna critic",
+                s.aiCritic ? "on" : "off",
+                ON_OFF_OPTIONS,
+                (value) => onSettings({ aiCritic: value === "on" }),
+              )}
+              {settingControl(
+                "AI detective",
+                s.aiDetective ? "on" : "off",
+                DETECTIVE_OPTIONS,
+                (value) => onSettings({ aiDetective: value === "on" }),
+              )}
+              {aiEnabled(s) &&
+                settingControl(
+                  "AI tone",
+                  s.aiTone,
+                  SETTING_OPTIONS.tone,
+                  (aiTone) => onSettings({ aiTone }),
+                )}
+              {aiEnabled(s) && (
+                <div className="note" style={{ fontSize: 11, lineHeight: 1.4 }}>
+                  OpenAI reviews the finished drawing while ballots come in. GPT
+                  Image 2 also makes its realistic version.
+                </div>
+              )}
             </div>
-          )}
+          </details>
           <button className="kicker u-muted" style={{ letterSpacing: "0.1em", textAlign: "left", paddingTop: 4 }} onClick={onRules}>
             How it works
           </button>
         </div>
       </div>
-      <div className="footer footer--rule btn-stack">
+      <div className="action-footer btn-stack">
         {isHost ? (
-          <Btn variant={enough ? "red" : "disabled"} onClick={onStart}>
-            Open the round
+          <Btn
+            variant={canStart ? "red" : "disabled"}
+            disabled={!canStart}
+            onClick={onStart}
+          >
+            {houseWordsNeeded > 0
+              ? `House deck needs ${houseWordsNeeded} more`
+              : "Open the round"}
           </Btn>
         ) : (
           <div className="note u-center pulse">Waiting on the host to open the round</div>

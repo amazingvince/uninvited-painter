@@ -148,6 +148,10 @@ export interface ArchiveEntry {
 export interface RoomState {
   code: string; // "" in local mode
   mode: Mode;
+  /** Monotonic exhibition generation used to expire queued online actions. */
+  gameNo: number;
+  /** Changes every time cards are prepared, including a voided-round re-deal. */
+  roundVersion: number;
   hostId: string;
   phase: Phase;
   players: Player[];
@@ -213,7 +217,14 @@ export type GameEvent =
   | { type: "ADD_HOUSE_WORDS"; playerId: string; words: string[] }
   | { type: "REMOVE_HOUSE_WORD"; playerId: string; word: string }
   | { type: "CAST_VOTE"; voterId: string; targetId: string; now: number }
-  | { type: "SUBMIT_GUESS"; playerId: string; text: string; matched: boolean }
+  | {
+      type: "SUBMIT_GUESS";
+      playerId: string;
+      text: string;
+      matched: boolean;
+      /** Authoritative receipt time: local clock or RoomDO server clock. */
+      now: number;
+    }
   | { type: "GUESS_TIMEOUT"; now: number }
   | { type: "EXTEND_GUESS"; now: number } // restart the guess clock (local hand-off, unpause)
   | { type: "START_ROUND_AI"; roundNo: number; jobId: string }

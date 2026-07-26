@@ -325,6 +325,28 @@ describe("post-round AI state", () => {
     });
   });
 
+  it("failed critic and ready rendition settle independently", () => {
+    const pending = apply(
+      votingRoom({ aiCritic: true, aiDetective: true }),
+      { type: "START_ROUND_AI", roundNo: 1, jobId: JOB_ID },
+    );
+    const failedCritic = apply(pending, {
+      type: "FAIL_ROUND_CRITIC",
+      roundNo: 1,
+      jobId: JOB_ID,
+    });
+    const readyRendition = apply(failedCritic, {
+      type: "RESOLVE_ROUND_RENDITION",
+      roundNo: 1,
+      jobId: JOB_ID,
+      renditionId: JOB_ID,
+    });
+    expect(readyRendition.round!.ai).toMatchObject({
+      criticStatus: "unavailable",
+      renditionStatus: "ready",
+    });
+  });
+
   it("rejects malformed verdicts and stale job results", () => {
     const pending = apply(
       votingRoom({ aiDetective: true }),
@@ -448,6 +470,7 @@ describe("post-round AI state", () => {
       playerId: "p0",
       text: "walrus",
       matched: false,
+      now: 1,
     });
     const visible = redactState(state, "p1").state.round!.ai;
     expect(visible.critic?.title).toBe("Untitled Emergency");

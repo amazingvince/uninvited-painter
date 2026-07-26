@@ -83,6 +83,7 @@ export function HoldToReveal({
       }}
       onPointerUp={release}
       onPointerCancel={release}
+      onLostPointerCapture={() => held && release()}
       onKeyDown={(e) => {
         if ((e.key === " " || e.key === "Enter") && !e.repeat) {
           e.preventDefault();

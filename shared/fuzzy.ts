@@ -10,6 +10,17 @@ function normalize(text: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+export const GUESS_MAX_LENGTH = 60;
+
+/** The authoritative text used for both matching and the eventual reveal. */
+export function prepareGuessSubmission(
+  raw: unknown,
+  word: string,
+): { text: string; matched: boolean } {
+  const text = String(raw ?? "").trim().slice(0, GUESS_MAX_LENGTH);
+  return { text, matched: guessMatches(text, word) };
+}
+
 /**
  * Candidate singulars, because "-ies" and "-es" are ambiguous.
  *

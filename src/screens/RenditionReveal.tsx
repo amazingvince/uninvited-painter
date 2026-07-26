@@ -21,7 +21,11 @@ export function RenditionReveal({
 }) {
   const [showRendition, setShowRendition] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const unveiledFor = useRef<string | null>(null);
+  const imageUrl = ai.renditionId
+    ? `${renditionImageUrl(ai.renditionId)}${retryKey === 0 ? "" : `?retry=${retryKey}`}`
+    : "";
 
   // Decode before unveiling: the wipe should reveal a picture, not a blank
   // frame that pops in a beat later.
@@ -36,7 +40,7 @@ export function RenditionReveal({
     const started = Date.now();
 
     const image = new Image();
-    image.src = renditionImageUrl(ai.renditionId);
+    image.src = imageUrl;
     void image
       .decode()
       .then(() => {
@@ -58,7 +62,7 @@ export function RenditionReveal({
     return () => {
       cancelled = true;
     };
-  }, [ai.renditionId, ai.renditionStatus]);
+  }, [ai.renditionId, ai.renditionStatus, imageUrl, retryKey]);
 
   const original = (
     <div className="rendition-frame">
@@ -72,6 +76,7 @@ export function RenditionReveal({
     <Screen>
       <div
         className="grow scroll rendition-reveal"
+        aria-busy={ai.renditionStatus === "pending"}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -104,7 +109,7 @@ export function RenditionReveal({
               </figure>
               <figure className="rendition-reveal__result" style={{ position: "relative" }}>
                 <img
-                  src={renditionImageUrl(ai.renditionId)}
+                  src={imageUrl}
                   alt="AI-generated realistic rendition based on the players' drawing"
                 />
                 <figcaption className="kicker">What it became</figcaption>
@@ -118,6 +123,22 @@ export function RenditionReveal({
               </div>
             </div>
           )
+        ) : ai.renditionStatus === "ready" && ai.renditionId && imageFailed ? (
+          <div aria-live="polite" style={{ display: "grid", gap: 14 }}>
+            {original}
+            <div className="shout" style={{ fontSize: 30, lineHeight: 0.95 }}>
+              The image did not make it through the frame.
+            </div>
+            <Btn
+              variant="outline"
+              onClick={() => {
+                setImageFailed(false);
+                setRetryKey((key) => key + 1);
+              }}
+            >
+              Try image again
+            </Btn>
+          </div>
         ) : ai.renditionStatus === "pending" ? (
           <div aria-live="polite" style={{ display: "grid", gap: 14 }}>
             {original}

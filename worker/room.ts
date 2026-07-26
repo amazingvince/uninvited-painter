@@ -6,8 +6,14 @@
 import { DurableObject } from "cloudflare:workers";
 import { createRoom, isGameOver, normalizeRoom, reduce } from "../shared/engine";
 import { prepareRoundEvent, redrawWordEvent } from "../shared/decks";
-import { guessMatches } from "../shared/fuzzy";
-import { redactState, type ClientMsg, type ServerMsg } from "../shared/protocol";
+import { prepareGuessSubmission } from "../shared/fuzzy";
+import {
+  isAuthoritativeClientMsg,
+  redactState,
+  scopeMatchesState,
+  type ClientMsg,
+  type ServerMsg,
+} from "../shared/protocol";
 import { ROOM_TTL_MS, type GameEvent, type RoomState } from "../shared/types";
 import { validateReferencePng } from "./ai-input";
 import {
@@ -286,6 +292,13 @@ export class RoomDO extends DurableObject<Env> {
 
       const playerId = attach.playerId;
       if (!playerId) return this.sendError(ws, "Join first");
+      if (
+        isAuthoritativeClientMsg(msg) &&
+        "scope" in msg &&
+        !scopeMatchesState(msg.scope, state)
+      ) {
+        return this.sendError(ws, "That action has expired");
+      }
       const now = Date.now();
       const isHost = state.hostId === playerId;
       const round = state.round;
@@ -370,9 +383,14 @@ export class RoomDO extends DurableObject<Env> {
           return await this.dispatch(ws, { type: "CAST_VOTE", voterId: playerId, targetId: msg.targetId, now });
         case "guess": {
           if (!round) return this.sendError(ws, "No round");
-          const text = String(msg.text ?? "").slice(0, 200);
-          const matched = guessMatches(text, round.word);
-          return await this.dispatch(ws, { type: "SUBMIT_GUESS", playerId, text, matched });
+          const { text, matched } = prepareGuessSubmission(msg.text, round.word);
+          return await this.dispatch(ws, {
+            type: "SUBMIT_GUESS",
+            playerId,
+            text,
+            matched,
+            now,
+          });
         }
         case "next": {
           if (!isHost) return this.sendError(ws, "Host only");

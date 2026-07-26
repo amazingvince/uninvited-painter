@@ -6,18 +6,27 @@ import type { PublicRoomState } from "../../shared/protocol";
 import { deckList } from "../../shared/decks";
 import { lengthLabel } from "../lib/labels";
 import { Screen, Kicker, Btn } from "../components/ui";
+import type { ConnectionState } from "../game/onlineClient";
+
+const CONNECTION_LABELS: Record<ConnectionState, string> = {
+  checking: "Checking room…",
+  connecting: "Connecting…",
+  connected: "Connected",
+  reconnecting: "Reconnecting — your name is still here",
+  gone: "Room closed",
+};
 
 export function JoinerSetup({
   code,
   state,
-  connected,
+  connectionState,
   error,
   onJoin,
   onLeave,
 }: {
   code: string;
   state: PublicRoomState | null;
-  connected: boolean;
+  connectionState: ConnectionState;
   error: string | null;
   onJoin: (name: string, colorIndex: number) => void;
   onLeave: () => void;
@@ -39,8 +48,17 @@ export function JoinerSetup({
     <Screen>
       <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--ink)" }}>
         <span>Room {code}</span>
-        <span style={{ color: connected ? "var(--green)" : "var(--amber)" }}>
-          {connected ? "Connected" : "Connecting…"}
+        <span
+          style={{
+            color:
+              connectionState === "connected"
+                ? "var(--green)"
+                : connectionState === "gone"
+                  ? "var(--red)"
+                  : "var(--amber)",
+          }}
+        >
+          {CONNECTION_LABELS[connectionState]}
         </span>
       </div>
       <div className="grow scroll" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 18 }}>
@@ -110,7 +128,10 @@ export function JoinerSetup({
         </div>
       </div>
       <div className="footer footer--rule">
-        <Btn variant={name.trim() && connected ? "red" : "disabled"} onClick={() => onJoin(name, chosen)}>
+        <Btn
+          variant={name.trim() && connectionState === "connected" ? "red" : "disabled"}
+          onClick={() => onJoin(name, chosen)}
+        >
           I'm ready
         </Btn>
       </div>

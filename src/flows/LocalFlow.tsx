@@ -13,7 +13,7 @@ import {
 } from "../../shared/engine";
 import { aiFallbackEvent } from "../../shared/aiResults";
 import { prepareRoundEvent, redrawWordEvent } from "../../shared/decks";
-import { guessMatches } from "../../shared/fuzzy";
+import { prepareGuessSubmission } from "../../shared/fuzzy";
 import type { GameEvent, RoomState } from "../../shared/types";
 import { clearLocalGame, saveLocalGame } from "../lib/storage";
 import {
@@ -29,6 +29,7 @@ import { cueLock, cueReveal, cueRound } from "../lib/sound";
 import { useWakeLock } from "../lib/useWakeLock";
 import { useRevealSequence } from "../lib/revealSequence";
 import { Screen, Btn } from "../components/ui";
+import { HoldPeek } from "../components/HoldPeek";
 import { StrokePaths } from "../components/CanvasBoard";
 import { RulesSheet } from "../components/RulesSheet";
 import { ScreenFade } from "../components/ScreenFade";
@@ -426,13 +427,13 @@ export function LocalFlow({
             onButton={() => ack(key)}
             footer={
               <>
-                <span
-                  onPointerDown={() => setPeekWall(true)}
-                  onPointerUp={() => setPeekWall(false)}
-                  onPointerLeave={() => setPeekWall(false)}
+                <HoldPeek
+                  label="Hold to peek at the wall"
+                  revealed={peekWall}
+                  onRevealChange={setPeekWall}
                 >
                   Hold to peek at the wall
-                </span>
+                </HoldPeek>
                 <button className="kicker u-muted" style={{ letterSpacing: "0.1em" }} onClick={() => setShowRules(true)}>
                   Rules
                 </button>
@@ -484,13 +485,13 @@ export function LocalFlow({
           onButton={() => ack(key)}
           footer={
             <>
-              <span
-                onPointerDown={() => setPeekWall(true)}
-                onPointerUp={() => setPeekWall(false)}
-                onPointerLeave={() => setPeekWall(false)}
+              <HoldPeek
+                label="Hold to peek at the wall"
+                revealed={peekWall}
+                onRevealChange={setPeekWall}
               >
                 Hold to peek at the wall
-              </span>
+              </HoldPeek>
               <button className="kicker u-muted" style={{ letterSpacing: "0.1em" }} onClick={() => setShowRules(true)}>
                 Rules
               </button>
@@ -535,14 +536,16 @@ export function LocalFlow({
         category={round.category}
         strokes={round.strokes}
         deadline={round.guessDeadline}
-        onSubmit={(text) =>
+        onSubmit={(raw) => {
+          const { text, matched } = prepareGuessSubmission(raw, round.word);
           dispatch({
             type: "SUBMIT_GUESS",
             playerId: round.fakeId,
             text,
-            matched: guessMatches(text, round.word),
-          })
-        }
+            matched,
+            now: Date.now(),
+          });
+        }}
       />
     );
   } else if (state.phase === "reveal") {
