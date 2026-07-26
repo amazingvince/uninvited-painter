@@ -4,7 +4,9 @@
 
 import { useState } from "react";
 import type { ArchiveEntry, Player } from "../../shared/types";
+import { ActionNotice, type NoticeTone } from "../components/ActionNotice";
 import { StrokePaths } from "../components/CanvasBoard";
+import { copyText, shareLink } from "../lib/actionResult";
 import { criticAccuracy, criticChoice } from "../lib/aiStats";
 import { numberWord } from "../lib/labels";
 import { contactSheetPng, drawingPng, publishArchive, shareOrDownload } from "../lib/share";
@@ -35,9 +37,30 @@ export function Final({
   const [publishState, setPublishState] = useState<
     { kind: "idle" } | { kind: "busy" } | { kind: "done"; url: string } | { kind: "error" }
   >({ kind: "idle" });
+  const [notice, setNotice] = useState<{
+    message: string;
+    tone: NoticeTone;
+  } | null>(null);
+
+  const noticeForResult = (
+    result: Awaited<ReturnType<typeof shareOrDownload>>,
+    doneMessage: string,
+  ) => {
+    if (result === "done") {
+      setNotice({ message: doneMessage, tone: "success" });
+    } else if (result === "cancelled") {
+      setNotice({ message: "Saving cancelled", tone: "neutral" });
+    } else {
+      setNotice({
+        message: "Could not save — try again or use the archive link",
+        tone: "error",
+      });
+    }
+  };
 
   const publish = async () => {
     if (publishState.kind === "busy") return;
+    setNotice(null);
     setPublishState({ kind: "busy" });
     try {
       const url = await publishArchive({
@@ -47,18 +70,77 @@ export function Final({
         entries: archive.slice(-48),
       });
       setPublishState({ kind: "done", url });
-      try {
-        await navigator.clipboard.writeText(url);
-      } catch {
-        /* clipboard unavailable */
-      }
-      try {
-        await navigator.share?.({ title: "The Uninvited Painter — our gallery", url });
-      } catch {
-        /* cancelled */
-      }
     } catch {
       setPublishState({ kind: "error" });
+      setNotice({
+        message: "Publishing failed — your finished game is still here. Try again.",
+        tone: "error",
+      });
+    }
+  };
+
+  const copyArchiveLink = async (url: string) => {
+    const result = await copyText(url);
+    setNotice(
+      result === "done"
+        ? { message: "Archive link copied", tone: "success" }
+        : {
+            message: "Could not copy — select the visible URL",
+            tone: "error",
+          },
+    );
+  };
+
+  const shareArchive = async (url: string) => {
+    const result = await shareLink({
+      title: "The Uninvited Painter — our gallery",
+      url,
+    });
+    if (result === "done") {
+      setNotice({ message: "Archive shared", tone: "success" });
+    } else if (result === "cancelled") {
+      setNotice({ message: "Sharing cancelled", tone: "neutral" });
+    } else {
+      setNotice({
+        message:
+          result === "unavailable"
+            ? "Sharing is not available — copy the link instead"
+            : "Could not share — copy the link instead",
+        tone: "error",
+      });
+    }
+  };
+
+  const saveDrawing = async (entry: ArchiveEntry) => {
+    try {
+      const blob = await drawingPng(
+        entry.strokes,
+        `${String(entry.roundNo).padStart(2, "0")} ${entry.word}`,
+      );
+      noticeForResult(
+        await shareOrDownload(
+          blob,
+          `painter-${entry.roundNo}-${entry.word}.png`,
+        ),
+        "Drawing saved",
+      );
+    } catch {
+      setNotice({ message: "Could not save the drawing", tone: "error" });
+    }
+  };
+
+  const saveContactSheet = async () => {
+    try {
+      const blob = await contactSheetPng(
+        archive,
+        `${winner?.name ?? "?"} takes the gallery`,
+      );
+      noticeForResult(
+        await shareOrDownload(blob, "painter-archive.png"),
+        "Archive PNG saved",
+      );
+    } catch {
+      setNotice({ message: "Could not save the archive PNG", tone: "error" });
     }
   };
 
@@ -116,11 +198,7 @@ export function Final({
             <button
               key={entry.roundNo}
               className="archive-cell"
-              onClick={() =>
-                drawingPng(entry.strokes, `${String(entry.roundNo).padStart(2, "0")} ${entry.word}`).then(
-                  (blob) => shareOrDownload(blob, `painter-${entry.roundNo}-${entry.word}.png`),
-                )
-              }
+              onClick={() => void saveDrawing(entry)}
             >
               <span
                 className={
@@ -180,15 +258,33 @@ export function Final({
           <div className="note u-center pulse">{waiting ?? "Waiting for the host…"}</div>
         )}
         {publishState.kind === "done" ? (
-          <button
-            className="btn btn--outline"
-            style={{ fontSize: 13, letterSpacing: "0.02em" }}
-            onClick={() => navigator.clipboard?.writeText(publishState.url).catch(() => {})}
-          >
-            {publishState.url.replace(/^https?:\/\//, "")} — copied
-          </button>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div className="kicker u-red">Published</div>
+            <div
+              className="small u-center"
+              style={{ overflowWrap: "anywhere" }}
+            >
+              {publishState.url.replace(/^https?:\/\//, "")}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn--outline"
+                style={{ flex: 1, fontSize: 13 }}
+                onClick={() => void copyArchiveLink(publishState.url)}
+              >
+                Copy archive link
+              </button>
+              <button
+                className="btn btn--outline"
+                style={{ flex: 1, fontSize: 13 }}
+                onClick={() => void shareArchive(publishState.url)}
+              >
+                Share archive
+              </button>
+            </div>
+          </div>
         ) : (
-          <Btn variant="outline" onClick={publish}>
+          <Btn variant="outline" onClick={() => void publish()}>
             {publishState.kind === "busy"
               ? "Hanging it in the archive…"
               : publishState.kind === "error"
@@ -199,14 +295,14 @@ export function Final({
         <button
           className="kicker u-muted u-center"
           style={{ letterSpacing: "0.1em", padding: "4px 0" }}
-          onClick={() =>
-            contactSheetPng(archive, `${winner?.name ?? "?"} takes the gallery`).then((blob) =>
-              shareOrDownload(blob, "painter-archive.png"),
-            )
-          }
+          onClick={() => void saveContactSheet()}
         >
           Save as PNG instead
         </button>
+        <ActionNotice
+          message={notice?.message ?? null}
+          tone={notice?.tone}
+        />
       </div>
     </Screen>
   );

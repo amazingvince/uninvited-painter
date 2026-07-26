@@ -353,4 +353,28 @@ describe("deliberate ballot and reveal interactions", () => {
       "Couldn’t save the drawing",
     );
   });
+
+  it("reports a cancelled drawing save without claiming it was saved", async () => {
+    share.drawingPng.mockResolvedValueOnce(new Blob(["png"]));
+    share.shareOrDownload.mockResolvedValueOnce("cancelled");
+    act(() => {
+      root.render(
+        <Reveal
+          round={revealedRound()}
+          players={PLAYERS}
+          nextLabel="Standings"
+          onNext={() => undefined}
+        />,
+      );
+    });
+
+    await act(async () => {
+      buttonWithText(container, "Save this drawing as a PNG").click();
+      await Promise.resolve();
+    });
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      "Saving cancelled.",
+    );
+    expect(container.textContent).not.toContain("Drawing saved.");
+  });
 });

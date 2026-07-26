@@ -5,6 +5,7 @@ import { splitSegments } from "../../shared/geometry";
 import { SEAT_COLORS } from "../../shared/palette";
 import type { ArchiveEntry, Stroke } from "../../shared/types";
 import { buildCurve } from "./curves";
+import type { ActionResult } from "./actionResult";
 
 function drawStrokes(
   ctx: CanvasRenderingContext2D,
@@ -153,15 +154,20 @@ export async function publishArchive(params: {
   return `${location.origin}${data.url}`;
 }
 
-export async function shareOrDownload(blob: Blob, filename: string): Promise<void> {
+export async function shareOrDownload(
+  blob: Blob,
+  filename: string,
+): Promise<ActionResult> {
   const file = new File([blob], filename, { type: "image/png" });
   const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
   if (nav.share && nav.canShare?.({ files: [file] })) {
     try {
       await nav.share({ files: [file] });
-      return;
-    } catch {
-      // fall through to download (user may have cancelled — harmless)
+      return "done";
+    } catch (error) {
+      return error instanceof DOMException && error.name === "AbortError"
+        ? "cancelled"
+        : "failed";
     }
   }
   const url = URL.createObjectURL(blob);
@@ -170,4 +176,5 @@ export async function shareOrDownload(blob: Blob, filename: string): Promise<voi
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return "done";
 }

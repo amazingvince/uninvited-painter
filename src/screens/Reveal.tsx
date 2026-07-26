@@ -140,12 +140,20 @@ export function Reveal({
         round.strokes,
         `${String(round.roundNo).padStart(2, "0")} ${round.word}`,
       );
-      await shareOrDownload(
+      const result = await shareOrDownload(
         blob,
         `painter-${round.roundNo}-${round.word}.png`,
       );
-      setSaveTone("success");
-      setSaveMessage("Drawing saved.");
+      if (result === "done") {
+        setSaveTone("success");
+        setSaveMessage("Drawing saved.");
+      } else if (result === "cancelled") {
+        setSaveTone("neutral");
+        setSaveMessage("Saving cancelled.");
+      } else {
+        setSaveTone("error");
+        setSaveMessage("Couldn’t save the drawing. Try again.");
+      }
     } catch {
       setSaveTone("error");
       setSaveMessage("Couldn’t save the drawing. Try again.");

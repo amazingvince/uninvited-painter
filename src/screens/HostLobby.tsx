@@ -1,6 +1,7 @@
 // D2 Host lobby — code is the hero, QR beside it. Only the host can change
 // room rules; everyone can read the selected values.
 
+import { useState } from "react";
 import { aiEnabled } from "../../shared/engine";
 import type { PublicRoomState } from "../../shared/protocol";
 import {
@@ -9,9 +10,11 @@ import {
   MAX_PLAYERS,
   type Settings,
 } from "../../shared/types";
+import { ActionNotice, type NoticeTone } from "../components/ActionNotice";
 import { QrCode } from "../components/QrCode";
 import { SettingSelect } from "../components/SettingSelect";
 import { Screen, Kicker, Btn, Swatch } from "../components/ui";
+import { copyText, shareLink } from "../lib/actionResult";
 import {
   SETTING_OPTIONS,
   advancedSettingsSummary,
@@ -69,19 +72,41 @@ export function HostLobby({
   onLock?: (locked: boolean) => void;
 }) {
   const s = state.settings;
+  const [notice, setNotice] = useState<{
+    message: string;
+    tone: NoticeTone;
+  } | null>(null);
+  const canShare =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  const copy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      /* clipboard unavailable */
-    }
+  const copy = async (text: string, label: "Room" | "Spectator") => {
+    const result = await copyText(text);
+    setNotice(
+      result === "done"
+        ? { message: `${label} link copied`, tone: "success" }
+        : {
+            message: "Could not copy — select the visible URL",
+            tone: "error",
+          },
+    );
   };
   const shareSheet = async () => {
-    try {
-      await navigator.share?.({ title: "The Uninvited Painter", url: shareUrl });
-    } catch {
-      /* cancelled */
+    const result = await shareLink({
+      title: "The Uninvited Painter",
+      url: shareUrl,
+    });
+    if (result === "done") {
+      setNotice({ message: "Room link shared", tone: "success" });
+    } else if (result === "cancelled") {
+      setNotice({ message: "Sharing cancelled", tone: "neutral" });
+    } else {
+      setNotice({
+        message:
+          result === "unavailable"
+            ? "Sharing is not available — copy the link instead"
+            : "Could not share — copy the link instead",
+        tone: "error",
+      });
     }
   };
 
@@ -141,20 +166,28 @@ export function HostLobby({
           <QrCode url={shareUrl} size={116} />
         </div>
         <div style={{ display: "flex", gap: 8, paddingTop: 12 }}>
-          <button className="btn btn--red" style={{ padding: 14, fontSize: 14 }} onClick={() => copy(shareUrl)}>
+          <button className="btn btn--red" style={{ padding: 14, fontSize: 14 }} onClick={() => void copy(shareUrl, "Room")}>
             Copy link
           </button>
-          <button className="btn" style={{ border: "2px solid var(--cream)", padding: 12, fontSize: 14 }} onClick={shareSheet}>
-            Share sheet
-          </button>
+          {canShare && (
+            <button className="btn" style={{ border: "2px solid var(--cream)", padding: 12, fontSize: 14 }} onClick={() => void shareSheet()}>
+              Share sheet
+            </button>
+          )}
         </div>
         <button
           className="kicker"
           style={{ color: "var(--muted-dark)", letterSpacing: "0.1em", paddingTop: 10 }}
-          onClick={() => copy(shareUrl.replace("/r/", "/w/"))}
+          onClick={() =>
+            void copy(shareUrl.replace("/r/", "/w/"), "Spectator")
+          }
         >
           Copy spectator link — watch only, no seat
         </button>
+        <ActionNotice
+          message={notice?.message ?? null}
+          tone={notice?.tone}
+        />
         {isHost && onLock && (
           <button
             className="kicker"

@@ -14,6 +14,10 @@ interface PublishedArchive {
   createdAt: number;
 }
 
+type ArchiveLoadStatus = "loading" | "ok" | "missing" | "error";
+
+class MissingArchiveError extends Error {}
+
 const OUTCOME_COPY: Record<string, string> = {
   survived: "the fake was never caught",
   caught_named: "caught — but named the word",
@@ -22,7 +26,8 @@ const OUTCOME_COPY: Record<string, string> = {
 
 export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) {
   const [archive, setArchive] = useState<PublishedArchive | null>(null);
-  const [status, setStatus] = useState<"loading" | "ok" | "missing">("loading");
+  const [status, setStatus] = useState<ArchiveLoadStatus>("loading");
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,10 +39,14 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
         const response = await fetch(`/api/archives/${id}`, {
           cache: "no-store",
         });
-        if (!response.ok) throw new Error("missing");
+        if (!response.ok) {
+          if (response.status === 404) throw new MissingArchiveError();
+          throw new Error(`archive request failed: ${response.status}`);
+        }
         const data = (await response.json()) as PublishedArchive;
         if (cancelled) return;
         loaded = true;
+        retries = 0;
         setArchive(data);
         setStatus("ok");
         if (
@@ -49,10 +58,10 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
         ) {
           timer = setTimeout(load, 5000);
         }
-      } catch {
+      } catch (error) {
         if (cancelled) return;
         if (!loaded) {
-          setStatus("missing");
+          setStatus(error instanceof MissingArchiveError ? "missing" : "error");
         } else if (retries < 6) {
           // A blip mid-poll (phone locking, flaky wifi) must not permanently
           // strand a still-pending verdict.
@@ -66,7 +75,12 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [id]);
+  }, [id, retryToken]);
+
+  const retry = () => {
+    setStatus("loading");
+    setRetryToken((token) => token + 1);
+  };
 
   if (status !== "ok" || !archive) {
     return (
@@ -74,7 +88,11 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
         <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--ink)" }}>
           <span>The archive</span>
           <span className={status === "loading" ? "pulse" : "u-red"}>
-            {status === "loading" ? "Fetching…" : "Missing"}
+            {status === "loading"
+              ? "Fetching…"
+              : status === "missing"
+                ? "Missing"
+                : "Try again"}
           </span>
         </div>
         <div className="grow" style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 16, padding: "0 22px" }}>
@@ -100,6 +118,23 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
                 Archives are kept for a year. This one has either lapsed or never existed.
               </div>
               <Btn variant="ink" onClick={onHome}>
+                To the entrance
+              </Btn>
+            </>
+          )}
+          {status === "error" && (
+            <>
+              <div className="shout" style={{ fontSize: 40, lineHeight: 0.9 }}>
+                Temporary problem
+              </div>
+              <div className="body-copy u-muted">
+                The archive could not be reached. Check your connection and try
+                again.
+              </div>
+              <Btn variant="ink" onClick={retry}>
+                Retry
+              </Btn>
+              <Btn variant="outline" onClick={onHome}>
                 To the entrance
               </Btn>
             </>
