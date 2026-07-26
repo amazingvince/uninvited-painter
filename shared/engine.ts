@@ -891,6 +891,7 @@ export function reduce(prev: RoomState, event: GameEvent): ReduceResult {
       if (state.phase !== "guessing" || !round) return fail("Not guessing");
       if (event.playerId !== round.fakeId) return fail("Only the accused guesses");
       if (round.guessDeadline !== null && event.now >= round.guessDeadline) {
+        if (Object.keys(state.holds).length > 0) return fail("Paused");
         round.guess = null;
         finishRound(state, "caught_wrong");
         return { ok: true, state };

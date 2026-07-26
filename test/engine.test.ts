@@ -362,6 +362,30 @@ describe("voting and outcomes", () => {
       expect(result.state.round!.outcome).toBe("caught_wrong");
     },
   );
+
+  it("a late guess preserves timeout pause semantics while a seat is held", () => {
+    const paused = apply(caughtGuessingRound(), {
+      type: "SET_CONNECTED",
+      playerId: "p2",
+      connected: false,
+      now: 2_000,
+    });
+    const timeout = reduce(paused, { type: "GUESS_TIMEOUT", now: 31_001 });
+    const guess = reduce(paused, {
+      type: "SUBMIT_GUESS",
+      playerId: "p1",
+      text: "penguin",
+      matched: true,
+      now: 31_001,
+    });
+
+    expect(timeout).toEqual({ ok: false, error: "Paused" });
+    expect(guess).toEqual(timeout);
+    expect(paused.phase).toBe("guessing");
+    expect(paused.round!.outcome).toBeNull();
+    expect(paused.round!.guess).toBeNull();
+    expect(paused.holds).toHaveProperty("p2");
+  });
 });
 
 describe("full game", () => {
