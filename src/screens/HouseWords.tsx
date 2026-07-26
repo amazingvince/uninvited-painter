@@ -36,18 +36,24 @@ export function HouseWords({
       <div className="header header-row">
         <div>
           <BackLink label="← Back" onClick={onBack} />
-          <div className="shout" style={{ fontSize: 28 }}>
-            House deck
-          </div>
+          <div className="shout compact-screen-title">House deck</div>
         </div>
-        <div className="shout" style={{ fontSize: 22, color: totalCount >= HOUSE_MIN_WORDS ? "var(--green)" : "var(--red)" }}>
+        <div
+          className={`shout compact-screen-count ${
+            totalCount >= HOUSE_MIN_WORDS ? "u-green" : "u-red"
+          }`}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label={`${totalCount} ${totalCount === 1 ? "word" : "words"} in the pot`}
+        >
           {totalCount}
         </div>
       </div>
-      <div className="grow scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <div className="screen-scroll house-words">
+        <div className="house-word-entry">
           <input
-            style={{ flex: 1, fontSize: 16, fontWeight: 600, borderBottom: "3px solid var(--ink)", paddingBottom: 6, minWidth: 0 }}
+            className="house-word-input"
             placeholder="Write a word, press enter"
             value={draft}
             maxLength={HOUSE_WORD_MAX_LEN * 4}
@@ -57,7 +63,11 @@ export function HouseWords({
               if (e.key === "Enter") add();
             }}
           />
-          <button className="shout u-red" style={{ fontSize: 20, padding: "0 6px" }} onClick={add}>
+          <button
+            className="shout u-red tap-target house-word-action"
+            onClick={add}
+            aria-label="Add words"
+          >
             +
           </button>
         </div>
@@ -70,14 +80,19 @@ export function HouseWords({
             <Kicker style={{ color: "var(--muted)", paddingTop: 6 }}>Your words</Kicker>
             <div className="chips">
               {ownWords.map((word) => (
-                <button key={word} className="chip" onClick={() => onRemove(word)}>
+                <button
+                  key={word}
+                  className="chip tap-target"
+                  onClick={() => onRemove(word)}
+                  aria-label={`Remove ${word}`}
+                >
                   {word} ×
                 </button>
               ))}
             </div>
           </>
         )}
-        <div className="note" style={{ marginTop: "auto", borderTop: "1px solid var(--rule)", paddingTop: 12 }}>
+        <div className="note house-word-note">
           {note}
         </div>
       </div>

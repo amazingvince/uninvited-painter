@@ -201,6 +201,7 @@ input {
 
 .u-muted { color: var(--muted); }
 .u-red { color: var(--red); }
+.u-green { color: var(--green); }
 .u-gold { color: var(--gold); }
 .u-center { text-align: center; }
 
@@ -217,6 +218,23 @@ input {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+
+.compact-screen-title {
+  font-size: 28px;
+}
+
+.compact-screen-count {
+  font-size: 22px;
+}
+
+.standings-title {
+  font-size: 30px;
+  letter-spacing: -0.035em;
+}
+
+.standings-progress {
+  letter-spacing: 0.14em;
 }
 
 .header--strip {
@@ -327,6 +345,166 @@ input {
   gap: 12px;
   padding: 13px 0;
   border-bottom: 1px solid var(--rule);
+}
+
+.roster-player-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.roster-row {
+  padding-block: 0;
+}
+
+.roster-action {
+  flex: none;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.roster-action--remove {
+  font-size: 18px;
+}
+
+.roster-action:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.roster-add-row {
+  padding: 15px 0;
+  border-bottom: 2px dashed var(--rule);
+}
+
+.roster-add-marker {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 2px dashed var(--muted);
+}
+
+.roster-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.roster-add-action {
+  flex: none;
+  font-size: 18px;
+}
+
+.roster-error {
+  padding-top: 10px;
+}
+
+.roster-note {
+  padding-top: 14px;
+  font-size: 12px;
+}
+
+.house-words {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+}
+
+.house-word-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.house-word-input {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 6px;
+  border-bottom: 3px solid var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.house-word-action {
+  flex: none;
+  font-size: 20px;
+}
+
+.house-word-note {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.score-list {
+  padding-top: 4px;
+}
+
+.score-list--ruled {
+  padding-top: 12px;
+  border-top: 3px solid var(--ink);
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap-target);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.score-row--large {
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.score-rank {
+  width: 26px;
+  flex: none;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.score-rank--leader {
+  color: var(--red);
+}
+
+.score-player {
+  flex: 1;
+  min-width: 0;
+}
+
+.score-row--large .score-player {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+
+.score-status {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--red-deep);
+  font-family: var(--body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.score-value {
+  min-width: 2ch;
+  flex: none;
+  font-size: 16px;
+  text-align: right;
+}
+
+.score-value--large {
+  font-size: 26px;
 }
 
 .swatch {
@@ -617,6 +795,42 @@ input {
 
 /* ---- archive grid (C6) ---- */
 
+.gallery-header {
+  flex: none;
+  padding: 22px 20px;
+  background: var(--red);
+  color: var(--cream-on-red);
+}
+
+.gallery-title {
+  font-size: 44px;
+  line-height: 0.88;
+  letter-spacing: -0.045em;
+}
+
+.gallery-title--published {
+  font-size: clamp(30px, 9vw, 42px);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+}
+
+.gallery-summary {
+  padding-top: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.archive-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.archive-scroll--published {
+  gap: 16px;
+}
+
 .archive-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -676,6 +890,53 @@ input {
   letter-spacing: 0.04em;
 }
 
+.archive-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.archive-entry-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.archive-entry-title {
+  display: block;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.archive-entry-outcome {
+  text-align: right;
+}
+
+.archive-link-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.archive-link-url {
+  overflow-wrap: anywhere;
+}
+
+.archive-link-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.archive-link-action {
+  flex: 1;
+  font-size: 13px;
+}
+
+.archive-secondary-action {
+  width: 100%;
+  letter-spacing: 0.1em;
+}
+
 .ai-gallery-stats {
   display: grid;
   gap: 8px;
@@ -732,6 +993,10 @@ input {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
+}
+
+.screen-scroll--gutter {
+  padding: 0 20px;
 }
 
 .scroll {
@@ -961,38 +1226,6 @@ input {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pulse,
-  .blink,
-  .overlay {
-    animation: none;
-  }
-  .fade-wrap {
-    animation: none;
-  }
-  .fade-wrap--flood::before {
-    display: none;
-  }
-  .draw-in path {
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-    animation: none;
-  }
-  .stagger-in > * {
-    opacity: 1;
-    animation: none;
-  }
-  .tallybar > div {
-    transition: none;
-  }
-  .rendition-reveal,
-  .rendition-reveal *,
-  .rendition-reveal img {
-    animation: none;
-    transition: none;
-  }
-}
-
 /* ---- Luna & the reality treatment ---- */
 
 /* Rotating quips while the critic deliberates. */
@@ -1135,34 +1368,6 @@ input {
   100% { opacity: 0; transform: translateY(86vh) rotate(660deg); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ai-quips > * {
-    animation: none;
-    opacity: 0;
-  }
-  .ai-quips > *:first-child {
-    opacity: 1;
-    position: static;
-  }
-  .ai-deliberating-dots::after {
-    animation: none;
-  }
-  .verdict-stagger > *,
-  .rating-stamp,
-  .rendition-pair--unveil figure:first-child,
-  .rendition-pair--unveil .rendition-reveal__result {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-  .rendition-pair--unveil .rendition-reveal__result::after {
-    display: none;
-  }
-  .confetti {
-    display: none;
-  }
-}
-
 .pulse {
   animation: pulse 1.4s ease-in-out infinite;
 }
@@ -1193,4 +1398,54 @@ input.register {
 
 input.register::placeholder {
   color: var(--rule);
+}
+
+/* Keep the override last so later animation declarations cannot accidentally
+   turn motion back on. There is one reduced-motion policy for the app. */
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .blink,
+  .overlay,
+  .fade-wrap {
+    animation: none;
+  }
+  .fade-wrap--flood::before,
+  .rendition-pair--unveil .rendition-reveal__result::after,
+  .confetti {
+    display: none;
+  }
+  .draw-in path {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .stagger-in > *,
+  .verdict-stagger > *,
+  .rating-stamp,
+  .rendition-pair--unveil figure:first-child,
+  .rendition-pair--unveil .rendition-reveal__result {
+    opacity: 1;
+    animation: none;
+    transform: none;
+  }
+  .tallybar > div {
+    transition: none;
+  }
+  .rendition-reveal,
+  .rendition-reveal *,
+  .rendition-reveal img {
+    animation: none;
+    transition: none;
+  }
+  .ai-quips > * {
+    opacity: 0;
+    animation: none;
+  }
+  .ai-quips > *:first-child {
+    position: static;
+    opacity: 1;
+  }
+  .ai-deliberating-dots::after {
+    animation: none;
+  }
 }

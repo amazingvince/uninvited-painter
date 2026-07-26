@@ -370,4 +370,32 @@ describe("published archive loading", () => {
     expect(container.textContent).toContain("Devon takes the gallery");
     expect(container.textContent).not.toContain("Temporary problem");
   });
+
+  it("keeps tied published scores stable with competition ranks and winner text", async () => {
+    const tiedArchive = {
+      ...publishedArchive(),
+      players: [
+        { name: "Maya", colorIndex: 1, score: 5 },
+        { name: "Devon", colorIndex: 0, score: 5 },
+        { name: "Priya", colorIndex: 2, score: 3 },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(response(200, tiedArchive)),
+    );
+    await renderArchive();
+
+    expect(container.textContent).toContain("2-way tie at 5 points");
+    const rows = [...container.querySelectorAll(".score-row")].map((row) => ({
+      rank: row.querySelector(".score-rank")?.textContent,
+      player: row.querySelector(".score-player")?.childNodes[0]?.textContent,
+      status: row.querySelector(".score-status")?.textContent ?? null,
+    }));
+    expect(rows).toEqual([
+      { rank: "1", player: "Maya", status: "Winner" },
+      { rank: "1", player: "Devon", status: "Winner" },
+      { rank: "3", player: "Priya", status: null },
+    ]);
+  });
 });

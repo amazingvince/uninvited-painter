@@ -12,7 +12,7 @@ import { numberWord } from "../lib/labels";
 import { contactSheetPng, drawingPng, publishArchive, shareOrDownload } from "../lib/share";
 import { renditionImageUrl } from "./RenditionReveal";
 import { Confetti } from "../components/Confetti";
-import { Screen, Btn, Kicker } from "../components/ui";
+import { Screen, Btn, Kicker, Swatch } from "../components/ui";
 
 export function Final({
   players,
@@ -29,6 +29,14 @@ export function Final({
 }) {
   const ranked = [...players].sort((a, b) => b.score - a.score);
   const winner = ranked[0];
+  const winners = ranked.filter((player) => player.score === winner?.score);
+  const galleryLead =
+    winners.length > 1
+      ? `${numberWord(winners.length)}-way tie for`
+      : `${winner?.name ?? "?"} takes`;
+  const galleryTitle = `${galleryLead} the gallery`;
+  const rankFor = (player: Player): number =>
+    ranked.findIndex((candidate) => candidate.score === player.score) + 1;
   const undetected = archive.filter(
     (e) => e.outcome === "survived" && e.fakeName === winner?.name,
   ).length;
@@ -64,7 +72,7 @@ export function Final({
     setPublishState({ kind: "busy" });
     try {
       const url = await publishArchive({
-        title: `${winner?.name ?? "?"} takes the gallery`,
+        title: galleryTitle,
         players: ranked.map((p) => ({ name: p.name, colorIndex: p.colorIndex, score: p.score })),
         // Keep in sync with the server's 48-entry cap (long score-to-10 games).
         entries: archive.slice(-48),
@@ -133,7 +141,7 @@ export function Final({
     try {
       const blob = await contactSheetPng(
         archive,
-        `${winner?.name ?? "?"} takes the gallery`,
+        galleryTitle,
       );
       noticeForResult(
         await shareOrDownload(blob, "painter-archive.png"),
@@ -147,22 +155,22 @@ export function Final({
   return (
     <Screen>
       <Confetti />
-      <div style={{ background: "var(--red)", color: "var(--cream-on-red)", padding: "22px 20px", flex: "none" }}>
+      <div className="gallery-header">
         <Kicker>
           Exhibition closed · {archive.length} {archive.length === 1 ? "round" : "rounds"}
         </Kicker>
-        <div className="shout" style={{ fontSize: 44, lineHeight: 0.88, letterSpacing: "-0.045em" }}>
-          {winner?.name} takes
+        <div className="shout gallery-title">
+          {galleryLead}
           <br />
           the gallery
         </div>
-        <div style={{ fontSize: 15, fontWeight: 600, paddingTop: 8 }}>
+        <div className="gallery-summary">
           {winner?.score} points.
           {undetected > 0 && ` ${undetected === 1 ? "One round" : `${numberWord(undetected)} rounds`} undetected.`}
         </div>
       </div>
-      <div className="grow scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <Kicker style={{ color: "var(--muted)" }}>The archive · tap any to save or share</Kicker>
+      <div className="screen-scroll archive-scroll">
+        <Kicker style={{ color: "var(--muted)" }}>The archive · tap any to save</Kicker>
         {(choice || accuracy.subjectTotal > 0 || accuracy.detectiveTotal > 0) && (
           <div className="ai-gallery-stats">
             {choice && (
@@ -199,6 +207,7 @@ export function Final({
               key={entry.roundNo}
               className="archive-cell"
               onClick={() => void saveDrawing(entry)}
+              aria-label={`Save round ${entry.roundNo} drawing of ${entry.word}`}
             >
               <span
                 className={
@@ -233,20 +242,27 @@ export function Final({
             </button>
           ))}
         </div>
-        <div style={{ paddingTop: 4 }}>
-          {ranked.slice(0, 12).map((p, i) => (
-            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--rule)", fontSize: 14, fontWeight: 600 }}>
-              <span>
-                <span className="u-muted" style={{ display: "inline-block", width: 22 }}>
-                  {i + 1}
+        <div className="score-list">
+          {ranked.slice(0, 12).map((p) => {
+            const rank = rankFor(p);
+            return (
+              <div key={p.id} className="score-row">
+                <span
+                  className={`score-rank ${
+                    rank === 1 ? "score-rank--leader" : ""
+                  }`}
+                >
+                  {rank}
                 </span>
-                {p.name}
-              </span>
-              <span className="shout" style={{ fontSize: 16 }}>
-                {p.score}
-              </span>
-            </div>
-          ))}
+                <Swatch index={p.colorIndex} />
+                <span className="score-player">
+                  {p.name}
+                  {rank === 1 && <span className="score-status">Winner</span>}
+                </span>
+                <span className="shout score-value">{p.score}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
       <div className="footer footer--rule btn-stack">
@@ -258,25 +274,20 @@ export function Final({
           <div className="note u-center pulse">{waiting ?? "Waiting for the host…"}</div>
         )}
         {publishState.kind === "done" ? (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div className="archive-link-panel">
             <div className="kicker u-red">Published</div>
-            <div
-              className="small u-center"
-              style={{ overflowWrap: "anywhere" }}
-            >
+            <div className="small u-center archive-link-url">
               {publishState.url.replace(/^https?:\/\//, "")}
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="archive-link-actions">
               <button
-                className="btn btn--outline"
-                style={{ flex: 1, fontSize: 13 }}
+                className="btn btn--outline archive-link-action"
                 onClick={() => void copyArchiveLink(publishState.url)}
               >
                 Copy archive link
               </button>
               <button
-                className="btn btn--outline"
-                style={{ flex: 1, fontSize: 13 }}
+                className="btn btn--outline archive-link-action"
                 onClick={() => void shareArchive(publishState.url)}
               >
                 Share archive
@@ -293,8 +304,7 @@ export function Final({
           </Btn>
         )}
         <button
-          className="kicker u-muted u-center"
-          style={{ letterSpacing: "0.1em", padding: "4px 0" }}
+          className="kicker u-muted u-center tap-target archive-secondary-action"
           onClick={() => void saveContactSheet()}
         >
           Save as PNG instead

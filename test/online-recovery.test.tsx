@@ -35,7 +35,7 @@ function publicLobby(): PublicRoomState {
   return redactState(lobby(), "p0").state;
 }
 
-function heldRound(): PublicRoomState {
+function heldRound(additionalHolds = 1): PublicRoomState {
   let state = lobby();
   state = apply(state, {
     type: "START_ROUND",
@@ -58,6 +58,14 @@ function heldRound(): PublicRoomState {
     connected: false,
     now: now + 1_000,
   });
+  if (additionalHolds > 1) {
+    state = apply(state, {
+      type: "SET_CONNECTED",
+      playerId: "p3",
+      connected: false,
+      now: now + 2_000,
+    });
+  }
   const publicState = redactState(state, "p0").state;
   return {
     ...publicState,
@@ -138,10 +146,15 @@ describe("online recovery presentation", () => {
     act(() => root.unmount());
   });
 
-  it("puts the fake-drop consequence before the action and counts every held seat", () => {
+  it.each([
+    [1, "and 1 more seat held"],
+    [2, "and 2 more seats held"],
+  ] as const)(
+    "puts the fake-drop consequence before the action with %i additional hold(s)",
+    (additionalHolds, heldCopy) => {
     const markup = renderToStaticMarkup(
       <DisconnectOverlay
-        state={heldRound()}
+        state={heldRound(additionalHolds)}
         isHost
         onDrop={() => undefined}
       />,
@@ -150,11 +163,12 @@ describe("online recovery presentation", () => {
     const consequence = "Dropping the fake voids this round and deals fresh cards.";
     const action = "Drop Maya and continue";
 
-    expect(text).toContain("and 1 more seats held");
+    expect(text).toContain(heldCopy);
     expect(text.indexOf(consequence)).toBeLessThan(text.indexOf(action));
     expect(markup).toContain('aria-describedby="drop-player-consequence"');
     expect(markup).toContain('id="drop-player-consequence"');
-  });
+    },
+  );
 
   it("labels live, held, and away lobby seats with both a symbol and text", () => {
     const state = publicLobby();

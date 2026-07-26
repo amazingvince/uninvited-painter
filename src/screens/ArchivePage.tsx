@@ -146,27 +146,32 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
 
   const ranked = [...archive.players].sort((a, b) => b.score - a.score);
   const winner = ranked[0];
+  const winners = ranked.filter((player) => player.score === winner?.score);
+  const rankFor = (player: PublishedArchive["players"][number]): number =>
+    ranked.findIndex((candidate) => candidate.score === player.score) + 1;
   const date = new Date(archive.createdAt);
   const choice = criticChoice(archive.entries);
   const accuracy = criticAccuracy(archive.entries);
 
   return (
     <Screen>
-      <div style={{ background: "var(--red)", color: "var(--cream-on-red)", padding: "22px 20px", flex: "none" }}>
+      <div className="gallery-header">
         <Kicker>
           The archive ·{" "}
           {date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
         </Kicker>
-        <div className="shout" style={{ fontSize: "clamp(30px, 9vw, 42px)", lineHeight: 0.9, letterSpacing: "-0.04em" }}>
+        <div className="shout gallery-title gallery-title--published">
           {archive.title}
         </div>
         {winner && (
-          <div style={{ fontSize: 15, fontWeight: 600, paddingTop: 8 }}>
-            {winner.name} took the gallery with {winner.score} points.
+          <div className="gallery-summary">
+            {winners.length > 1
+              ? `${winners.length}-way tie at ${winner.score} points.`
+              : `${winner.name} took the gallery with ${winner.score} points.`}
           </div>
         )}
       </div>
-      <div className="grow scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="screen-scroll archive-scroll archive-scroll--published">
         {(choice || accuracy.subjectTotal > 0 || accuracy.detectiveTotal > 0) && (
           <div className="ai-gallery-stats">
             {choice && (
@@ -187,7 +192,7 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
           </div>
         )}
         {archive.entries.map((entry) => (
-          <div key={entry.roundNo} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div key={entry.roundNo} className="archive-entry">
             {/* Only the drawing travels. Renditions are generated from a
                 bitmap a player uploaded, which the room never checks against
                 the real strokes, so they stay off public pages. */}
@@ -201,9 +206,9 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
                 <figcaption className="kicker">What it was</figcaption>
               </figure>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+            <div className="archive-entry-meta">
               <span>
-                <span className="shout" style={{ display: "block", fontSize: 18, letterSpacing: "-0.02em" }}>
+                <span className="shout archive-entry-title">
                   {String(entry.roundNo).padStart(2, "0")} {entry.word}
                 </span>
                 {entry.ai?.critic?.title && (
@@ -215,21 +220,33 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
                   </span>
                 )}
               </span>
-              <span className="small u-muted" style={{ textAlign: "right" }}>
+              <span className="small u-muted archive-entry-outcome">
                 {entry.fakeName}: {OUTCOME_COPY[entry.outcome] ?? entry.outcome}
               </span>
             </div>
           </div>
         ))}
-        <div style={{ borderTop: "3px solid var(--ink)", paddingTop: 12 }}>
-          {ranked.map((p, i) => (
-            <div key={`${p.name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--rule)", fontSize: 14, fontWeight: 600 }}>
-              <span className="u-muted" style={{ width: 20 }}>{i + 1}</span>
-              <Swatch index={p.colorIndex} />
-              <span style={{ flex: 1 }}>{p.name}</span>
-              <span className="shout" style={{ fontSize: 16 }}>{p.score}</span>
-            </div>
-          ))}
+        <div className="score-list score-list--ruled">
+          {ranked.map((p, i) => {
+            const rank = rankFor(p);
+            return (
+              <div key={`${p.name}-${i}`} className="score-row">
+                <span
+                  className={`score-rank ${
+                    rank === 1 ? "score-rank--leader" : ""
+                  }`}
+                >
+                  {rank}
+                </span>
+                <Swatch index={p.colorIndex} />
+                <span className="score-player">
+                  {p.name}
+                  {rank === 1 && <span className="score-status">Winner</span>}
+                </span>
+                <span className="shout score-value">{p.score}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
       <div className="footer footer--rule">

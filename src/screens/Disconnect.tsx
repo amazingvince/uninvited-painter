@@ -43,7 +43,8 @@ export function DisconnectOverlay({
             </div>
             {additionalHolds > 0 && (
               <Kicker style={{ color: "var(--amber)" }}>
-                and {additionalHolds} more seats held
+                and {additionalHolds} more{" "}
+                {additionalHolds === 1 ? "seat" : "seats"} held
               </Kicker>
             )}
             <div className="body-copy">

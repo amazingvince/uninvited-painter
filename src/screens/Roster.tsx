@@ -52,37 +52,35 @@ export function Roster({
       <div className="header header-row">
         <div>
           <BackLink label="← Back" onClick={onBack} />
-          <div className="shout" style={{ fontSize: 28 }}>
-            The roster
-          </div>
+          <div className="shout compact-screen-title">The roster</div>
         </div>
-        <div className="shout u-red" style={{ fontSize: 22 }}>
+        <div className="shout u-red compact-screen-count">
           {players.length}/{MAX_PLAYERS}
         </div>
       </div>
-      <div className="grow scroll" style={{ padding: "0 20px" }}>
+      <div className="screen-scroll screen-scroll--gutter">
         {players.map((p, i) => (
-          <div className="row" key={p.id}>
+          <div className="row roster-row" key={p.id}>
             <Swatch index={p.colorIndex} />
-            <span style={{ flex: 1, fontSize: 16, fontWeight: 600 }}>{p.name}</span>
+            <span className="roster-player-name">{p.name}</span>
             <button
-              className="small u-muted"
-              style={{ padding: "2px 8px", fontSize: 16, opacity: i === 0 ? 0.25 : 1 }}
+              className="tap-target roster-action"
+              disabled={i === 0}
               onClick={() => move(p.id, -1)}
               aria-label={`Move ${p.name} up`}
             >
               ↑
             </button>
             <button
-              className="small u-muted"
-              style={{ padding: "2px 8px", fontSize: 16, opacity: i === players.length - 1 ? 0.25 : 1 }}
+              className="tap-target roster-action"
+              disabled={i === players.length - 1}
               onClick={() => move(p.id, 1)}
               aria-label={`Move ${p.name} down`}
             >
               ↓
             </button>
             <button
-              style={{ fontSize: 18, color: "var(--muted)", padding: "2px 6px" }}
+              className="tap-target roster-action roster-action--remove"
               onClick={() => onRemove(p.id)}
               aria-label={`Remove ${p.name}`}
             >
@@ -91,34 +89,36 @@ export function Roster({
           </div>
         ))}
         {players.length < MAX_PLAYERS && (
-          <div
-            className="row"
-            style={{ borderBottom: "2px dashed var(--rule)", padding: "15px 0" }}
-          >
-            <span style={{ width: 14, height: 14, border: "2px dashed var(--muted)", flex: "none" }} />
+          <div className="row roster-add-row">
+            <span className="roster-add-marker" />
             <input
               ref={inputRef}
-              style={{ flex: 1, fontSize: 16, fontWeight: 600, minWidth: 0 }}
+              className="roster-input"
               placeholder="Add a player"
               value={draft}
               maxLength={18}
               enterKeyHint="done"
+              aria-describedby={error ? "roster-error" : undefined}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") add();
               }}
             />
-            <button className="shout u-red" style={{ fontSize: 18, padding: "0 6px" }} onClick={add}>
+            <button
+              className="shout u-red tap-target roster-add-action"
+              onClick={add}
+              aria-label="Add player"
+            >
               +
             </button>
           </div>
         )}
         {error && (
-          <div className="small u-red" style={{ paddingTop: 10 }}>
+          <div id="roster-error" className="small u-red roster-error">
             {error}
           </div>
         )}
-        <div className="note" style={{ paddingTop: 14, fontSize: 12 }}>
+        <div className="note roster-note">
           Each name takes a stroke colour. Drawing order is shuffled fresh every round; question
           master duty rotates down this list.
         </div>

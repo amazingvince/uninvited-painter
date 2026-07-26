@@ -44,13 +44,14 @@
               <div style="font-size: 15px; line-height: 1.45; font-weight: 500; max-width: 300px;">Everyone gets one stroke. Two passes. One player was never told what the picture is.</div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="border: 3px dashed #6b665c; color: #6b665c; padding: 17px; font-family: 'Archivo Black', sans-serif; font-size: 15px; letter-spacing: -0.01em; text-transform: uppercase; display: flex; justify-content: space-between;"><span>Resume last game</span><span>→</span></div>
               <div style="background: #d92b1f; color: #f2ede1; padding: 20px; font-family: 'Archivo Black', sans-serif; font-size: 17px; letter-spacing: -0.01em; text-transform: uppercase; display: flex; justify-content: space-between;"><span>Pass one phone</span><span>→</span></div>
               <div style="border: 3px solid #121212; padding: 18px 20px; font-family: 'Archivo Black', sans-serif; font-size: 17px; letter-spacing: -0.01em; text-transform: uppercase; display: flex; justify-content: space-between;"><span>Play online</span><span>→</span></div>
               <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 6px;"><span style="color: #6b665c;">First time</span><span style="border-bottom: 2px solid #d92b1f;">How it works</span></div>
             </div>
           </div>
         </div>
-        <div style="font-size: 12px; color: #6b665c;">A1 Entrance — mode fork. Remembers last roster in localStorage.</div>
+        <div style="font-size: 12px; color: #6b665c;">A1 Entrance — an in-progress local game gets Resume; starting another pass-phone game first asks whether to start over or keep the saved round.</div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
@@ -61,21 +62,21 @@
             <div style="font-family: 'Archivo Black', sans-serif; font-size: 22px; color: #d92b1f;">7/12</div>
           </div>
           <div style="flex: 1; overflow: hidden; padding: 0 20px;">
-            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #1b4a8a;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Devon</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
-            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #d92b1f;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Marisol</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
-            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #3f7a2c;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Priya</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
-            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #c98a12;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Tomas</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
-            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #5c3a86;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Ines</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
-            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #0f7a70;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Ade</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
-            <div style="display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #b4472e;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Jun</span><span style="font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #1b4a8a;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Devon</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c; opacity: .25;">↑</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↓</span><span style="width: 44px; height: 44px; display: grid; place-items: center; font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #d92b1f;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Marisol</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↑</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↓</span><span style="width: 44px; height: 44px; display: grid; place-items: center; font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #3f7a2c;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Priya</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↑</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↓</span><span style="width: 44px; height: 44px; display: grid; place-items: center; font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #c98a12;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Tomas</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↑</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↓</span><span style="width: 44px; height: 44px; display: grid; place-items: center; font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #5c3a86;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Ines</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↑</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↓</span><span style="width: 44px; height: 44px; display: grid; place-items: center; font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #0f7a70;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Ade</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↑</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↓</span><span style="width: 44px; height: 44px; display: grid; place-items: center; font-size: 18px; color: #6b665c;">×</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #b4472e;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Jun</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c;">↑</span><span style="width: 44px; height: 44px; display: grid; place-items: center; color: #6b665c; opacity: .25;">↓</span><span style="width: 44px; height: 44px; display: grid; place-items: center; font-size: 18px; color: #6b665c;">×</span></div>
             <div style="display: flex; align-items: center; gap: 12px; padding: 15px 0; border-bottom: 2px dashed #c9c2b0;"><span style="width: 14px; height: 14px; border: 2px dashed #6b665c;"></span><span style="flex: 1; font-size: 16px; font-weight: 600; color: #6b665c;">Add a player</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 18px; color: #d92b1f;">+</span></div>
-            <div style="font-size: 12px; font-weight: 600; color: #6b665c; padding-top: 14px; line-height: 1.5;">Each name takes a stroke colour. Order of play is the order listed — drag to rearrange.</div>
+            <div style="font-size: 12px; font-weight: 600; color: #6b665c; padding-top: 14px; line-height: 1.5;">Each name takes a stroke colour. Drawing order is shuffled every round; question master duty rotates down this list.</div>
           </div>
           <div style="padding: 14px 20px 38px; display: flex; flex-direction: column; gap: 10px; border-top: 3px solid #121212;">
             <div style="background: #121212; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Choose a deck</div>
           </div>
         </div>
-        <div style="font-size: 12px; color: #6b665c;">A2 Roster — 5 min, 12 max. Colour auto-assigned, reorderable.</div>
+        <div style="font-size: 12px; color: #6b665c;">A2 Roster — named 44 px reorder/remove actions; first Up and last Down are truly disabled.</div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
@@ -91,14 +92,15 @@
             <div style="border: 2px solid #121212; padding: 16px 18px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Movies</div><div style="font-size: 12px; font-weight: 600; color: #6b665c;">96 words · hardest</div></div>
             <div style="border: 2px solid #121212; padding: 16px 18px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Objects</div><div style="font-size: 12px; font-weight: 600; color: #6b665c;">150 words</div></div>
             <div style="border: 2px dashed #6b665c; padding: 16px 18px; color: #6b665c;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 20px; text-transform: uppercase; letter-spacing: -0.02em;">Everything</div><div style="font-size: 12px; font-weight: 600;">Shuffle all four</div></div>
-            <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #c9c2b0; padding-top: 14px;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Rounds</span><div style="display: flex; gap: 6px; font-family: 'Archivo Black', sans-serif; font-size: 15px;"><span style="border: 2px solid #121212; padding: 6px 12px;">3</span><span style="background: #121212; color: #f2ede1; padding: 6px 12px;">5</span><span style="border: 2px solid #121212; padding: 6px 12px;">7</span></div></div>
-            <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Question master</span><div style="display: flex; gap: 6px; font-family: 'Archivo Black', sans-serif; font-size: 13px;"><span style="background: #121212; color: #f2ede1; padding: 6px 12px;">Rotate</span><span style="border: 2px solid #121212; padding: 6px 12px;">Off</span></div></div>
+            <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #c9c2b0; padding-top: 14px;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Length</span><div style="display: flex; gap: 6px; font-family: 'Archivo Black', sans-serif; font-size: 13px;"><span style="border: 2px solid #121212; padding: 6px 10px;">3</span><span style="background: #121212; color: #f2ede1; padding: 6px 10px;">5</span><span style="border: 2px solid #121212; padding: 6px 10px;">7</span><span style="border: 2px solid #121212; padding: 6px 10px;">To 10</span></div></div>
+            <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Passes</span><div style="display: flex; gap: 6px; font-family: 'Archivo Black', sans-serif; font-size: 13px;"><span style="border: 2px solid #121212; padding: 6px 12px;">1</span><span style="background: #121212; color: #f2ede1; padding: 6px 12px;">2</span><span style="border: 2px solid #121212; padding: 6px 12px;">3</span></div></div>
+            <div style="border-top: 3px solid #121212; border-bottom: 1px solid #c9c2b0; padding: 12px 4px;"><div style="font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">▸ Advanced rules</div><div style="font-size: 12px; font-weight: 600; color: #6b665c; padding: 5px 0 0 22px;">One stroke · No limit · Question master rotates</div></div>
           </div>
           <div style="padding: 14px 20px 38px; border-top: 3px solid #121212;">
             <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Open the round</div>
           </div>
         </div>
-        <div style="font-size: 12px; color: #6b665c;">A3 Deck + rules — one deck or shuffled. QM rotates each round or can be switched off.</div>
+        <div style="font-size: 12px; color: #6b665c;">A3 Deck + rules — deck, length and passes stay visible; pen, ink, question master and AI options live under Advanced rules.</div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
@@ -340,7 +342,7 @@
             <div style="font-size: 13px; font-weight: 600; color: #6b665c; text-align: center;">Votes stay hidden until everyone has locked in</div>
           </div>
         </div>
-        <div style="font-size: 12px; color: #6b665c;">C1 Vote — you can't vote for yourself; the QM doesn't vote.</div>
+        <div style="font-size: 12px; color: #6b665c;">C1 Vote — selection expands into a red “Your vote” row and names the highlighted lines; Lock in seals the private ballot while self and QM rows remain disabled.</div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
@@ -396,13 +398,14 @@
               <div style="border-bottom: 3px solid #f0d070; padding-bottom: 10px; font-family: 'Archivo Black', sans-serif; font-size: 34px; letter-spacing: -0.03em; text-transform: uppercase; color: #f0d070;">PENGU<span style="opacity: 0.4;">|</span></div>
               <div style="font-size: 13px; font-weight: 600; color: #8d8779;">Free text. Fuzzy-matched against the word — plurals and a letter's slip are forgiven.</div>
             </div>
-            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
-              <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Say it out loud, then submit</div>
-              <div style="font-size: 12px; font-weight: 600; color: #8d8779; text-align: center;">30s · guessing right steals the round</div>
+            <div style="margin-top: auto; border: 3px solid #f0d070; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-family: 'Archivo Black', sans-serif; font-size: 18px; text-transform: uppercase; color: #f0d070;">Submit “PENGUIN”?</div>
+              <div style="font-size: 12px; font-weight: 600; color: #8d8779;">This is the fake artist’s only guess. It cannot be changed.</div>
+              <div style="display: flex; gap: 8px;"><div style="flex: 1; background: #d92b1f; color: #f2ede1; padding: 14px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase;">Submit one guess</div><div style="flex: 1; border: 2px solid #f2ede1; padding: 12px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase;">Keep thinking</div></div>
             </div>
           </div>
         </div>
-        <div style="font-size: 12px; color: #6b665c;">C3 Fake artist's guess — only when caught. Skipped if the vote tied or hit the wrong person.</div>
+        <div style="font-size: 12px; color: #6b665c;">C3 Fake artist's guess — only when caught; a confirmation sheet repeats the exact guess before the irreversible submit.</div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
@@ -472,7 +475,7 @@
             <div style="font-size: 15px; font-weight: 600; padding-top: 8px;">11 points. Two rounds undetected.</div>
           </div>
           <div style="flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow: hidden;">
-            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">The archive · tap any to enlarge or share</div>
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">The archive · tap any to save</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div style="background: #fffbf0; border: 2px solid #121212; aspect-ratio: 1; position: relative;">
                 <svg viewBox="0 0 300 300" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" stroke-linecap="round"><path d="M150 88c-37 9-45 60-39 100 5 34 24 59 45 59s43-24 46-57c4-40-9-94-52-102z" stroke="#1b4a8a" stroke-width="8"></path><path d="M141 112l-24 9 23 11" stroke="#c98a12" stroke-width="8"></path><path d="M58 288h188" stroke="#0f7a70" stroke-width="8"></path><path d="M186 168c-9 18-6 44 6 58" stroke="#d92b1f" stroke-width="8"></path></svg>
@@ -494,10 +497,12 @@
           </div>
           <div style="padding: 14px 20px 38px; border-top: 3px solid #121212; display: flex; flex-direction: column; gap: 10px;">
             <div style="background: #121212; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Same crowd, again</div>
-            <div style="border: 3px solid #121212; padding: 18px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Share the archive</div>
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #d92b1f;">Published · paintr.app/a/paint</div>
+            <div style="display: flex; gap: 8px;"><div style="flex: 1; border: 3px solid #121212; padding: 12px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase;">Copy archive link</div><div style="flex: 1; border: 3px solid #121212; padding: 12px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 13px; text-transform: uppercase;">Share archive</div></div>
+            <div style="min-height: 44px; display: grid; place-items: center; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6b665c;">Save as PNG instead</div>
           </div>
         </div>
-        <div style="font-size: 12px; color: #6b665c;">C6 Close of exhibition — winner plus every drawing made. Share = one PNG contact sheet.</div>
+        <div style="font-size: 12px; color: #6b665c;">C6 Close — publish first; only then do separate Copy archive link and Share archive actions appear. Each drawing can be saved alone; contact-sheet PNG stays an explicit fallback.</div>
       </div>
 
     </div>
@@ -546,6 +551,7 @@
               <div style="flex: 1; border: 2px solid #f2ede1; padding: 12px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase;">Share sheet</div>
             </div>
             <div style="font-size: 12px; font-weight: 600; color: #8d8779; padding-top: 8px;">paintr.app/r/MOLT</div>
+            <div style="border-top: 1px solid #8d8779; padding-top: 9px; font-size: 12px; font-weight: 700; color: #f0d070;">✓ Room link copied</div>
           </div>
           <div style="flex: 1; padding: 16px 20px; display: flex; flex-direction: column; overflow: hidden;">
             <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c; padding-bottom: 8px;"><span>In the room</span><span style="color: #d92b1f;">5 of 12</span></div>
@@ -555,8 +561,10 @@
             <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #c98a12;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Tomas</span><span style="font-size: 11px; font-weight: 700; color: #3f7a2c;">●</span></div>
             <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #c9c2b0; border-bottom: 1px solid #c9c2b0;"><span style="width: 14px; height: 14px; background: #5c3a86;"></span><span style="flex: 1; font-size: 16px; font-weight: 600;">Ines</span><span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b665c;">joining…</span></div>
             <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #c9c2b0; padding-top: 12px;">
-              <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Deck</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 14px; text-transform: uppercase;">Animals ▾</span></div>
-              <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Rounds</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 14px;">5 ▾</span></div>
+              <label style="min-height: 44px; display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Deck</span><select style="min-height: 44px; border: 2px solid #121212; background: #f2ede1; padding: 8px 10px; font-family: 'Archivo Black', sans-serif; text-transform: uppercase;"><option>Animals</option></select></label>
+              <div style="min-height: 44px; border: 2px dashed #c9c2b0; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Write house words</span><span style="font-family: 'Archivo Black', sans-serif; font-size: 14px; color: #d92b1f;">0 in the pot</span></div>
+              <label style="min-height: 44px; display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Length</span><select style="min-height: 44px; border: 2px solid #121212; background: #f2ede1; padding: 8px 10px; font-family: 'Archivo Black', sans-serif; text-transform: uppercase;"><option>5 rounds</option></select></label>
+              <div style="border-top: 3px solid #121212; padding: 10px 4px; font-family: 'Archivo Black', sans-serif; font-size: 15px; text-transform: uppercase;">▸ Advanced rules</div>
             </div>
           </div>
           <div style="padding: 14px 20px 38px; border-top: 3px solid #121212; display: flex; flex-direction: column; gap: 8px;">
@@ -564,7 +572,7 @@
             <div style="font-size: 12px; font-weight: 600; color: #6b665c; text-align: center;">Needs 5 · late arrivals join the next round</div>
           </div>
         </div>
-        <div style="font-size: 12px; color: #6b665c;">D2 Host lobby — code is the hero. Only the host sees deck/round controls.</div>
+        <div style="font-size: 12px; color: #6b665c;">D2 Host lobby — host rules are real select controls; guests see readouts. Copy/share results appear as an action notice without hiding the URL.</div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 10px; width: 390px;">
@@ -671,6 +679,7 @@
           <div style="flex: 1; padding: 22px 20px; display: flex; flex-direction: column; gap: 20px;">
             <div style="display: flex; flex-direction: column; gap: 10px;">
               <div style="font-family: 'Archivo Black', sans-serif; font-size: 40px; line-height: 0.9; letter-spacing: -0.04em; text-transform: uppercase;">Priya left<br>the room</div>
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #f0a012;">and 1 more seat held</div>
               <div style="font-size: 15px; font-weight: 500; line-height: 1.45;">Her seat is held for 30 seconds. If she doesn't come back, the round continues without her stroke — and her vote is dropped from the count.</div>
             </div>
             <div style="border: 3px solid #121212; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;">
@@ -681,16 +690,16 @@
               <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6b665c;">Presence</div>
               <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600;"><span>Devon</span><span style="color: #3f7a2c;">● live</span></div>
               <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600;"><span>Marisol</span><span style="color: #3f7a2c;">● live</span></div>
-              <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600; color: #6b665c;"><span>Priya</span><span style="color: #d92b1f;">✕ dropped</span></div>
-              <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600;"><span>Tomas</span><span style="color: #f0a012;">◐ weak signal</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600;"><span>Priya</span><span style="color: #f0a012;">◐ seat held</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #c9c2b0; font-size: 15px; font-weight: 600;"><span>Tomas</span><span style="color: #f0a012;">◐ seat held</span></div>
             </div>
             <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
-              <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Carry on without her</div>
-              <div style="font-size: 12px; font-weight: 600; color: #6b665c; text-align: center; line-height: 1.5;">Host only. If the fake artist drops, the round is voided and re-dealt.</div>
+              <div style="font-size: 12px; font-weight: 600; color: #6b665c; text-align: center; line-height: 1.5;">Dropping the fake voids this round and deals fresh cards.</div>
+              <div style="background: #d92b1f; color: #f2ede1; padding: 20px; text-align: center; font-family: 'Archivo Black', sans-serif; font-size: 17px; text-transform: uppercase;">Drop Priya and continue</div>
             </div>
           </div>
         </div>
-        <div style="font-size: 12px; color: #6b665c;">D6 Disconnect — the case everyone forgets. Voiding on fake-artist drop keeps it fair.</div>
+        <div style="font-size: 12px; color: #6b665c;">D6 Disconnect — every held seat is counted; the fake-drop consequence is stated before the host action, and singular/plural copy agrees with the count.</div>
       </div>
 
     </div>
@@ -754,4 +763,3 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000}}"></script>
 </body>
 </html>
-
