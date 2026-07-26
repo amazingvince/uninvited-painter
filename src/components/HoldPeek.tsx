@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 type RevealChange = (revealed: boolean) => void;
 
@@ -8,12 +8,7 @@ interface HoldPeekRecovery {
   ref: (node: HTMLButtonElement | null) => void;
 }
 
-const recoveries = new WeakMap<RevealChange, HoldPeekRecovery>();
-
-function recoveryFor(onRevealChange: RevealChange): HoldPeekRecovery {
-  const existing = recoveries.get(onRevealChange);
-  if (existing) return existing;
-
+function createRecovery(onRevealChange: RevealChange): HoldPeekRecovery {
   let cleanup = () => undefined;
   let active = false;
   const release = () => {
@@ -46,15 +41,13 @@ function recoveryFor(onRevealChange: RevealChange): HoldPeekRecovery {
     };
     onRevealChange(true);
   };
-  const recovery: HoldPeekRecovery = {
+  return {
     reveal,
     release,
     ref: (node) => {
       if (node === null) release();
     },
   };
-  recoveries.set(onRevealChange, recovery);
-  return recovery;
 }
 
 export function HoldPeek({
@@ -68,7 +61,15 @@ export function HoldPeek({
   revealed: boolean;
   onRevealChange: RevealChange;
 }) {
-  const recovery = recoveryFor(onRevealChange);
+  const onRevealChangeRef = useRef(onRevealChange);
+  onRevealChangeRef.current = onRevealChange;
+  const recoveryRef = useRef<HoldPeekRecovery | null>(null);
+  if (recoveryRef.current === null) {
+    recoveryRef.current = createRecovery((next) =>
+      onRevealChangeRef.current(next),
+    );
+  }
+  const recovery = recoveryRef.current;
 
   return (
     <button
