@@ -77,10 +77,15 @@ input {
   outline: none;
 }
 
-/* The hold gate wraps whole screens, so it must not introduce a box — but it
-   still has to be focusable and show a ring when it is. */
+/* The focusable hold gate owns the full screen so semantic pointer and
+   keyboard interaction resolve to a real box. Its child remains the same
+   flex-column screen. */
 .hold-gate {
-  display: contents;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .hold-gate:focus-visible > .screen {

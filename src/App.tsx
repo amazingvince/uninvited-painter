@@ -73,6 +73,34 @@ export function App() {
     setPath(to);
   }, []);
 
+  const verifyLastRoom = useCallback(async (room = loadLastRoom()) => {
+    setLastRoom(room);
+    if (!room) {
+      setLastRoomStatus("ready");
+      return false;
+    }
+
+    setLastRoomStatus("checking");
+    try {
+      const res = await fetch(`/api/rooms/${room.code}`);
+      if (res.status === 404) {
+        clearLastRoom();
+        setLastRoom(null);
+        setLastRoomStatus("ready");
+        return false;
+      }
+      if (!res.ok) {
+        setLastRoomStatus("failed");
+        return false;
+      }
+      setLastRoomStatus("ready");
+      return true;
+    } catch {
+      setLastRoomStatus("failed");
+      return false;
+    }
+  }, []);
+
   const goHome = () => {
     navigate("/");
     setStep("entrance");
@@ -120,34 +148,6 @@ export function App() {
       setCreating(false);
     }
   };
-
-  const verifyLastRoom = useCallback(async (room = loadLastRoom()) => {
-    setLastRoom(room);
-    if (!room) {
-      setLastRoomStatus("ready");
-      return false;
-    }
-
-    setLastRoomStatus("checking");
-    try {
-      const res = await fetch(`/api/rooms/${room.code}`);
-      if (res.status === 404) {
-        clearLastRoom();
-        setLastRoom(null);
-        setLastRoomStatus("ready");
-        return false;
-      }
-      if (!res.ok) {
-        setLastRoomStatus("failed");
-        return false;
-      }
-      setLastRoomStatus("ready");
-      return true;
-    } catch {
-      setLastRoomStatus("failed");
-      return false;
-    }
-  }, []);
 
   const enterCode = async (raw: string) => {
     const code = normalizeRoomCode(raw);

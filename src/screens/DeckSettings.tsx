@@ -50,6 +50,7 @@ export function DeckSettings({
             <button
               key={deck.id}
               className={on ? "deck-card deck-card--on" : "deck-card"}
+              aria-pressed={on}
               onClick={() => pick(deck.id)}
             >
               <div>
@@ -72,6 +73,7 @@ export function DeckSettings({
           className={
             settings.deckId === "everything" ? "deck-card deck-card--on" : "deck-card deck-card--dashed"
           }
+          aria-pressed={settings.deckId === "everything"}
           onClick={() => pick("everything")}
         >
           <div>
@@ -88,6 +90,7 @@ export function DeckSettings({
         </button>
         <button
           className={settings.deckId === "house" ? "deck-card deck-card--on" : "deck-card deck-card--dashed"}
+          aria-pressed={settings.deckId === "house"}
           onClick={() => {
             pick("house");
             onHouseWords();
@@ -122,6 +125,9 @@ export function DeckSettings({
               <button
                 key={n}
                 className={settings.winMode === "rounds" && settings.rounds === n ? "on" : ""}
+                aria-pressed={
+                  settings.winMode === "rounds" && settings.rounds === n
+                }
                 onClick={() => onChange({ rounds: n, winMode: "rounds" })}
               >
                 {n}
@@ -130,6 +136,7 @@ export function DeckSettings({
             <button
               className={settings.winMode === "score10" ? "on" : ""}
               style={{ fontSize: 12 }}
+              aria-pressed={settings.winMode === "score10"}
               onClick={() => onChange({ winMode: "score10" })}
             >
               To 10
@@ -142,7 +149,12 @@ export function DeckSettings({
           </span>
           <div className="seg">
             {SETTING_OPTIONS.passes.map(({ value, label }) => (
-              <button key={value} className={settings.passes === value ? "on" : ""} onClick={() => onChange({ passes: value })}>
+              <button
+                key={value}
+                className={settings.passes === value ? "on" : ""}
+                aria-pressed={settings.passes === value}
+                onClick={() => onChange({ passes: value })}
+              >
                 {label}
               </button>
             ))}

@@ -67,6 +67,7 @@ export function AiSettings({
                 key={tone}
                 className={settings.aiTone === tone ? "on" : ""}
                 style={{ flex: 1, fontSize: 13 }}
+                aria-pressed={settings.aiTone === tone}
                 onClick={() => onChange({ aiTone: tone })}
               >
                 {label}
