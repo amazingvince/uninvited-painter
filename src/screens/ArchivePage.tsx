@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { ArchiveEntry } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
 import { criticAccuracy, criticChoice } from "../lib/aiStats";
+import { numberWord } from "../lib/labels";
 import { Screen, Btn, Kicker, Swatch } from "../components/ui";
 
 interface PublishedArchive {
@@ -146,7 +147,23 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
 
   const ranked = [...archive.players].sort((a, b) => b.score - a.score);
   const winner = ranked[0];
-  const winners = ranked.filter((player) => player.score === winner?.score);
+  const validWinner =
+    winner &&
+    typeof winner.name === "string" &&
+    winner.name.trim() &&
+    Number.isFinite(winner.score)
+      ? winner
+      : null;
+  const winners = validWinner
+    ? ranked.filter((player) => player.score === validWinner.score)
+    : [];
+  const persistedTitle =
+    typeof archive.title === "string" ? archive.title.trim() : "";
+  const archiveHeadline = validWinner
+    ? winners.length > 1
+      ? `${numberWord(winners.length)}-way tie for the gallery`
+      : `${validWinner.name.trim()} takes the gallery`
+    : persistedTitle || "The gallery";
   const rankFor = (player: PublishedArchive["players"][number]): number =>
     ranked.findIndex((candidate) => candidate.score === player.score) + 1;
   const date = new Date(archive.createdAt);
@@ -161,13 +178,13 @@ export function ArchivePage({ id, onHome }: { id: string; onHome: () => void }) 
           {date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
         </Kicker>
         <div className="shout gallery-title gallery-title--published">
-          {archive.title}
+          {archiveHeadline}
         </div>
-        {winner && (
+        {validWinner && (
           <div className="gallery-summary">
             {winners.length > 1
-              ? `${winners.length}-way tie at ${winner.score} points.`
-              : `${winner.name} took the gallery with ${winner.score} points.`}
+              ? `${winners.length}-way tie at ${validWinner.score} points.`
+              : `${validWinner.name.trim()} took the gallery with ${validWinner.score} points.`}
           </div>
         )}
       </div>

@@ -386,6 +386,13 @@ describe("published archive loading", () => {
     );
     await renderArchive();
 
+    expect(
+      container
+        .querySelector(".gallery-title")
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim(),
+    ).toBe("Two-way tie for the gallery");
+    expect(container.textContent).not.toContain("Devon takes the gallery");
     expect(container.textContent).toContain("2-way tie at 5 points");
     const rows = [...container.querySelectorAll(".score-row")].map((row) => ({
       rank: row.querySelector(".score-rank")?.textContent,
