@@ -15,7 +15,7 @@ export function ActionNotice({
       id={id}
       className={`action-notice action-notice--${tone}`}
       role={tone === "error" ? "alert" : "status"}
-      aria-live="polite"
+      aria-live={tone === "error" ? undefined : "polite"}
     >
       {message}
     </div>
