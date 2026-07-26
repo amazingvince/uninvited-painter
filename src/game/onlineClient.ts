@@ -2,7 +2,13 @@
 // dumb — the whole state arrives on every phase change; in-progress strokes
 // ride a separate ephemeral channel.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { drawerOf } from "../../shared/engine";
 import type { ClientMsg, PublicRoomState, ServerMsg, YouView } from "../../shared/protocol";
 import type { StrokePoints } from "../../shared/types";
@@ -62,7 +68,9 @@ export function useOnlineRoom(code: string, watch = false): OnlineRoom {
     generation: 0,
     messages: [],
   });
-  requestedIdentityRef.current = roomIdentity;
+  useLayoutEffect(() => {
+    requestedIdentityRef.current = roomIdentity;
+  }, [roomIdentity]);
 
   useEffect(() => {
     const generation = effectGenerationRef.current + 1;

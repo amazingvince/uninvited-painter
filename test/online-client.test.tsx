@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act, startTransition } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRoom, reduce } from "../shared/engine";
@@ -86,6 +86,7 @@ const IDENTITY_CHANGES = [
   ["code", "INKS", false],
   ["watch mode", "MOLT", true],
 ] as const;
+const NEVER_RESOLVES = new Promise<void>(() => undefined);
 
 describe("useOnlineRoom connection ownership", () => {
   let container: HTMLDivElement;
@@ -93,11 +94,25 @@ describe("useOnlineRoom connection ownership", () => {
   let latest!: OnlineRoom;
   let requests: ControlledFetch[];
   let storageValues: Map<string, string>;
+  let suspendedRenders: number;
 
-  function Harness({ code, watch = false }: { code: string; watch?: boolean }) {
+  function Harness({
+    code,
+    watch = false,
+    suspend = false,
+  }: {
+    code: string;
+    watch?: boolean;
+    suspend?: boolean;
+  }) {
     latest = useOnlineRoom(code, watch);
+    if (suspend) {
+      suspendedRenders += 1;
+      throw NEVER_RESOLVES;
+    }
     return (
       <output
+        data-code={code}
         data-connection={latest.connectionState}
         data-attempt={latest.reconnectAttempt}
       />
@@ -138,6 +153,7 @@ describe("useOnlineRoom connection ownership", () => {
       }
     ).IS_REACT_ACT_ENVIRONMENT = true;
     vi.useFakeTimers();
+    suspendedRenders = 0;
     storageValues = new Map();
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => storageValues.get(key) ?? null,
@@ -401,6 +417,32 @@ describe("useOnlineRoom connection ownership", () => {
       ]);
     },
   );
+
+  it("keeps committed room callbacks active when a different identity render is abandoned", async () => {
+    render("MOLT");
+    await resolveFetch(0, 200);
+    const socket = ControlledWebSocket.instances[0];
+    open(socket);
+    const committedSend = latest.send;
+
+    await act(async () => {
+      startTransition(() => {
+        root.render(<Harness code="INKS" suspend />);
+      });
+      await Promise.resolve();
+    });
+
+    expect(suspendedRenders).toBeGreaterThan(0);
+    expect(container.querySelector("output")?.getAttribute("data-code")).toBe(
+      "MOLT",
+    );
+
+    act(() => committedSend({ t: "seen" }));
+
+    expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([
+      { t: "seen" },
+    ]);
+  });
 
   it("rejoins before replaying queued authoritative actions", async () => {
     localStorage.setItem("painter.joined.MOLT", "1");
