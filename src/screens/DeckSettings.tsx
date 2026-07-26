@@ -2,9 +2,14 @@
 // switched off.
 
 import { deckList } from "../../shared/decks";
-import { HOUSE_MIN_WORDS, type DeckId, type QmMode, type Settings } from "../../shared/types";
+import { HOUSE_MIN_WORDS, type DeckId, type Settings } from "../../shared/types";
 import { AiSettings } from "../components/AiSettings";
+import { SettingSelect } from "../components/SettingSelect";
 import { Screen, Btn, BackLink } from "../components/ui";
+import {
+  SETTING_OPTIONS,
+  advancedSettingsSummary,
+} from "../lib/settingsOptions";
 
 export function DeckSettings({
   settings,
@@ -25,6 +30,10 @@ export function DeckSettings({
 }) {
   const decks = deckList();
   const pick = (deckId: DeckId) => onChange({ deckId });
+  const houseWordsNeeded =
+    settings.deckId === "house"
+      ? Math.max(0, HOUSE_MIN_WORDS - houseWordCount)
+      : 0;
 
   return (
     <Screen>
@@ -34,7 +43,7 @@ export function DeckSettings({
           The collection
         </div>
       </div>
-      <div className="grow scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="screen-scroll" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
         {decks.map((deck) => {
           const on = settings.deckId === deck.id;
           return (
@@ -90,7 +99,7 @@ export function DeckSettings({
             </div>
             <div className="small">
               {houseWordCount > 0
-                ? `${houseWordCount} of your own words${houseWordCount < HOUSE_MIN_WORDS ? ` · needs ${HOUSE_MIN_WORDS}` : ""}`
+                ? `${houseWordCount} of your own words${houseWordCount < HOUSE_MIN_WORDS ? ` · needs ${HOUSE_MIN_WORDS - houseWordCount} more` : ""}`
                 : "Write your own words"}
             </div>
           </div>
@@ -132,85 +141,58 @@ export function DeckSettings({
             Passes
           </span>
           <div className="seg">
-            {[1, 2, 3].map((n) => (
-              <button key={n} className={settings.passes === n ? "on" : ""} onClick={() => onChange({ passes: n })}>
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-            Pen
-          </span>
-          <div className="seg" style={{ fontSize: 13 }}>
-            <button
-              className={settings.penMode === "line" ? "on" : ""}
-              style={{ fontSize: 13 }}
-              onClick={() => onChange({ penMode: "line" })}
-            >
-              One line
-            </button>
-            <button
-              className={settings.penMode === "free" ? "on" : ""}
-              style={{ fontSize: 13 }}
-              onClick={() => onChange({ penMode: "free" })}
-            >
-              Free ink
-            </button>
-          </div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-            Ink per turn
-          </span>
-          <div className="seg" style={{ fontSize: 13 }}>
-            {(
-              [
-                [0, "∞"],
-                [120, "Long"],
-                [60, "Short"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                className={settings.inkLimit === value ? "on" : ""}
-                style={{ fontSize: 13 }}
-                onClick={() => onChange({ inkLimit: value })}
-              >
+            {SETTING_OPTIONS.passes.map(({ value, label }) => (
+              <button key={value} className={settings.passes === value ? "on" : ""} onClick={() => onChange({ passes: value })}>
                 {label}
               </button>
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="kicker" style={{ fontSize: 13, letterSpacing: "0.08em" }}>
-            Question master
-          </span>
-          <div className="seg" style={{ fontSize: 13 }}>
-            {(["rotate", "off"] as QmMode[]).map((mode) => (
-              <button
-                key={mode}
-                className={settings.qmMode === mode ? "on" : ""}
-                style={{ fontSize: 13 }}
-                onClick={() => onChange({ qmMode: mode })}
-              >
-                {mode === "rotate" ? "Rotate" : "Auto word"}
-              </button>
-            ))}
+        <details className="settings-disclosure">
+          <summary>
+            <span className="shout">Advanced rules</span>
+            <span className="small u-muted">
+              {advancedSettingsSummary(settings, "local")}
+            </span>
+          </summary>
+          <div className="settings-disclosure__body">
+            <SettingSelect
+              label="Pen"
+              value={settings.penMode}
+              options={SETTING_OPTIONS.pen}
+              onChange={(penMode) => onChange({ penMode })}
+            />
+            <SettingSelect
+              label="Ink per turn"
+              value={settings.inkLimit}
+              options={SETTING_OPTIONS.ink}
+              onChange={(inkLimit) => onChange({ inkLimit })}
+            />
+            <SettingSelect
+              label="Question master"
+              value={settings.qmMode}
+              options={SETTING_OPTIONS.qm}
+              onChange={(qmMode) => onChange({ qmMode })}
+            />
+            {settings.qmMode === "off" && (
+              <div className="note" style={{ fontSize: 12 }}>
+                Auto word: the app draws the word itself, so everyone — host
+                included — plays as an artist.
+              </div>
+            )}
+            <AiSettings settings={settings} onChange={onChange} />
           </div>
-        </div>
-        {settings.qmMode === "off" && (
-          <div className="note" style={{ fontSize: 12 }}>
-            Auto word: the app draws the word itself, so everyone — host included — plays as an
-            artist.
-          </div>
-        )}
-        <AiSettings settings={settings} onChange={onChange} />
+        </details>
       </div>
-      <div className="footer footer--rule">
-        <Btn variant="red" onClick={onStart}>
-          {startLabel}
+      <div className="action-footer">
+        <Btn
+          variant={houseWordsNeeded > 0 ? "disabled" : "red"}
+          disabled={houseWordsNeeded > 0}
+          onClick={onStart}
+        >
+          {houseWordsNeeded > 0
+            ? `House deck needs ${houseWordsNeeded} more`
+            : startLabel}
         </Btn>
       </div>
     </Screen>

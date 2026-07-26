@@ -719,6 +719,73 @@ input {
   justify-content: center;
 }
 
+.setting-select,
+.setting-readout {
+  min-height: var(--tap-target);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.setting-select .kicker,
+.setting-readout .kicker {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.setting-select select {
+  max-width: 62%;
+  min-height: var(--tap-target);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  padding: 8px 30px 8px 10px;
+  background-color: var(--cream);
+  color: var(--ink);
+  font: 14px/1 var(--shout);
+  text-transform: uppercase;
+}
+
+.setting-select select:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.setting-readout .shout {
+  max-width: 62%;
+  font-size: 14px;
+  text-align: right;
+}
+
+.settings-disclosure {
+  margin-top: 4px;
+  border-top: 3px solid var(--ink);
+  border-bottom: 1px solid var(--rule);
+}
+
+.settings-disclosure > summary {
+  min-height: var(--tap-target);
+  padding: 12px 4px;
+  cursor: pointer;
+}
+
+.settings-disclosure > summary .shout {
+  padding-left: 4px;
+  font-size: 17px;
+}
+
+.settings-disclosure > summary .small {
+  display: block;
+  padding: 5px 0 0 22px;
+  line-height: 1.35;
+}
+
+.settings-disclosure__body {
+  display: grid;
+  gap: 8px;
+  padding: 4px 4px 14px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
