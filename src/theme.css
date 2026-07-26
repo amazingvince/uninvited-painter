@@ -982,6 +982,9 @@ input {
     opacity: 1;
     animation: none;
   }
+  .tallybar > div {
+    transition: none;
+  }
   .rendition-reveal,
   .rendition-reveal *,
   .rendition-reveal img {
@@ -1140,6 +1143,9 @@ input {
   .ai-quips > *:first-child {
     opacity: 1;
     position: static;
+  }
+  .ai-deliberating-dots::after {
+    animation: none;
   }
   .verdict-stagger > *,
   .rating-stamp,

@@ -20,11 +20,18 @@ export function Tally({
   buttonLabel: string;
   onContinue: () => void;
 }) {
-  const [grown, setGrown] = useState(false);
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+  const [grown, setGrown] = useState(reducedMotion);
   useEffect(() => {
+    if (reducedMotion) {
+      setGrown(true);
+      return;
+    }
     const id = setTimeout(() => setGrown(true), 60);
     return () => clearTimeout(id);
-  }, []);
+  }, [reducedMotion]);
 
   const ranked = Object.entries(voteTally(votes)).sort((a, b) => b[1] - a[1]);
   const max = Math.max(1, ...ranked.map(([, n]) => n));
@@ -52,7 +59,14 @@ export function Tally({
                   {count}
                 </span>
               </div>
-              <div className="tallybar">
+              <div
+                className="tallybar"
+                role="progressbar"
+                aria-label={`${player?.name ?? "Unknown artist"} · ${count} ${count === 1 ? "vote" : "votes"}`}
+                aria-valuemin={0}
+                aria-valuemax={max}
+                aria-valuenow={count}
+              >
                 <div
                   style={{
                     width: grown ? `${(count / max) * 100}%` : "0%",

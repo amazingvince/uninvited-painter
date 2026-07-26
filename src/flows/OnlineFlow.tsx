@@ -509,7 +509,11 @@ export function OnlineFlow({
                 coming in
               </>
             }
-            body={`${r.votersIn.length} of ${voters.length} locked in. Votes stay hidden until everyone has.`}
+            body={
+              voted
+                ? `Ballot sealed · ${r.votersIn.length} of ${voters.length} in`
+                : `${r.votersIn.length} of ${voters.length} locked in. Votes stay hidden until everyone has.`
+            }
           />
         );
       }

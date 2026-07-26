@@ -76,6 +76,19 @@ function drawAll(state: RoomState): RoomState {
   return state;
 }
 
+function caughtGuessingRound(): RoomState {
+  let state = drawAll(dealtRound());
+  for (const voter of ["p1", "p2", "p3", "p4", "p5", "p6"]) {
+    state = apply(state, {
+      type: "CAST_VOTE",
+      voterId: voter,
+      targetId: voter === "p1" ? "p2" : "p1",
+      now: 1_000,
+    });
+  }
+  return state;
+}
+
 describe("lobby", () => {
   it("collects players, assigns host to the first, caps at 12", () => {
     let state = lobbyWith(12);
@@ -283,6 +296,39 @@ describe("voting and outcomes", () => {
     expect(reduce(state, { type: "GUESS_TIMEOUT", now: 29_000 }).ok).toBe(false);
     state = apply(state, { type: "GUESS_TIMEOUT", now: 31_000 });
     expect(state.round!.outcome).toBe("caught_wrong");
+  });
+
+  it("a submitted guess is immutable once the outcome is set", () => {
+    const revealed = apply(caughtGuessingRound(), {
+      type: "SUBMIT_GUESS",
+      playerId: "p1",
+      text: "penguin",
+      matched: true,
+    });
+    expect(
+      reduce(revealed, {
+        type: "SUBMIT_GUESS",
+        playerId: "p1",
+        text: "otter",
+        matched: false,
+      }),
+    ).toEqual({ ok: false, error: "Not guessing" });
+  });
+
+  it("a guess confirmation cannot override an outcome settled by timeout", () => {
+    const timedOut = apply(caughtGuessingRound(), {
+      type: "GUESS_TIMEOUT",
+      now: 31_000,
+    });
+    expect(timedOut.round!.outcome).toBe("caught_wrong");
+    expect(
+      reduce(timedOut, {
+        type: "SUBMIT_GUESS",
+        playerId: "p1",
+        text: "penguin",
+        matched: true,
+      }),
+    ).toEqual({ ok: false, error: "Not guessing" });
   });
 });
 

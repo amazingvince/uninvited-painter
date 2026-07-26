@@ -93,6 +93,7 @@ export function Vote({
             <button
               key={id}
               disabled={disabled}
+              aria-pressed={disabled ? undefined : selected}
               onClick={() => setChoice(id)}
               style={{
                 display: "flex",
@@ -132,6 +133,16 @@ export function Vote({
             </button>
           );
         })}
+      </div>
+      <div
+        role="status"
+        aria-live="polite"
+        className="note u-center"
+        style={{ minHeight: "1.4em", padding: "0 20px" }}
+      >
+        {choice
+          ? `Selected ${players.find((p) => p.id === choice)?.name}. Review the highlighted lines, then lock the ballot.`
+          : ""}
       </div>
       <div className="footer btn-stack">
         <Btn variant={choice ? "ink" : "disabled"} onClick={() => choice && onLock(choice)}>

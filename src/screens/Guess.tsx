@@ -1,10 +1,11 @@
 // C3 Fake artist's guess — only when caught. Free text, fuzzy-matched against
 // the word. 30s — guessing right steals the round.
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { formatClock, useNow } from "../lib/useNow";
 import { GUESS_MS, type Stroke } from "../../shared/types";
 import { StrokePaths } from "../components/CanvasBoard";
+import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Screen, Kicker, Btn } from "../components/ui";
 
 export function Guess({
@@ -19,66 +20,97 @@ export function Guess({
   onSubmit: (text: string) => void;
 }) {
   const [text, setText] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const now = useNow(250, deadline !== null);
+  const trimmed = text.trim();
+  const openConfirmation = useCallback(() => {
+    if (trimmed && !submitted) setConfirming(true);
+  }, [submitted, trimmed]);
+  const submit = useCallback(() => {
+    if (submitted) return;
+    setSubmitted(true);
+    onSubmit(trimmed);
+  }, [onSubmit, submitted, trimmed]);
+  const keepThinking = useCallback(() => setConfirming(false), []);
 
   return (
-    <Screen tone="ink">
-      <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--cream)" }}>
-        <span>Your guess only</span>
-        <span className="u-red">One guess</span>
-      </div>
-      <div className="grow" style={{ display: "flex", flexDirection: "column", gap: 18, padding: "22px 20px", minHeight: 0, overflowY: "auto" }}>
-        <div className="shout" style={{ fontSize: 36, lineHeight: 0.9, letterSpacing: "-0.04em" }}>
-          Caught. Now
-          <br />
-          name the
-          <br />
-          picture
+    <>
+      <Screen tone="ink">
+        <div className="header--strip kicker" style={{ borderBottom: "3px solid var(--cream)" }}>
+          <span>Your guess only</span>
+          <span className="u-red">One guess</span>
         </div>
-        <div style={{ background: "var(--cream)", height: 140, position: "relative", border: "3px solid var(--cream)", flex: "none" }}>
-          <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-            <StrokePaths strokes={strokes} width={20} />
-          </svg>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <Kicker style={{ color: "var(--muted-dark)" }}>Category · {category}</Kicker>
-          <input
-            autoFocus
-            value={text}
-            maxLength={40}
-            enterKeyHint="go"
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && text.trim()) onSubmit(text);
-            }}
-            className="shout"
-            style={{
-              borderBottom: "3px solid var(--gold)",
-              paddingBottom: 10,
-              fontSize: 34,
-              letterSpacing: "-0.03em",
-              color: "var(--gold)",
-              width: "100%",
-              borderRadius: 0,
-              textTransform: "uppercase",
-            }}
-            placeholder="…"
-          />
-          <div className="note" style={{ color: "var(--muted-dark)" }}>
-            Free text. Fuzzy-matched against the word — plurals and a letter's slip are forgiven.
+        <div className="grow" style={{ display: "flex", flexDirection: "column", gap: 18, padding: "22px 20px", minHeight: 0, overflowY: "auto" }}>
+          <div className="shout" style={{ fontSize: 36, lineHeight: 0.9, letterSpacing: "-0.04em" }}>
+            Caught. Now
+            <br />
+            name the
+            <br />
+            picture
+          </div>
+          <div style={{ background: "var(--cream)", height: 140, position: "relative", border: "3px solid var(--cream)", flex: "none" }}>
+            <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+              <StrokePaths strokes={strokes} width={20} />
+            </svg>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Kicker style={{ color: "var(--muted-dark)" }}>Category · {category}</Kicker>
+            <input
+              autoFocus
+              value={text}
+              maxLength={40}
+              enterKeyHint="go"
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && trimmed) {
+                  e.preventDefault();
+                  openConfirmation();
+                }
+              }}
+              className="shout"
+              style={{
+                borderBottom: "3px solid var(--gold)",
+                paddingBottom: 10,
+                fontSize: 34,
+                letterSpacing: "-0.03em",
+                color: "var(--gold)",
+                width: "100%",
+                borderRadius: 0,
+                textTransform: "uppercase",
+              }}
+              placeholder="…"
+            />
+            <div className="note" style={{ color: "var(--muted-dark)" }}>
+              Free text. Fuzzy-matched against the word — plurals and a letter's slip are forgiven.
+            </div>
+          </div>
+          <div style={{ marginTop: "auto" }} className="btn-stack">
+            <Btn
+              variant={trimmed && !submitted ? "red" : "disabled"}
+              onClick={openConfirmation}
+            >
+              Say it out loud, then submit
+            </Btn>
+            <div className="small u-center" style={{ color: "var(--muted-dark)" }}>
+              {formatClock(deadline === null ? GUESS_MS : deadline - now)} · guessing right steals
+              the round
+            </div>
           </div>
         </div>
-        <div style={{ marginTop: "auto" }} className="btn-stack">
-          <Btn variant="red" onClick={() => text.trim() && onSubmit(text)}>
-            Say it out loud, then submit
-          </Btn>
-          <div className="small u-center" style={{ color: "var(--muted-dark)" }}>
-            {formatClock(deadline === null ? GUESS_MS : deadline - now)} · guessing right steals
-            the round
-          </div>
-        </div>
-      </div>
-    </Screen>
+      </Screen>
+      {confirming && (
+        <ConfirmSheet
+          title={`Submit “${trimmed.toLocaleUpperCase()}”?`}
+          body="This is the fake artist’s only guess. It cannot be changed."
+          confirmLabel="Submit one guess"
+          cancelLabel="Keep thinking"
+          tone="neutral"
+          onConfirm={submit}
+          onCancel={keepThinking}
+        />
+      )}
+    </>
   );
 }
 
